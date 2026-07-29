@@ -2,9 +2,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts.report_contract import (  # noqa: E402
+    MARKDOWN_VERSION_MARKER,
+    validate_json_payload,
+)
 
 SUMMARY_SECTIONS = [
     "## 1. 범위",
@@ -63,10 +70,15 @@ PROPERTY_LINE = re.compile(
 )
 
 
-def detect_mode(text: str) -> str | None:
-    if text.lstrip().startswith(("# Kubernetes 이관 요약", "# Kubernetes 설계 입력 요약")):
+def detect_mode(text: str, legacy: bool = False) -> str | None:
+    stripped = text.lstrip()
+    if stripped.startswith("# Kubernetes 설계 입력 요약"):
         return "summary"
-    if text.lstrip().startswith(("# Kubernetes 이관 상세 평가", "# Kubernetes 설계 입력 상세 평가")):
+    if stripped.startswith("# Kubernetes 설계 입력 상세 평가"):
+        return "detailed"
+    if legacy and stripped.startswith("# Kubernetes 이관 요약"):
+        return "summary"
+    if legacy and stripped.startswith("# Kubernetes 이관 상세 평가"):
         return "detailed"
     return None
 
@@ -225,6 +237,53 @@ def component_briefing_errors(text: str) -> list[str]:
     return errors
 
 
+def evidence_semantic_errors(text: str) -> list[str]:
+    """Validate the extra information required by each evidence state."""
+    errors: list[str] = []
+    state_pattern = re.compile(
+        r"— 상태: (확인됨|추정됨|미확인|상충됨) / 근거: (?P<evidence>.+)$"
+    )
+    for line in text.splitlines():
+        if not line.startswith("- "):
+            continue
+        match = state_pattern.search(line)
+        if not match:
+            continue
+        state = match.group(1)
+        evidence = match.group("evidence")
+        if state == "추정됨" and "/ 판단:" not in line:
+            errors.append(f"추정됨 근거에 판단 이유가 없습니다: {line}")
+        if state == "미확인" and not ABSENCE_REFERENCE.search(evidence):
+            errors.append(f"미확인 근거에 확인 범위와 부족한 정보가 없습니다: {line}")
+        if state == "상충됨":
+            references = FILE_LINE_REFERENCE.findall(evidence)
+            absence_count = len(ABSENCE_REFERENCE.findall(evidence))
+            if len(references) + absence_count < 2:
+                errors.append(f"상충됨 근거에 양쪽 source가 보존되지 않았습니다: {line}")
+    return errors
+
+
+def readiness_blocker_errors(text: str) -> list[str]:
+    verdicts = re.findall(r"(?m)^- 판정: (설계 입력 충분|추가 정보 필요|분석 불가)$", text)
+    if verdicts != ["추가 정보 필요"]:
+        return []
+    errors: list[str] = []
+    section = text.split("### 설계 차단 항목", 1)
+    blocker_lines = [line for line in section[-1].splitlines() if line.startswith("- 차단 항목:")]
+    if not blocker_lines or any("차단 항목: 없음" in line for line in blocker_lines):
+        return ["추가 정보 필요 판정에는 구체적인 설계 차단 항목이 필요합니다"]
+    blocker_pattern = re.compile(
+        r"범주: (이미지|Secret|외부 의존성|runtime|기타) / "
+        r"영향 범위: (전체|특정 배포 대상|production 경로) / "
+        r"상태: (확인됨|추정됨|미확인|상충됨) / 근거: (.+)$"
+    )
+    for line in blocker_lines:
+        match = blocker_pattern.search(line)
+        if not match or not has_valid_evidence(match.group(4)):
+            errors.append(f"설계 차단 항목에 범주·영향 범위·상태·근거가 없습니다: {line}")
+    return errors
+
+
 def disallowed_section_errors(text: str) -> list[str]:
     errors: list[str] = []
     for label in ["## 다음 작업", "다음 인계:"]:
@@ -249,9 +308,14 @@ def dependency_and_readiness_errors(text: str) -> list[str]:
 
 def mode_specific_errors(text: str, mode: str | None) -> list[str]:
     errors: list[str] = []
-    if mode == "detailed" and "## 3. 구성 요소별 배포 브리핑" in text:
+    if mode == "detailed" and (
+        "## 3. 배포 대상별 실행 정보" in text
+        or "## 3. 구성 요소별 배포 브리핑" in text
+    ):
         for heading in ["### Dependency matrix", "### Text dependency graph"]:
-            if heading not in text:
+            if "## 3. 배포 대상별 실행 정보" in text and heading not in text:
+                errors.append(f"detailed 모드에 필수 관계 표현이 없습니다: {heading[4:]}")
+            elif "## 3. 구성 요소별 배포 브리핑" in text and heading not in text:
                 errors.append(f"detailed 모드에 필수 관계 표현이 없습니다: {heading[4:]}")
     return errors
 
@@ -276,10 +340,26 @@ def overview_errors(text: str) -> list[str]:
     return errors
 
 
+def validate_json_file(path: Path, requested_mode: str, legacy: bool) -> tuple[str | None, list[str]]:
+    if legacy:
+        return None, ["JSON reports do not support --legacy mode"]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        return None, [f"JSON report를 읽을 수 없습니다: {error}"]
+    errors = validate_json_payload(payload)
+    detected = payload.get("mode") if isinstance(payload, dict) else None
+    if requested_mode != "auto" and detected != requested_mode:
+        errors.append(f"JSON report mode는 {detected}이지만 요청 모드는 {requested_mode}입니다")
+    return detected if detected in {"summary", "detailed"} else None, errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="생성된 Kubernetes 이관 보고서를 검증합니다.")
     parser.add_argument("report", help="생성된 Markdown 보고서")
     parser.add_argument("--mode", choices=["auto", "summary", "detailed"], default="auto")
+    parser.add_argument("--format", choices=["auto", "markdown", "json"], default="auto")
+    parser.add_argument("--legacy", action="store_true", help="기존 Markdown 계약을 명시적으로 검증합니다")
     parser.add_argument("--fixture", choices=sorted(FIXTURES), help="fixture별 검사를 적용합니다")
     parser.add_argument(
         "--repo-root",
@@ -293,18 +373,36 @@ def main() -> int:
         print(f"실패: 보고서를 찾을 수 없습니다: {path}")
         return 1
 
-    text = path.read_text(encoding="utf-8")
+    report_format = args.format
+    if report_format == "auto":
+        report_format = "json" if path.suffix.lower() == ".json" else "markdown"
+    if report_format == "json":
+        _, json_errors = validate_json_file(path, args.mode, args.legacy)
+        if json_errors:
+            for error in json_errors:
+                print(f"실패: {error}")
+            return 1
+        print("성공: JSON 보고서가 현재 schema contract를 만족합니다.")
+        return 0
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        print(f"실패: Markdown 보고서를 읽을 수 없습니다: {error}")
+        return 1
     errors: list[str] = []
     if args.repo_root is not None and not args.repo_root.is_dir():
         errors.append(f"저장소 루트를 찾을 수 없습니다: {args.repo_root}")
-    detected = detect_mode(text)
+    detected = detect_mode(text, legacy=args.legacy)
     mode = detected if args.mode == "auto" else args.mode
     if mode is None:
         errors.append("제목에서 보고서 모드를 감지할 수 없습니다")
     elif detected is not None and args.mode != "auto" and detected != args.mode:
         errors.append(f"보고서 제목은 {detected} 모드를 가리키지만 요청 모드는 {args.mode}입니다")
 
-    new_contract = "## 3. 배포 대상별 실행 정보" in text
+    new_contract = not args.legacy
+    if not args.legacy and MARKDOWN_VERSION_MARKER not in text:
+        errors.append(f"현재 Markdown contract marker가 없습니다: {MARKDOWN_VERSION_MARKER}")
     required_sections = (
         NEW_SUMMARY_SECTIONS if new_contract and mode == "summary"
         else NEW_DETAILED_SECTIONS if new_contract and mode == "detailed"
@@ -313,7 +411,14 @@ def main() -> int:
     for section in required_sections:
         if section not in text:
             errors.append(f"섹션이 없습니다: {section}")
-    verdicts = re.findall(r"(?m)^- 판정: (설계 입력 충분|준비됨|추가 정보 필요|분석 불가|진행 불가)$", text)
+    verdict_pattern = (
+        r"(?m)^- 판정: (설계 입력 충분|추가 정보 필요|분석 불가)$"
+        if not args.legacy
+        else r"(?m)^- 판정: (준비됨|추가 정보 필요|분석 불가|진행 불가)$"
+    )
+    verdicts = re.findall(verdict_pattern, text)
+    if not args.legacy and re.search(r"(?m)^- 판정: (준비됨|진행 불가)$", text):
+        errors.append("legacy readiness verdict는 --legacy에서만 허용됩니다")
     if not verdicts:
         errors.append("명시적인 최종 판정이 없습니다")
     elif len(verdicts) > 1:
@@ -323,6 +428,9 @@ def main() -> int:
 
     errors.extend(evidence_table_errors(text))
     errors.extend(component_briefing_errors(text))
+    if not args.legacy:
+        errors.extend(evidence_semantic_errors(text))
+        errors.extend(readiness_blocker_errors(text))
     errors.extend(overview_errors(text))
     errors.extend(disallowed_section_errors(text))
     errors.extend(dependency_and_readiness_errors(text))
