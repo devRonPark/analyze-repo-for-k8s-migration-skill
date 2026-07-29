@@ -43,6 +43,7 @@ and management boundaries.
 
 ## Output by mode
 
-Summary uses a concise relationship card or text dependency graph. Detailed
-output uses both a dependency matrix and a text dependency graph; the two
-representations must agree and distinguish build-time from runtime edges.
+Summary uses one concise runtime-dependency field per candidate; it does not
+require a dependency matrix or text dependency graph. Detailed output uses both
+and the two representations must agree and distinguish build-time from runtime
+edges.

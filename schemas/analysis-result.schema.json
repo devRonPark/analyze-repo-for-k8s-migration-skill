@@ -6,13 +6,7 @@
   "additionalProperties": true,
   "required": [
     "schema_version",
-    "mode",
-    "components",
-    "dependencies",
-    "excluded_items",
-    "missing_inputs",
-    "evidence",
-    "design_input_verdict"
+    "mode"
   ],
   "properties": {
     "schema_version": {"const": "1.0"},
@@ -26,6 +20,37 @@
       "enum": ["설계 입력 충분", "추가 정보 필요", "분석 불가"]
     }
   },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {"mode": {"const": "summary"}},
+          "required": [
+            "schema_version",
+            "mode",
+            "components",
+            "excluded_items",
+            "missing_inputs",
+            "evidence",
+            "design_input_verdict"
+          ]
+        },
+        {
+          "properties": {"mode": {"const": "detailed"}},
+          "required": [
+            "schema_version",
+            "mode",
+            "components",
+            "dependencies",
+            "excluded_items",
+            "missing_inputs",
+            "evidence",
+            "design_input_verdict"
+          ]
+        }
+      ]
+    }
+  ],
   "$defs": {
     "evidenceStatus": {
       "type": "string",

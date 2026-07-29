@@ -30,7 +30,7 @@ class EvidenceReadinessContractTests(unittest.TestCase):
 
     def test_unstructured_absence_fails(self):
         report = VALID.read_text(encoding="utf-8").replace(
-            "검색(scope=., pattern=Ingress, result=없음)",
+            "검색(scope=., pattern=image name|registry, result=없음)",
             "저장소에서 찾지 못함",
         )
 
