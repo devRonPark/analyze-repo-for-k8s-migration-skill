@@ -26,8 +26,6 @@ permission:
   external_directory:
     "*": deny
     "$HOME/.config/opencode/skills/analyze-repo-for-kubernetes/**": allow
-    "$HOME/.agents/skills/analyze-repo-for-kubernetes/**": allow
-    "$HOME/.claude/skills/analyze-repo-for-kubernetes/**": allow
     "/tmp/opencode-acceptance-*/config/skills/analyze-repo-for-kubernetes/**": allow
   task: deny
   webfetch: deny
