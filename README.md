@@ -23,8 +23,8 @@ OpenCode에서 `analyze-repo-for-kubernetes` Skill을 로드하여 애플리케�
 먼저 이 Repository를 clone하고 이동합니다.
 
 ```bash
-git clone https://github.com/devRonPark/analyze-repo-for-kubernetes-skill.git ~/skills-src/analyze-repo-for-kubernetes-skill
-cd ~/skills-src/analyze-repo-for-kubernetes-skill
+git clone https://github.com/devRonPark/analyze-repo-for-k8s-migration-skill.git ~/skills-src/analyze-repo-for-k8s-migration-skill
+cd ~/skills-src/analyze-repo-for-k8s-migration-skill
 ```
 
 전역 OpenCode Skill을 설치합니다.
