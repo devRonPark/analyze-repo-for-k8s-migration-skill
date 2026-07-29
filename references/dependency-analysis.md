@@ -1,49 +1,48 @@
 # Dependency Analysis
 
-Represent each dependency as a directed relationship from a logical source component to a target component or external system.
+## Direction and fields
 
-## Required Relationship Fields
+Write every relationship as `logical source workload -> target component or
+external system`. Include:
 
-- source component
-- target component or external system
-- dependency type
-- protocol or mechanism
-- endpoint or configuration name when known
-- 기능 실행에 필요한지
-- 확인된 저장소 기동 정의에서 사용되는지
-- 공급 또는 관리 경계(저장소에 배포 정의 있음, 외부 관리로 참조, 미확인)
-- build-time or runtime
-- 실행 위치
-- evidence status and evidence
+- source and target;
+- dependency type;
+- protocol or mechanism;
+- endpoint or configuration name when known;
+- `기능 실행에 필요한지`;
+- `확인된 저장소 기동 정의에서 사용되는지`;
+- `공급 또는 관리 경계` (`저장소에 배포 정의 있음`, `외부 관리로 참조`, or
+  `미확인`);
+- build-time or runtime timing;
+- `실행 위치`;
+- evidence status and evidence.
 
-## 실행 위치 값
+The logical source and network caller can differ. A static frontend can depend
+logically on an API while the browser is the actual caller.
 
-Use one of:
+## Execution location
 
-- 브라우저
-- 서버 프로세스
-- worker 프로세스
-- scheduled/job 프로세스
-- 빌드 파이프라인
-- 배포 controller
-- 사람/관리자
-- 외부 시스템
-- 미확인
+Use one of these values when applicable:
 
-The logical source and execution locus can differ. A static frontend may logically depend on an API while the actual network caller is the user's browser rather than the frontend Pod.
+- `브라우저`;
+- `서버 프로세스`;
+- `worker 프로세스`;
+- `scheduled/job 프로세스`;
+- `빌드 파이프라인`;
+- `배포 controller`;
+- `사람/관리자`;
+- `외부 시스템`;
+- `미확인`.
 
-## Dependency Types
+## Evidence
 
-Examples include HTTP, gRPC, SQL, message queue, cache, SMTP, object storage, filesystem, package import, generated client and build artifact.
+A dependency declaration does not prove runtime communication. Use
+`path/to/file:line` for existing relationships and the structured Korean search
+form for verified absence. Preserve conflicting endpoints, ports, protocols,
+and management boundaries.
 
-## Evidence Rules
+## Output by mode
 
-- Do not treat a dependency declaration alone as proof of runtime communication.
-- Use `file:line` for existing relationships.
-- Use `검색(scope=..., pattern=..., result=없음)` only for verified absence.
-- Preserve conflicting endpoints, ports or protocols with both sources.
-
-## Required Output by Mode
-
-- **summary:** Produce a concise relationship card or text dependency graph.
-- **detailed:** Produce both a dependency matrix and a text dependency graph. Make the two representations agree and separate build-time from runtime relationships.
+Summary uses a concise relationship card or text dependency graph. Detailed
+output uses both a dependency matrix and a text dependency graph; the two
+representations must agree and distinguish build-time from runtime edges.
