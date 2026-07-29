@@ -1,0 +1,1 @@
+{"name":"api","packageManager":"npm@10.0.0","scripts":{"build":"npm run build","start":"npm run start"}}

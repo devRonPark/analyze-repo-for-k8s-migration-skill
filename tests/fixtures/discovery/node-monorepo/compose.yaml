@@ -1,0 +1,5 @@
+services:
+  api:
+    command: pnpm --filter api start
+  worker:
+    command: pnpm --filter worker start
