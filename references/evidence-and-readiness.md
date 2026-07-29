@@ -1,0 +1,45 @@
+# 근거와 준비 상태
+
+## 근거 상태
+
+저장소에서 도출한 중요한 사실에 다음 상태 중 하나를 사용한다.
+
+- **확인됨:** 실행 가능한 source 또는 configuration이 직접 뒷받침한다.
+- **추정됨:** 여러 단서가 강하게 시사하지만 직접 확정되지 않는다.
+- **미확인:** 확인한 자료만으로 값을 결정할 수 없다.
+- **상충됨:** 신뢰할 수 있는 근거가 서로 다른 값을 제시한다.
+
+상충 사항을 보존하고 Kubernetes 설계에 편한 값을 임의로 선택하지 않는다.
+
+## 근거 형식
+
+존재하는 사실은 저장소 상대 `path/to/file:line` 또는 `path/to/file:start-end`로 인용한다.
+
+부재를 확인한 사실은 관련 없는 파일 라인을 인용하지 말고 다음 형식을 사용한다.
+
+```text
+검색(scope=<repository-relative scope>, pattern=<glob 또는 검색식>, result=없음)
+```
+
+`미확인`에는 확인한 파일 또는 검색 범위와 무엇이 부족한지 쓴다. `상충됨`에는 상충하는 양쪽 근거를 모두 쓴다. 주석보다 실행 가능한 source와 runtime configuration을, 개발 예시보다 production configuration을 우선한다.
+
+범위, 접근 방식, 출력 모드와 최종 판정은 repository fact가 아니다. 임의의 파일 라인을 붙여 `확인됨`으로 만들지 말고 판정을 뒷받침하는 component-level findings를 참조한다.
+
+## Kubernetes 설계 입력 상태
+
+- **설계 입력 충분:** 후속 Kubernetes 설계를 차단하는 저장소 사실 또는 필수 입력 누락이 없다.
+- **추가 정보 필요:** 분석은 완료됐지만 하나 이상의 검증된 차단 요인 때문에 필수 결정 또는 미확인 입력에 사용자 판단이 필요하다. 각 차단 요인에 범주와 영향 범위(`전체`, `특정 구성 요소`, `production 경로`)를 붙인다.
+- **분석 불가:** target 접근 실패 또는 핵심 배포 대상 후보/runtime 식별 실패로 책임 있는 설계를 시작할 수 없다.
+
+`미확인`이 자동으로 `분석 불가`를 뜻하지는 않는다. 후속 Kubernetes 설계를 실제로 차단하는지 판단하고 최종 판정 이유에 supporting evidence를 나열한다.
+
+이 판정은 production 배포 승인, 보안 승인, SLO 충족을 뜻하지 않는다. 저장소 근거로 특정 후속 설계 결정을 막는 경우만 설계 차단 항목으로 기록한다.
+
+## Absence Evidence
+
+Do not cite an unrelated file to prove that something is absent.
+
+For a verified absence, use:
+
+```text
+Search(scope=<repository-relative scope>, pattern=<glob or search expression>, result=none)
