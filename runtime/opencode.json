@@ -33,6 +33,10 @@
       "*": "deny",
       "git status *": "allow",
       "git rev-parse *": "allow",
+      "git -C * status": "allow",
+      "git -C * status *": "allow",
+      "git -C * rev-parse *": "allow",
+      "git -C * symbolic-ref *": "allow",
       "find *": "allow",
       "ls *": "allow",
       "rg *": "allow"

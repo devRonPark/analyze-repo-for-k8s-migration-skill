@@ -32,6 +32,29 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertIn("mode: primary", agent)
         self.assertIn("analyze-repo-for-kubernetes: allow", agent)
 
+    def test_e2e_agent_has_bounded_summary_and_read_only_git_rules(self):
+        config = json.loads((ROOT / "runtime/opencode.json").read_text(encoding="utf-8"))
+        bash_rules = config["permission"]["bash"]
+        for rule in (
+            "git -C * status",
+            "git -C * status *",
+            "git -C * rev-parse *",
+            "git -C * symbolic-ref *",
+        ):
+            self.assertEqual(bash_rules[rule], "allow")
+
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        self.assertRegex(agent, r"(?m)^steps:\s+20$")
+        self.assertIn("bounded high-signal pass", agent)
+        self.assertRegex(agent, r"synthesize the\s+Summary immediately")
+        for rule in (
+            '"git -C * status": allow',
+            '"git -C * status *": allow',
+            '"git -C * rev-parse *": allow',
+            '"git -C * symbolic-ref *": allow',
+        ):
+            self.assertIn(rule, agent)
+
     def test_event_normalization_extracts_skill_reads_and_denial(self):
         events = [
             {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-repo-for-kubernetes"}},
