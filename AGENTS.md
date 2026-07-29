@@ -33,19 +33,54 @@ Do not load every file under `docs/development/` by default. Use the user reques
 
 ## Code Review Graph
 
-When the `code-review-graph` MCP server is available, use its compact graph
-context before broad file searches:
+Use `code-review-graph` as a compact navigation and impact-analysis aid when
+the MCP server is available. It does not replace repository evidence.
 
-* Start with `get_minimal_context` and keep `detail_level` at `minimal`.
-* Use `semantic_search_nodes_tool` or `query_graph_tool` for codebase exploration.
-* Use `detect_changes_tool`, `get_review_context_tool`, and
-  `get_impact_radius_tool` for change review and impact analysis.
-* Read source files directly only for evidence the graph identifies or when
-  the graph is unavailable or stale.
+### Default workflow
 
-The graph is an evidence-navigation aid, not a source of truth. Verify
-material claims against repository files and preserve the read-only and
-uncertainty rules below.
+For multi-file exploration, change review, architecture, or debugging:
+
+1. Start with `get_minimal_context(task="<short task description>")`.
+2. Keep `detail_level="minimal"` unless the returned context is insufficient.
+3. Prefer targeted graph queries over broad file reads.
+4. Use `next_tool_suggestions` from graph responses to choose the next call.
+5. Keep graph usage within five calls and 800 output tokens unless more context
+   is required.
+
+Use these tools by purpose:
+
+* Exploration: `semantic_search_nodes_tool`, `query_graph_tool`
+* Change review: `detect_changes_tool`, `get_review_context_tool`,
+  `get_impact_radius_tool`, `get_affected_flows_tool`
+* Architecture: `get_architecture_overview_tool`, `list_communities_tool`
+* Test coverage: `query_graph_tool` with `pattern="tests_for"`
+
+### Evidence and fallback
+
+* Use graph results to select relevant files and symbols, then verify material
+  claims with direct repository reads and the existing evidence rules.
+* Read `SKILL.md`, references, assets, schemas, and Markdown development
+  documents directly when they are relevant. This repository is
+  documentation-heavy, and the graph primarily covers parsed source/config
+  files.
+* If the MCP server is unavailable or stale, fall back to targeted `rg` and
+  direct file reads.
+* Rebuild or update the graph after a major refactor, branch switch, or when
+  graph results do not match the repository.
+* Skip graph overhead for trivial single-file changes and one-off questions
+  where direct reading is cheaper.
+
+### Review sequence
+
+For a non-trivial change review:
+
+1. Ensure the graph is current.
+2. Call `detect_changes_tool`.
+3. Call `get_review_context_tool`.
+4. Check blast radius with `get_impact_radius_tool` or
+   `get_affected_flows_tool`.
+5. Check changed functions with `pattern="tests_for"`.
+6. Read the final evidence files directly before reporting findings.
 
 ## Language policy
 
