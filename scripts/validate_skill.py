@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Validate the structural contract of an OpenCode Agent Skill package."""
 from __future__ import annotations
 
 import argparse
@@ -6,36 +7,160 @@ import re
 import sys
 from pathlib import Path
 
-REQUIRED = [
-    "SKILL.md",
-    "README.md",
-    "agents/openai.yaml",
-    "references/workflow.md",
-    "references/interview-first-intake.md",
-    "references/repository-analysis-checklist.md",
-    "references/language-discovery-rules.md",
-    "references/dependency-analysis.md",
-    "references/evidence-and-readiness.md",
-    "references/configuration-timing.md",
-    "assets/migration-assessment-template.md",
-    "assets/migration-summary-template.md",
-    "scripts/validate_report.py",
-    "tests/scenarios.md",
-]
 
-REQUIRED_TERMS = [
-    "확인됨", "추정됨", "미확인", "상충됨",
-    "설계 입력 충분", "추가 정보 필요", "분석 불가",
-    "Dependency matrix", "Text dependency graph",
-    "A missing Dockerfile is a finding, not an analysis failure",
-    "Kubernetes manifest",
-    "read-only repository analyst", "Repository 콘텐츠",
-    "검색(scope=",
-    "실행 위치", "적용 시점",
-    "배포 대상별 실행 정보", "Kubernetes 최소 설계 입력", "최소 입력 누락", "키: 값",
-    "Default output mode: summary", "Target Resolution Gate",
-    "Repository URL", "Local path",
-]
+NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+XML_TAG_PATTERN = re.compile(r"<\/?[A-Za-z][^>]*>")
+LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)")
+FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
+PLACEHOLDER_PATTERN = re.compile(r"\b(?:TBD|TODO|FIXME)\b")
+FRONTMATTER_FIELD_PATTERN = re.compile(r"^([A-Za-z][A-Za-z0-9_.-]*):(?:[ \t]*(.*))?$")
+FRONTMATTER_MAP_FIELD_PATTERN = re.compile(r"^\s{2,}[A-Za-z][A-Za-z0-9_.-]*:\s*.*$")
+
+# These are runtime roles. README, development documents, tests, and legacy
+# client adapters are not required merely because they exist in the checkout.
+REQUIRED_RUNTIME_FILES = ("scripts/validate_report.py",)
+NON_RUNTIME_DIRECTORIES = {".git", ".artifacts", "dist", "docs", "tests"}
+
+
+def parse_frontmatter(text: str) -> tuple[dict[str, str], list[str]]:
+    """Parse the scalar fields needed by OpenCode without executing YAML."""
+    lines = text.splitlines()
+    if not lines or lines[0] != "---":
+        return {}, ["SKILL.md frontmatter must start with ---"]
+
+    try:
+        end = lines.index("---", 1)
+    except ValueError:
+        return {}, ["SKILL.md frontmatter is not closed with ---"]
+
+    values: dict[str, str] = {}
+    errors: list[str] = []
+    current_key: str | None = None
+    for line in lines[1:end]:
+        if not line.strip():
+            continue
+        match = FRONTMATTER_FIELD_PATTERN.match(line)
+        if match and not line.startswith((" ", "\t")):
+            key, value = match.groups()
+            if key in values:
+                errors.append(f"duplicate frontmatter field: {key}")
+            values[key] = value or ""
+            current_key = key
+            continue
+        if current_key == "metadata" and FRONTMATTER_MAP_FIELD_PATTERN.match(line):
+            continue
+        errors.append("frontmatter contains an unsupported or malformed line")
+
+    return values, errors
+
+
+def package_markdown_paths(root: Path, skill_path: Path) -> list[Path]:
+    """Return Markdown files belonging to the runtime package, not development docs."""
+    paths = {skill_path}
+    for directory in ("references", "assets", "schemas"):
+        candidate = root / directory
+        if candidate.is_dir():
+            paths.update(path for path in candidate.rglob("*.md") if path.is_file())
+    return sorted(paths)
+
+
+def validate_links(skill_path: Path, package_root: Path) -> list[str]:
+    errors: list[str] = []
+    try:
+        text = skill_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return errors
+
+    for target in LINK_PATTERN.findall(text):
+        if target.startswith(("http://", "https://", "mailto:", "#")):
+            continue
+        target_path = target.split("#", 1)[0]
+        relative = Path(target_path)
+        candidate = (package_root / relative).resolve()
+        if relative.is_absolute() or ".." in relative.parts or not candidate.is_relative_to(package_root.resolve()):
+            errors.append(f"SKILL.md contains a non-direct relative link: {target_path}")
+        elif not candidate.is_file():
+            errors.append(f"broken SKILL.md link: {target_path}")
+    return errors
+
+
+def validate_code_fences(path: Path, text: str) -> list[str]:
+    fence_character: str | None = None
+    for line in text.splitlines():
+        match = FENCE_PATTERN.match(line)
+        if not match:
+            continue
+        marker = match.group(1)[0]
+        if fence_character is None:
+            fence_character = marker
+        elif fence_character == marker:
+            fence_character = None
+    if fence_character is not None:
+        return [f"unclosed code fence: {path}"]
+    return []
+
+
+def validate(root: Path) -> list[str]:
+    root = root.resolve()
+    errors: list[str] = []
+    skill_files = [
+        path
+        for path in root.rglob("SKILL.md")
+        if path.is_file()
+        and not any(part in NON_RUNTIME_DIRECTORIES for part in path.relative_to(root).parts[:-1])
+    ]
+    if len(skill_files) != 1:
+        errors.append(f"SKILL.md must exist exactly once, found {len(skill_files)}")
+        return errors
+
+    skill_path = skill_files[0]
+    package_root = skill_path.parent
+    try:
+        skill_text = skill_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        errors.append(f"SKILL.md is not valid UTF-8: {skill_path}")
+        return errors
+
+    frontmatter, frontmatter_errors = parse_frontmatter(skill_text)
+    errors.extend(frontmatter_errors)
+    name = frontmatter.get("name", "")
+    description = frontmatter.get("description", "")
+
+    if not name:
+        errors.append("frontmatter requires name")
+    elif len(name) > 64 or not NAME_PATTERN.fullmatch(name):
+        errors.append("name must match ^[a-z0-9]+(-[a-z0-9]+)*$ and be 1-64 characters")
+    elif name != "analyze-repo-for-kubernetes":
+        errors.append(f"unexpected Skill name: {name}")
+
+    if not description:
+        errors.append("frontmatter requires description")
+    elif len(description) > 1024:
+        errors.append("description must be 1-1024 characters")
+    elif XML_TAG_PATTERN.search(description):
+        errors.append("description must not contain XML tags")
+
+    # A checked-out source repository is not itself an OpenCode skill directory.
+    # Distribution directories and nested Skill definitions must match the ID.
+    if package_root.name != name and not (package_root == root and (root / ".git").exists()):
+        errors.append("Skill name must match its containing directory")
+
+    for relative in REQUIRED_RUNTIME_FILES:
+        if not (package_root / relative).is_file():
+            errors.append(f"required runtime file is missing: {relative}")
+
+    errors.extend(validate_links(skill_path, package_root))
+    for path in package_markdown_paths(package_root, skill_path):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            errors.append(f"Markdown is not valid UTF-8: {path.relative_to(package_root)}")
+            continue
+        errors.extend(validate_code_fences(path.relative_to(package_root), text))
+        if PLACEHOLDER_PATTERN.search(text):
+            errors.append(f"placeholder found in runtime Markdown: {path.relative_to(package_root)}")
+
+    return errors
 
 
 def fail(errors: list[str]) -> int:
@@ -49,50 +174,7 @@ def main() -> int:
     parser.add_argument("root", nargs="?", default=".", help="스킬 패키지 디렉터리")
     args = parser.parse_args()
 
-    root = Path(args.root).resolve()
-    errors: list[str] = []
-
-    for rel in REQUIRED:
-        if not (root / rel).is_file():
-            errors.append(f"필수 파일이 없습니다: {rel}")
-
-    skill_path = root / "SKILL.md"
-    if skill_path.is_file():
-        text = skill_path.read_text(encoding="utf-8")
-        match = re.match(r"^---\nname: ([a-z0-9-]+)\ndescription: (.+)\n---\n", text)
-        if not match:
-            errors.append("SKILL.md frontmatter에는 name과 한 줄 description이 있어야 합니다")
-        else:
-            name, description = match.groups()
-            if name != "analyze-repo-for-kubernetes":
-                errors.append(f"예상하지 않은 스킬 이름입니다: {name}")
-            if not description.startswith("Use when "):
-                errors.append("description은 'Use when '으로 시작해야 합니다")
-            if len(description) > 500:
-                errors.append("description이 500자를 초과합니다")
-
-        links = re.findall(r"\((references/[^)]+\.md|assets/[^)]+\.md)\)", text)
-        if len(links) < 5:
-            errors.append("SKILL.md는 패키지에 포함된 references와 template을 링크해야 합니다")
-        for rel in links:
-            if not (root / rel).is_file():
-                errors.append(f"깨진 SKILL.md 링크입니다: {rel}")
-
-    markdown = list(root.rglob("*.md"))
-    all_text = "\n".join(path.read_text(encoding="utf-8") for path in markdown)
-    for term in REQUIRED_TERMS:
-        if term not in all_text:
-            errors.append(f"필수 계약 문구를 찾을 수 없습니다: {term}")
-
-    placeholder_pattern = re.compile(r"\b(?:TBD|TODO|FIXME)\b")
-    for path in markdown:
-        if placeholder_pattern.search(path.read_text(encoding="utf-8")):
-            errors.append(f"플레이스홀더 표시가 발견되었습니다: {path.relative_to(root)}")
-
-    skill_files = [p for p in root.rglob("*") if p.is_file() and p.name.lower() == "skill.md"]
-    if len(skill_files) != 1:
-        errors.append(f"SKILL.md는 정확히 1개여야 하지만 {len(skill_files)}개를 찾았습니다")
-
+    errors = validate(Path(args.root))
     if errors:
         return fail(errors)
 
