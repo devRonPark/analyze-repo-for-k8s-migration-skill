@@ -19,17 +19,18 @@ not an application build, and a development server is not production startup.
 
 ## Node.js and TypeScript
 
-Inspect the nearest component `package.json`, workspace declaration, matching
-lockfile, framework configuration, source entrypoint, environment access, and
-scripts. Distinguish development servers from production startup and static
-builds.
+Inspect the nearest component `package.json`, workspace declaration, framework
+configuration, source entrypoint, environment access, and scripts. Distinguish
+development servers from production startup and static builds. Inspect a
+matching lockfile only under the conditional policy in `SKILL.md`.
 
 Determine the package manager for each component in this precedence order:
 
 1. the component `packageManager` field;
 2. the owning workspace package-manager declaration;
 3. the nearest component manifest and its scripts;
-4. the lockfile matching that component.
+4. the matching lockfile, only when the package boundary remains ambiguous or
+   another `SKILL.md` lockfile exception applies.
 
 Root-level evidence does not override stronger component-level evidence. A
 workspace declaration applies only to components it owns. Mixed managers are
@@ -42,9 +43,10 @@ script is not production startup evidence.
 
 ## Python
 
-Inspect `pyproject.toml`, requirements files, lockfiles, framework entrypoints,
-WSGI or ASGI configuration, settings modules, migration tools, and startup
-scripts. Distinguish development servers from production process commands.
+Inspect `pyproject.toml`, requirements files, framework entrypoints, WSGI or
+ASGI configuration, settings modules, migration tools, and startup scripts.
+Inspect a lockfile only under the conditional policy in `SKILL.md`. Distinguish
+development servers from production process commands.
 
 ## Go
 

@@ -24,6 +24,19 @@ CONFIGURATION_TIMING = (
     "미확인",
 )
 MODES = ("summary", "detailed")
+COMMON_REQUIRED_FIELDS = (
+    "schema_version",
+    "mode",
+    "components",
+    "excluded_items",
+    "missing_inputs",
+    "evidence",
+    "design_input_verdict",
+)
+MODE_REQUIRED_FIELDS = {
+    "summary": COMMON_REQUIRED_FIELDS,
+    "detailed": COMMON_REQUIRED_FIELDS + ("dependencies",),
+}
 
 
 def _validate_evidence(value: Any, path: str) -> list[str]:
@@ -47,22 +60,14 @@ def validate_json_payload(payload: Any) -> list[str]:
         return ["JSON report must be an object"]
 
     errors: list[str] = []
-    required = (
-        "schema_version",
-        "mode",
-        "components",
-        "dependencies",
-        "excluded_items",
-        "missing_inputs",
-        "evidence",
-        "design_input_verdict",
-    )
+    mode = payload.get("mode")
+    required = MODE_REQUIRED_FIELDS.get(mode, COMMON_REQUIRED_FIELDS)
     for field in required:
         if field not in payload:
             errors.append(f"required JSON field is missing: {field}")
     if payload.get("schema_version") != SCHEMA_VERSION:
         errors.append(f"schema_version must be {SCHEMA_VERSION}")
-    if payload.get("mode") not in MODES:
+    if mode not in MODES:
         errors.append("mode must be summary or detailed")
     if payload.get("design_input_verdict") not in READINESS_VERDICTS:
         errors.append("design_input_verdict must be one current readiness verdict")

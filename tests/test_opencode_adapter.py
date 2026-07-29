@@ -88,7 +88,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             self.assertEqual(bash_rules[rule], "allow")
 
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertRegex(agent, r"(?m)^steps:\s+20$")
+        self.assertRegex(agent, r"(?m)^steps:\s+14$")
         self.assertIn("bounded high-signal pass", agent)
         self.assertRegex(agent, r"synthesize the\s+Summary immediately")
         for rule in (
@@ -98,6 +98,27 @@ class OpenCodeAdapterTests(unittest.TestCase):
             '"git -C * symbolic-ref *": allow',
         ):
             self.assertIn(rule, agent)
+
+    def test_summary_and_detailed_routing_are_explicit(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        self.assertIn("default Summary", agent)
+        self.assertIn("For an explicit Detailed request", agent)
+        for reference in (
+            "repository-analysis-checklist.md",
+            "migration-assessment-template.md",
+            "configuration-timing.md",
+            "dependency-analysis.md",
+        ):
+            self.assertIn(reference, agent)
+        self.assertIn("Do not inspect lockfiles by default", agent)
+
+    def test_acceptance_cases_enforce_mode_specific_reads(self):
+        cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]
+        summary = next(case for case in cases if case["id"] == "minimal-summary")
+        detailed = next(case for case in cases if case["id"] == "explicit-detailed")
+        self.assertIn("repository-analysis-checklist.md", summary["forbidden_behavior"]["reads"])
+        self.assertIn("migration-assessment-template.md", detailed["expected_behavior"]["required_reads"])
+        self.assertIn("repository-analysis-checklist.md", detailed["expected_behavior"]["required_reads"])
 
     def test_event_normalization_extracts_skill_reads_and_denial(self):
         events = [

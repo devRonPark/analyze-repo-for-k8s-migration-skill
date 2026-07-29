@@ -30,7 +30,7 @@ class ReportContractTests(unittest.TestCase):
 
     def test_legacy_verdict_is_rejected_by_default(self):
         report = REPORT_FIXTURES / "valid-summary.md"
-        legacy = report.read_text(encoding="utf-8").replace("설계 입력 충분", "준비됨")
+        legacy = report.read_text(encoding="utf-8").replace("추가 정보 필요", "준비됨")
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "legacy.md"
             path.write_text(legacy, encoding="utf-8")
@@ -61,6 +61,15 @@ class ReportContractTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("schema_version", result.stdout)
+
+    def test_json_mode_contracts_have_different_required_fields(self):
+        summary = json.loads((REPORT_FIXTURES / "valid-summary.json").read_text(encoding="utf-8"))
+        summary.pop("dependencies", None)
+        self.assertEqual(report_contract.validate_json_payload(summary), [])
+
+        detailed = dict(summary)
+        detailed["mode"] = "detailed"
+        self.assertIn("dependencies", " ".join(report_contract.validate_json_payload(detailed)))
 
     def test_schema_enums_match_runtime_contract(self):
         schema = json.loads((ROOT / "schemas/analysis-result.schema.json").read_text(encoding="utf-8"))

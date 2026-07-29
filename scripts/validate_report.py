@@ -22,11 +22,9 @@ SUMMARY_SECTIONS = [
 ]
 NEW_SUMMARY_SECTIONS = [
     "## 1. 분석 범위",
-    "## 2. 배포 대상 후보",
-    "## 3. 배포 대상별 실행 정보",
-    "## 4. 구성과 관계",
-    "## 5. 운영 환경 배포 근거",
-    "## 6. Kubernetes 설계 입력 상태",
+    "## 2. 배포 대상 후보와 주요 제외",
+    "## 3. 배포 대상별 요약",
+    "## 4. Kubernetes 설계 입력 상태",
 ]
 
 DETAILED_SECTIONS = [
@@ -179,7 +177,7 @@ def component_briefing_errors(text: str) -> list[str]:
     if not cards:
         return ["구성 요소별 배포 브리핑에 구성 요소 카드가 없습니다"]
 
-    new_contract = "## 3. 배포 대상별 실행 정보" in text
+    new_contract = "## 3. 배포 대상별 실행 정보" in text or "## 3. 배포 대상별 요약" in text
     categories = [
         "#### 역할과 실행",
         "#### 빌드와 기동",
@@ -198,7 +196,17 @@ def component_briefing_errors(text: str) -> list[str]:
         "workload.kind:", "metadata.name:", "image:", "command:", "args:",
         "containerPort:", "Service:", "Ingress:",
     ]
-    if new_contract:
+    minimum_heading = "#### Kubernetes 최소 설계 입력"
+    if "## 3. 배포 대상별 요약" in text:
+        categories = ["#### 핵심 입력", "#### Kubernetes 최소 입력", "#### 최소 입력 누락"]
+        required_properties = [
+            "실행 형태:", "런타임:", "빌드 명령:", "운영 기동 명령:",
+            "이미지 빌드 명령:", "컨테이너화:", "프로토콜:", "수신 포트:",
+            "설정:", "Secret:", "쓰기 상태 또는 영속성:", "런타임 의존성:",
+        ]
+        minimum_heading = "#### Kubernetes 최소 입력"
+        minimum_fields = ["image:", "command:", "args:", "containerPort:"]
+    elif new_contract:
         categories = [
             "#### 실행 정보", "#### 설정과 상태", "#### Kubernetes 최소 설계 입력", "#### 최소 입력 누락",
         ]
@@ -208,6 +216,7 @@ def component_briefing_errors(text: str) -> list[str]:
             "프로토콜:", "수신 포트:", "상태 확인:", "설정:", "Secret:",
             "쓰기 상태 또는 영속성:", "적용 시점:", "종료와 복구:", "관찰 가능성:",
         ]
+        minimum_heading = "#### Kubernetes 최소 설계 입력"
 
     for heading, card in cards:
         for category in categories:
@@ -217,7 +226,7 @@ def component_briefing_errors(text: str) -> list[str]:
             if property_name not in card:
                 errors.append(f"{heading}에 필수 속성이 없습니다: {property_name[:-1]}")
 
-        minimum_start = card.find("#### Kubernetes 최소 설계 입력")
+        minimum_start = card.find(minimum_heading)
         missing_start = card.find("#### 최소 입력 누락")
         minimum = card[minimum_start:missing_start] if minimum_start != -1 and missing_start != -1 else ""
         missing = card[missing_start:] if missing_start != -1 else ""
@@ -294,12 +303,17 @@ def disallowed_section_errors(text: str) -> list[str]:
 
 def dependency_and_readiness_errors(text: str) -> list[str]:
     errors: list[str] = []
+    summary_contract = "## 3. 배포 대상별 요약" in text
     new_contract = "## 3. 배포 대상별 실행 정보" in text
-    dependency_fields = ["기능 실행에 필요", "공급 또는 관리 경계"] if new_contract else ["애플리케이션 필수 여부", "선택한 배포 구성에서 필요"]
+    dependency_fields = (
+        ["런타임 의존성:"] if summary_contract
+        else ["기능 실행에 필요", "공급 또는 관리 경계"] if new_contract
+        else ["애플리케이션 필수 여부", "선택한 배포 구성에서 필요"]
+    )
     for field in dependency_fields:
         if field not in text:
             errors.append(f"의존성 필요 여부 필드가 없습니다: {field}")
-    headings = ["### 설계 차단 항목"] if new_contract else ["### Readiness 차단 요인", "### 일반 운영 권장사항"]
+    headings = ["### 설계 차단 항목"] if (new_contract or summary_contract) else ["### Readiness 차단 요인", "### 일반 운영 권장사항"]
     for heading in headings:
         if heading not in text:
             errors.append(f"최종 판정에 필수 구분이 없습니다: {heading[4:]}")
@@ -308,6 +322,18 @@ def dependency_and_readiness_errors(text: str) -> list[str]:
 
 def mode_specific_errors(text: str, mode: str | None) -> list[str]:
     errors: list[str] = []
+    if mode == "summary" and "## 3. 배포 대상별 요약" in text:
+        for marker in [
+            "### Dependency matrix",
+            "### Text dependency graph",
+            "## 5. 운영 환경 배포 근거",
+            "## 6. 설정과 상태 상세",
+            "## 7. 제외 항목과 설계 차단 항목 상세",
+            "종료와 복구:",
+            "관찰 가능성:",
+        ]:
+            if marker in text:
+                errors.append(f"summary 모드에 Detailed 전용 항목이 있습니다: {marker}")
     if mode == "detailed" and (
         "## 3. 배포 대상별 실행 정보" in text
         or "## 3. 구성 요소별 배포 브리핑" in text
@@ -322,7 +348,14 @@ def mode_specific_errors(text: str, mode: str | None) -> list[str]:
 
 def overview_errors(text: str) -> list[str]:
     errors: list[str] = []
+    summary_contract = "## 3. 배포 대상별 요약" in text
     new_contract = "## 3. 배포 대상별 실행 정보" in text
+    if summary_contract:
+        overview = text.split("## 3. 배포 대상별 요약", 1)[0]
+        for field in ["배포 대상 후보:", "주요 제외 항목:"]:
+            if field not in overview:
+                errors.append(f"후보와 주요 제외에 필수 키가 없습니다: {field[:-1]}")
+        return errors
     required = [
         "배포 가능한 구성 요소:",
         "기본 배포 구성:",

@@ -92,7 +92,7 @@ Dependency matrix와 text dependency graph가 일치해야 한다. 표에는 저
 - 저장소에서 확인한 기동 정의: <Compose, script 또는 entrypoint와 포함 서비스> — 상태: <상태> / 근거: <file:line 또는 검색(...)>
 - 운영 환경 배포 기준 구성: <확인된 구성 또는 미확인> — 상태: <상태> / 근거: <file:line 또는 검색(...)>
 
-로컬 Compose나 source의 기동 정의는 실행 사실만 보여 준다. 운영 환경 배포 기준 구성의 근거가 없으면 그것을 production 구성으로 추론하지 않는다.
+로컬 Compose나 source의 기동 정의는 실행 사실만 보여 준다. 운영 환경 배포 기준 구성의 근거가 없으면 그것을 production 구성으로 추론하지 않는다. 운영 환경의 기준 구성을 단정하지 않는다.
 
 ## 6. 설정과 상태 상세
 

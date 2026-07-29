@@ -20,6 +20,8 @@ Analyze a Dockerfile-free monorepo.
 Expected behavior:
 
 - uses summary mode
+- reads only the Skill, compact workflow, and Summary template by default
+- does not read Detailed-only references or lockfiles unless an exception is evidenced
 - separates deployment candidates, repository-defined runtime dependencies, external runtime dependencies and excluded items
 - records an execution form and evidence for every deployment candidate; does not force a role label
 - separates repository launch definitions from operating-environment deployment declarations; does not infer the latter from local Compose
@@ -42,6 +44,7 @@ Explicitly request a full assessment.
 Expected behavior:
 
 - uses the detailed template
+- loads the detailed checklist and only relevant conditional references
 - includes component-level evidence and configuration timing
 - includes both a dependency matrix and text dependency graph
 - preserves conflicts and unknowns
