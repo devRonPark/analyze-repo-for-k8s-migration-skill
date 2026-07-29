@@ -22,6 +22,10 @@ class OpenCodeAdapterTests(unittest.TestCase):
             "none",
         )
         self.assertEqual(config["model"], "local-sglang/Qwen/Qwen3.6-35B-A3B-FP8")
+        command = config["command"]["analyze-repo-for-kubernetes"]
+        self.assertEqual(command["agent"], "kubernetes-migration-analyzer")
+        self.assertFalse(command["subtask"])
+        self.assertIn("Kubernetes", command["template"])
         permissions = config["permission"]
         self.assertEqual(permissions["edit"], "deny")
         self.assertEqual(permissions["external_directory"], "deny")

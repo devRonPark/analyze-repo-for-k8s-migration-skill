@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+SOURCE_REAL="$(realpath -m "$SOURCE_DIR")"
 PROJECT_LOCAL=""
-ALLOW_DUPLICATES=0
 
 usage() {
-  echo "사용법: $0 [--project-local PROJECT_ROOT] [--allow-duplicates]" >&2
+  echo "사용법: $0 [--project-local PROJECT_ROOT]" >&2
 }
 
 while [ "$#" -gt 0 ]; do
@@ -17,7 +17,7 @@ while [ "$#" -gt 0 ]; do
       shift 2
       ;;
     --allow-duplicates|--force)
-      ALLOW_DUPLICATES=1
+      # Backward-compatible no-op. Duplicate locations are refreshed by default.
       shift
       ;;
     -h|--help)
@@ -40,9 +40,15 @@ fi
 TARGET_DIR="$TARGET_ROOT/$SKILL_ID"
 
 duplicate_paths=()
+path_is_source() {
+  [ "$(realpath -m "$1")" = "$SOURCE_REAL" ]
+}
+
 check_duplicate() {
   candidate="$1"
-  if [ "$candidate" != "$TARGET_DIR" ] && [ -e "$candidate" ]; then
+  if [ "$candidate" != "$TARGET_DIR" ] \
+    && { [ -e "$candidate" ] || [ -L "$candidate" ]; } \
+    && ! path_is_source "$candidate"; then
     duplicate_paths+=("$candidate")
   fi
 }
@@ -56,10 +62,9 @@ if [ -n "$PROJECT_LOCAL" ]; then
   check_duplicate "$PROJECT_LOCAL/.agents/skills/$SKILL_ID"
 fi
 
-if [ "$ALLOW_DUPLICATES" -eq 0 ] && [ "${#duplicate_paths[@]}" -gt 0 ]; then
-  echo "오류: duplicate Skill installation detected:" >&2
-  printf ' - %s\n' "${duplicate_paths[@]}" >&2
-  echo "명시적으로 --allow-duplicates를 사용해야 계속할 수 있습니다." >&2
+if path_is_source "$TARGET_DIR"; then
+  echo "오류: source checkout과 설치 대상이 같습니다: $TARGET_DIR" >&2
+  echo "분리된 source checkout에서 설치를 실행해 주세요." >&2
   exit 1
 fi
 
@@ -69,10 +74,13 @@ python3 "$SOURCE_DIR/scripts/build_dist.py" \
   --source-root "$SOURCE_DIR" \
   --output "$temporary_root/$SKILL_ID"
 
-mkdir -p "$TARGET_ROOT"
-if [ -e "$TARGET_DIR" ] || [ -L "$TARGET_DIR" ]; then
-  rm -rf "$TARGET_DIR"
-fi
-cp -R "$temporary_root/$SKILL_ID" "$TARGET_DIR"
+install_paths=("$TARGET_DIR" "${duplicate_paths[@]}")
+for install_path in "${install_paths[@]}"; do
+  mkdir -p "$(dirname "$install_path")"
+  if [ -e "$install_path" ] || [ -L "$install_path" ]; then
+    rm -rf "$install_path"
+  fi
+  cp -R "$temporary_root/$SKILL_ID" "$install_path"
+done
 
 echo "OpenCode Skill 설치 완료: $TARGET_DIR"

@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -134,12 +135,13 @@ class RepositoryDistributionTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertTrue((project / ".opencode/skills/analyze-repo-for-kubernetes/SKILL.md").is_file())
 
-    def test_opencode_installer_rejects_duplicate_locations_without_override(self):
+    def test_opencode_installer_refreshes_duplicate_locations(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
             duplicate = home / ".agents/skills/analyze-repo-for-kubernetes"
             duplicate.mkdir(parents=True)
-            (duplicate / "SKILL.md").write_text("duplicate", encoding="utf-8")
+            stale_skill = duplicate / "SKILL.md"
+            stale_skill.write_text("stale test Skill", encoding="utf-8")
             result = subprocess.run(
                 ["bash", str(ROOT / "scripts/install-opencode.sh")],
                 cwd=ROOT,
@@ -148,18 +150,33 @@ class RepositoryDistributionTests(unittest.TestCase):
                 text=True,
                 check=False,
             )
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("duplicate", result.stdout + result.stderr)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            installed = home / ".config/opencode/skills/analyze-repo-for-kubernetes/SKILL.md"
+            self.assertTrue(installed.is_file())
+            self.assertNotEqual(stale_skill.read_text(encoding="utf-8"), "stale test Skill")
+            self.assertEqual(stale_skill.read_bytes(), installed.read_bytes())
 
-            override = subprocess.run(
-                ["bash", str(ROOT / "scripts/install-opencode.sh"), "--allow-duplicates"],
-                cwd=ROOT,
+    def test_opencode_installer_does_not_replace_source_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            source = home / ".agents/skills/analyze-repo-for-kubernetes"
+            home.mkdir()
+            shutil.copytree(
+                ROOT,
+                source,
+                ignore=shutil.ignore_patterns(".git", ".artifacts", "dist", "__pycache__"),
+            )
+            result = subprocess.run(
+                ["bash", str(source / "scripts/install-opencode.sh")],
+                cwd=source,
                 env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
                 capture_output=True,
                 text=True,
                 check=False,
             )
-            self.assertEqual(override.returncode, 0, override.stdout + override.stderr)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue((source / "README.md").is_file())
+            self.assertTrue((home / ".config/opencode/skills/analyze-repo-for-kubernetes/SKILL.md").is_file())
 
     def test_markdown_commands_do_not_use_shell_line_continuations(self):
         for path in ROOT.rglob("*.md"):

@@ -39,11 +39,7 @@ bash scripts/install-opencode.sh
 ~/.config/opencode/skills/analyze-repo-for-kubernetes
 ```
 
-설치 스크립트는 allowlist 기반 distribution을 생성하고 패키지 구조를 검사한 뒤 파일을 복사합니다. 기존 중복 설치가 있으면 중단하며, 중복을 명시적으로 허용해야 하는 경우에만 다음 옵션을 사용합니다.
-
-```bash
-bash scripts/install-opencode.sh --allow-duplicates
-```
+설치 스크립트는 allowlist 기반 distribution을 생성하고 패키지 구조를 검사한 뒤 파일을 복사합니다. 동일한 Skill ID가 `~/.agents/skills` 또는 `~/.claude/skills` 같은 호환 경로에 이미 있어도 설치를 중단하지 않고 현재 배포본으로 함께 갱신합니다.
 
 특정 Project 내부에 설치할 수도 있습니다. 이 방식은 해당 Project에 `.opencode/skills`를 생성하므로, 분석 대상 Repository를 변경하지 않아야 하는 경우에는 전역 설치를 사용합니다.
 
@@ -61,11 +57,18 @@ cp runtime/agents/kubernetes-migration-analyzer.md ~/.config/opencode/agents/
 ```
 
 `runtime/opencode.json`에는 로컬 OpenAI-compatible endpoint, 모델 선택, Skill allowlist, read-only 권한, 제한된 Git 조회 규칙이 정의되어 있습니다. 환경에 맞게 endpoint와 model을 확인한 뒤 OpenCode에 적용합니다.
+또한 `/analyze-repo-for-kubernetes` custom command와 해당 command가 사용할 `kubernetes-migration-analyzer` agent가 명세되어 있습니다. 기존 OpenCode 설정을 유지하려면 `runtime/opencode.json`의 `command` 객체를 기존 `opencode.json` 또는 `opencode.jsonc`에 병합합니다.
 
 대화형 실행 예:
 
 ```bash
 OPENCODE_CONFIG="$PWD/runtime/opencode.json" opencode --pure --mini --agent kubernetes-migration-analyzer /path/to/analyzed-repository
+```
+
+위 설정을 사용하면 OpenCode에서 다음 custom command로 호출할 수 있습니다.
+
+```text
+/analyze-repo-for-kubernetes
 ```
 
 분석 요청:
