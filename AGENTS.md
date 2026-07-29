@@ -31,6 +31,22 @@ Read only the documents relevant to the current task.
 
 Do not load every file under `docs/development/` by default. Use the user request or referenced ticket to determine which specification, ADR, or plan is needed.
 
+## Code Review Graph
+
+When the `code-review-graph` MCP server is available, use its compact graph
+context before broad file searches:
+
+* Start with `get_minimal_context` and keep `detail_level` at `minimal`.
+* Use `semantic_search_nodes_tool` or `query_graph_tool` for codebase exploration.
+* Use `detect_changes_tool`, `get_review_context_tool`, and
+  `get_impact_radius_tool` for change review and impact analysis.
+* Read source files directly only for evidence the graph identifies or when
+  the graph is unavailable or stale.
+
+The graph is an evidence-navigation aid, not a source of truth. Verify
+material claims against repository files and preserve the read-only and
+uncertainty rules below.
+
 ## Language policy
 
 Write the following in English:

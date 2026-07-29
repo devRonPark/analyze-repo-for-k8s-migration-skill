@@ -9,3 +9,4 @@ kubernetes-migration-assessment*.md
 .DS_Store
 dist/
 .artifacts/
+.code-review-graph/
