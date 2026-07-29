@@ -110,6 +110,53 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertIn("assets/migration-summary-template.md", trace["supporting_reads"])
         self.assertTrue(trace["permission_denials"])
 
+    def test_event_normalization_uses_actual_tool_inputs_and_errors(self):
+        events = [
+            {"part": {"tool": "skill", "state": {"input": {"name": adapter.SKILL_ID}}}},
+            {"part": {"tool": "read", "state": {"input": {
+                "filePath": "/tmp/skills/assets/migration-summary-template.md",
+            }}}},
+            {"part": {"tool": "edit", "state": {
+                "status": "error", "error": "tool unavailable",
+                "input": {"filePath": "/tmp/README.md"},
+            }}},
+        ]
+        trace = adapter.normalize_trace(events, "", "", 0, ["opencode"], {"description": "desc"}, "PASS")
+        self.assertTrue(trace["skill"]["loaded"])
+        self.assertIn("SKILL.md", trace["supporting_reads"])
+        self.assertEqual(
+            trace["supporting_reads"],
+            ["SKILL.md", "assets/migration-summary-template.md"],
+        )
+        self.assertIn("edit", " ".join(item["event"] for item in trace["permission_denials"]))
+
+    def test_skill_name_in_agent_text_does_not_count_as_loaded(self):
+        trace = adapter.normalize_trace(
+            [{"type": "text", "text": f"Agent may use {adapter.SKILL_ID}."}],
+            "",
+            "",
+            0,
+            ["opencode"],
+            {"description": "desc"},
+            "PASS",
+        )
+        self.assertFalse(trace["skill"]["loaded"])
+
+    def test_extract_report_reads_complete_event_when_final_output_is_truncated(self):
+        report = {
+            "schema_version": "1.0",
+            "mode": "summary",
+            "components": [],
+            "dependencies": [],
+            "excluded_items": [],
+            "missing_inputs": [],
+            "evidence": [],
+            "design_input_verdict": "추가 정보 필요",
+        }
+        text = "```json\n" + json.dumps(report, ensure_ascii=False) + "\n```\n" + ("x" * 12000)
+        trace = {"final_output": text[-12000:], "events": [{"type": "text", "text": text}]}
+        self.assertEqual(adapter.extract_report(trace), report)
+
     def test_missing_opencode_is_unavailable(self):
         case = {"id": "missing", "query": "query", "repository_fixture": "tests/fixtures/repos/sample"}
         trace = adapter.run_case(

@@ -398,7 +398,16 @@ def collect_tool_calls(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if isinstance(value, dict):
             tool = value.get("tool") or value.get("name")
             if isinstance(tool, str) and tool in known:
-                calls.append({"tool": tool, "input": redact(value.get("input", value.get("args", {})))})
+                state = value.get("state") if isinstance(value.get("state"), dict) else {}
+                call_input = value.get("input", value.get("args"))
+                if call_input is None:
+                    call_input = state.get("input", {})
+                call = {"tool": tool, "input": redact(call_input)}
+                if state.get("status") is not None:
+                    call["status"] = state["status"]
+                if state.get("error") is not None:
+                    call["error"] = redact(state["error"])
+                calls.append(call)
             for child in value.values():
                 visit(child)
         elif isinstance(value, list):
@@ -429,14 +438,26 @@ def normalize_trace(
     command_agent: str | None = None,
 ) -> dict[str, Any]:
     calls = collect_tool_calls(events)
-    serialized = "\n".join(event_text(event) for event in events)
-    all_text = f"{serialized}\n{stdout}\n{stderr}"
     reads: list[str] = []
-    for path in re.findall(r"(?:SKILL\.md|references/[A-Za-z0-9._/-]+\.md|assets/[A-Za-z0-9._/-]+\.md)", all_text):
-        if path not in reads:
-            reads.append(path)
-    skill_loaded = SKILL_ID in all_text and ("skill" in all_text.lower() or "SKILL.md" in all_text)
+    for call in calls:
+        if call.get("tool") != "read":
+            continue
+        for path in re.findall(
+            r"(?:SKILL\.md|references/[A-Za-z0-9._/-]+\.md|assets/[A-Za-z0-9._/-]+\.md)",
+            " ".join(strings_in(call.get("input", {}))),
+        ):
+            if path not in reads:
+                reads.append(path)
+    skill_loaded = any(
+        call.get("tool") == "skill" and SKILL_ID in strings_in(call.get("input", {}))
+        for call in calls
+    )
+    if skill_loaded and "SKILL.md" not in reads:
+        reads.insert(0, "SKILL.md")
     denials: list[dict[str, str]] = []
+    for call in calls:
+        if call.get("status") == "error":
+            denials.append({"event": f"{call.get('tool')}: {call.get('error', 'tool error')}"})
     for event in events:
         text = event_text(event)
         lowered = text.lower()
@@ -473,9 +494,13 @@ def normalize_trace(
 
 
 def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
-    text = str(trace.get("final_output", ""))
-    candidates = [text]
-    candidates.extend(re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL))
+    candidates: list[str] = [str(trace.get("final_output", ""))]
+    for event in trace.get("events", []):
+        if isinstance(event, dict):
+            candidates.extend((event_content(event), event_text(event)))
+    candidates = [candidate for text in candidates for candidate in (text, *re.findall(
+        r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL
+    ))]
     for candidate in candidates:
         try:
             payload = json.loads(candidate)
