@@ -13,6 +13,11 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
+try:
+    from scripts.render_summary import render_summary
+except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
+    from render_summary import render_summary
+
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_ID = "analyze-repo-for-kubernetes"
 AGENT_ID = "kubernetes-migration-analyzer"
@@ -353,16 +358,25 @@ def main() -> int:
                 )
                 if trace["status"] in {"UNAVAILABLE", "SKIP"}:
                     unavailable_reason = trace.get("reason") or "OpenCode acceptance is unavailable"
+            report = trace.get("report")
+            if isinstance(report, dict):
+                safe_report = redact(report)
+                (case_dir / "report.json").write_text(
+                    json.dumps(safe_report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                if report.get("mode") == "summary":
+                    try:
+                        (case_dir / "report.md").write_text(render_summary(safe_report), encoding="utf-8")
+                        trace["rendered_report_file"] = "report.md"
+                    except ValueError as error:
+                        trace["renderer_error"] = str(error)
+                        trace["status"] = "FAIL"
+                        trace["reason"] = "Summary renderer rejected the JSON payload"
             (case_dir / "trace.json").write_text(
                 json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
-            report = trace.get("report")
-            if isinstance(report, dict):
-                (case_dir / "report.json").write_text(
-                    json.dumps(redact(report), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-                    encoding="utf-8",
-                )
             print(f"{case['id']}: {trace['status']}" + (f" ({trace['reason']})" if trace.get("reason") else ""))
     return 0
 
