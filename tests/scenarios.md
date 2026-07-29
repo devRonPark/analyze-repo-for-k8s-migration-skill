@@ -78,4 +78,11 @@ Expected behavior:
 
 ## Regression Fixture Procedure
 
-When a rule changes, add the anonymized fixed output's expected core fields to `tests/fixtures/regression/expected.json` and include two repeated results. The CI comparison permits no differences in deployment candidates, dependencies, excluded items, repository launch definitions, operating-environment baseline evidence or design-input verdict. Add a deliberately invalid output fixture when the change fixes an output-schema regression.
+When a rule changes, add a scenario with a query, repository fixture, report mode,
+expected core behavior, forbidden behavior, and an immutability snapshot to
+`tests/evaluation/cases.json`. Place externally generated actual reports under
+the scenario's directory in `tests/evaluation/golden-actual/`. The evaluator
+validates the report, checks candidates and directional dependencies, preserves
+the readiness verdict, compares stable core fields across repeated reports, and
+fails when the repository fixture changes. Add an invalid actual artifact when
+the change fixes an output-contract regression.

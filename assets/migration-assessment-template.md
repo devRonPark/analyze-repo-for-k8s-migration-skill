@@ -1,5 +1,7 @@
 # Kubernetes 설계 입력 상세 평가
 
+<!-- analyze-repo-for-kubernetes: report-contract=1.0 -->
+
 ## 1. 분석 범위
 
 - 대상 유형:

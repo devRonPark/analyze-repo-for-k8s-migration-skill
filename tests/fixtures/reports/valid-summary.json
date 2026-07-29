@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "mode": "summary",
+  "components": [
+    {
+      "name": "web",
+      "execution_form": "HTTP 서버",
+      "evidence": [
+        {"status": "확인됨", "reference": "Dockerfile:1"}
+      ]
+    }
+  ],
+  "dependencies": [],
+  "excluded_items": [],
+  "missing_inputs": [],
+  "evidence": [
+    {"status": "확인됨", "reference": "Dockerfile:1"}
+  ],
+  "design_input_verdict": "설계 입력 충분"
+}

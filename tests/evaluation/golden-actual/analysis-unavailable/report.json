@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "mode": "summary",
+  "components": [],
+  "dependencies": [],
+  "excluded_items": [],
+  "missing_inputs": [{"key": "target.access", "blocking": true, "evidence": [{"status": "미확인", "reference": "검색(scope=., pattern=repository, result=없음)"}]}],
+  "evidence": [{"status": "미확인", "reference": "검색(scope=., pattern=repository, result=없음)"}],
+  "design_input_verdict": "분석 불가"
+}

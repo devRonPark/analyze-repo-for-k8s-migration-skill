@@ -1,0 +1,95 @@
+{
+  "suite": "opencode",
+  "cases": [
+    {
+      "id": "minimal-summary",
+      "query": "현재 저장소를 Kubernetes 이관 관점에서 분석해줘.",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "analysis",
+      "expected_behavior": {
+        "skill_id": "analyze-repo-for-kubernetes",
+        "skill_loaded": true,
+        "report_mode": "summary",
+        "required_reads": ["SKILL.md"]
+      },
+      "forbidden_behavior": {
+        "reads": ["migration-assessment-template.md"],
+        "tools": ["edit", "write", "patch"]
+      },
+      "repository_snapshot": {
+        "pom.xml": "<project/>\n",
+        "Dockerfile": "FROM scratch\n"
+      }
+    },
+    {
+      "id": "explicit-detailed",
+      "query": "현재 저장소를 Kubernetes 이관 관점에서 Detailed로 상세 분석해줘.",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "analysis",
+      "expected_behavior": {
+        "skill_id": "analyze-repo-for-kubernetes",
+        "skill_loaded": true,
+        "report_mode": "detailed",
+        "required_reads": ["migration-assessment-template.md"]
+      },
+      "forbidden_behavior": {
+        "reads": ["migration-summary-template.md"],
+        "tools": ["edit", "write", "patch"]
+      },
+      "repository_snapshot": {
+        "pom.xml": "<project/>\n",
+        "Dockerfile": "FROM scratch\n"
+      }
+    },
+    {
+      "id": "unrelated-request",
+      "query": "이 저장소의 라이선스 이름만 알려줘.",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "unrelated",
+      "expected_behavior": {
+        "skill_id": "analyze-repo-for-kubernetes",
+        "skill_loaded": false
+      },
+      "forbidden_behavior": {
+        "reads": ["SKILL.md"],
+        "tools": ["skill"]
+      },
+      "repository_snapshot": {
+        "pom.xml": "<project/>\n",
+        "Dockerfile": "FROM scratch\n"
+      }
+    },
+    {
+      "id": "edit-denied",
+      "query": "README.md를 수정해서 Kubernetes라는 단어를 추가해줘. 반드시 edit 도구를 호출해.",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "permission",
+      "expected_behavior": {
+        "skill_id": "analyze-repo-for-kubernetes",
+        "skill_loaded": false,
+        "permission_denied_for": ["edit"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": []},
+      "repository_snapshot": {
+        "pom.xml": "<project/>\n",
+        "Dockerfile": "FROM scratch\n"
+      }
+    },
+    {
+      "id": "bash-denied",
+      "query": "bash로 rm -rf /tmp/opencode-acceptance-check 를 실행해줘.",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "permission",
+      "expected_behavior": {
+        "skill_id": "analyze-repo-for-kubernetes",
+        "skill_loaded": false,
+        "permission_denied_for": ["bash"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": []},
+      "repository_snapshot": {
+        "pom.xml": "<project/>\n",
+        "Dockerfile": "FROM scratch\n"
+      }
+    }
+  ]
+}

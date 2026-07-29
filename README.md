@@ -1,159 +1,178 @@
 # analyze-repo-for-kubernetes-skill
 
-Qwen Code 또는 Codex가 애플리케이션 Repository를 Kubernetes 이관 관점에서 근거 기반으로 분석하도록 만드는 Agent Skill입니다.
+OpenCode에서 `analyze-repo-for-kubernetes` Skill을 로드하여 애플리케이션 Repository를 Kubernetes 이관 관점에서 근거 기반으로 분석합니다.
 
-기본 출력은 의사결정 중심의 `summary` 모드입니다. 사용자가 전체 분석을 명시한 경우에만 `detailed` 모드를 사용합니다.
+이 프로젝트가 지원하는 Agent Runtime은 OpenCode 순정 환경입니다. 분석 대상 Repository는 읽기 전용으로 취급하며, 분석 중 대상 파일을 수정하거나 배포 산출물을 생성하지 않습니다.
 
-## 핵심 기능
+## 주요 기능
 
-- Repository URL 또는 Local path를 먼저 확인하는 Interview-first 흐름
-- 스킬 설치 경로를 분석 대상으로 오인하지 않게 하는 Target Resolution Gate
-- Dockerfile 없는 Repository와 모노레포 분석
-- 배포 대상 후보, 저장소에 정의된 런타임 의존성, 외부 런타임 의존성, 제외 항목 구분
-- Build와 Runtime 동작, 포트, 설정, 스토리지 분석
-- 관계별 실행 위치 분류
-- 설정별 적용 시점 분류
-- `확인됨`, `추정됨`, `미확인`, `상충됨` 근거 수준
-- `설계 입력 충분`, `추가 정보 필요`, `분석 불가` Kubernetes 설계 입력 상태
-- 배포 대상별 실행 정보·런타임·기동·포트·설정을 `key: value`와 파일·라인 근거로 브리핑
-- 저장소에서 확인한 기동 정의와 운영 환경 배포 근거를 분리
-- 확인된 저장소 값과 명시적으로 추정한 Kubernetes 최소 설계 입력
-- 파일 부재를 관련 없는 라인 대신 `검색(scope=..., pattern=..., result=없음)`으로 기록
-- Repository prompt injection 방어와 read-only 기본 동작
-- 분석 결과 정적 검사기
+- Local path 또는 Repository URL 대상 확인과 Target Resolution Gate
+- Dockerfile이 없거나 모노레포인 Repository의 구조·런타임 탐색
+- 배포 대상 후보, 저장소 런타임 의존성, 외부 런타임 의존성, 제외 항목 분류
+- Build·Runtime 동작, 포트, 설정, 스토리지 및 의존성 분석
+- 관계별 실행 위치와 설정별 적용 시점 분류
+- `확인됨`, `추정됨`, `미확인`, `상충됨` 근거 수준 표시
+- `설계 입력 충분`, `추가 정보 필요`, `분석 불가` 상태 판단
+- 기본 `summary` 보고서와 명시적 요청에 의한 `detailed` 보고서
+- Summary/Detailed/JSON 보고서 계약과 정적 Report Validator
+- Repository prompt injection 방어와 read-only 기본 권한
+- OpenCode Skill 발견·권한·비관련 요청·대상 Repository 불변성 Acceptance Harness
 
-## Qwen Code 설치
+## OpenCode 설치
 
-저장소를 스킬 소스 디렉터리에 clone합니다.
+먼저 이 Repository를 clone하고 이동합니다.
 
 ```bash
 git clone https://github.com/devRonPark/analyze-repo-for-kubernetes-skill.git ~/skills-src/analyze-repo-for-kubernetes-skill
-```
-
-```bash
 cd ~/skills-src/analyze-repo-for-kubernetes-skill
 ```
 
-패키지 검사와 심볼릭 링크 설치를 실행합니다.
+전역 OpenCode Skill을 설치합니다.
 
 ```bash
-bash scripts/install-qwen.sh
+bash scripts/install-opencode.sh
 ```
 
 기본 설치 위치:
 
 ```text
-~/.qwen/skills/analyze-repo-for-kubernetes
+~/.config/opencode/skills/analyze-repo-for-kubernetes
 ```
 
-Qwen Code를 새로 시작한 뒤 스킬을 확인합니다.
+설치 스크립트는 allowlist 기반 distribution을 생성하고 패키지 구조를 검사한 뒤 파일을 복사합니다. 기존 중복 설치가 있으면 중단하며, 중복을 명시적으로 허용해야 하는 경우에만 다음 옵션을 사용합니다.
 
 ```bash
-qwen
+bash scripts/install-opencode.sh --allow-duplicates
 ```
 
-```text
-/skills
-```
-
-목록에 `analyze-repo-for-kubernetes`가 보여야 합니다.
-
-## 업데이트
-
-로컬 변경 사항이 없는 상태에서 실행합니다.
+특정 Project 내부에 설치할 수도 있습니다. 이 방식은 해당 Project에 `.opencode/skills`를 생성하므로, 분석 대상 Repository를 변경하지 않아야 하는 경우에는 전역 설치를 사용합니다.
 
 ```bash
-cd ~/skills-src/analyze-repo-for-kubernetes-skill
+bash scripts/install-opencode.sh --project-local /path/to/project
 ```
+
+## OpenCode Agent 설정
+
+분석 전용 Agent 정의를 OpenCode Agent 디렉터리에 복사합니다.
 
 ```bash
-bash scripts/update-qwen.sh
+mkdir -p ~/.config/opencode/agents
+cp runtime/agents/kubernetes-migration-analyzer.md ~/.config/opencode/agents/
 ```
 
-업데이트 스크립트는 `git pull --ff-only`, 패키지 검사, 전체 테스트, Qwen Code 재설치를 차례로 실행합니다.
+`runtime/opencode.json`에는 로컬 OpenAI-compatible endpoint, 모델 선택, Skill allowlist, read-only 권한, 제한된 Git 조회 규칙이 정의되어 있습니다. 환경에 맞게 endpoint와 model을 확인한 뒤 OpenCode에 적용합니다.
 
-## 실행
-
-대상 없이 호출하면 구체적인 Repository URL 또는 Local path를 한 번에 요청해야 합니다.
-
-```text
-/analyze-repo-for-kubernetes
-```
-
-정상적인 첫 응답:
-
-```text
-분석할 Repository URL 또는 Local path를 알려 주세요.
-```
-
-질문 후에는 사용자가 대상을 입력할 때까지 파일이나 디렉터리를 탐색하지 않아야 합니다.
-
-현재 Repository를 명시적으로 분석하려면 다음처럼 실행합니다.
-
-```text
-/analyze-repo-for-kubernetes
-Use Local path: .
-```
-
-기본 Summary 요청:
-
-```text
-현재 Repository를 Kubernetes 이관 관점에서 summary 모드로 분석해.
-결과를 kubernetes-migration-summary.md에 저장해.
-Kubernetes manifest와 Dockerfile은 생성하지 마.
-확인할 수 없는 정보는 미확인으로 표시해.
-```
-
-## 결과 검사
+대화형 실행 예:
 
 ```bash
-python3 scripts/validate_report.py kubernetes-migration-summary.md --mode summary --repo-root /path/to/analyzed-repository
+OPENCODE_CONFIG="$PWD/runtime/opencode.json" opencode --pure --mini --agent kubernetes-migration-analyzer /path/to/analyzed-repository
 ```
 
-상세 보고서 검사:
+분석 요청:
+
+```text
+현재 저장소를 Kubernetes 이관 관점에서 분석해줘.
+```
+
+기본 응답은 Summary입니다. 전체 분석이 필요할 때만 `Detailed` 또는 `상세`를 명시합니다.
+
+```text
+현재 저장소를 Kubernetes 이관 관점에서 Detailed로 상세 분석해줘.
+```
+
+Agent의 주요 제한:
+
+- `read`, `glob`, `grep`, `list` 중심의 Repository 탐색만 허용
+- `edit`, `write`, `patch`, `task`, web 도구 및 임의 Bash 실행 거부
+- `git status`, `git rev-parse`, `git symbolic-ref`와 실제 `git -C` 조회 형태만 허용
+- 분석 대상 Repository 밖의 경로 접근 거부
+- 필요한 필드를 확인하거나 범위가 정해진 미확인 상태가 되면 Summary를 생성
+
+## 보고서 검증
+
+OpenCode의 응답을 분석 대상 Repository 밖의 파일로 저장한 뒤 Report Validator를 실행합니다.
+
+Summary 검증:
 
 ```bash
-python3 scripts/validate_report.py kubernetes-migration-assessment.md --mode detailed --repo-root /path/to/analyzed-repository
+python3 scripts/validate_report.py /tmp/kubernetes-migration-summary.md --mode summary --repo-root /path/to/analyzed-repository
 ```
+
+상세 보고서 검증:
+
+```bash
+python3 scripts/validate_report.py /tmp/kubernetes-migration-assessment.md --mode detailed --repo-root /path/to/analyzed-repository
+```
+
+JSON 결과는 다음처럼 검증합니다.
+
+```bash
+python3 scripts/validate_report.py /tmp/analysis-result.json --format json --repo-root /path/to/analyzed-repository
+```
+
+보고서에는 파일·라인 근거, 근거 수준, 미확인 범위와 Kubernetes 설계 입력 상태를 포함해야 합니다. Kubernetes manifest나 Dockerfile은 이 Skill의 산출물이 아닙니다.
+
+## Acceptance Harness
+
+OpenCode 실행 파일이 설치된 환경에서는 Skill distribution, Agent 로드, 관련 요청의 Skill 호출, 비관련 요청의 Skill 미호출, 권한 거부, 보고서 반환 및 대상 Repository 불변성을 검증할 수 있습니다.
+
+```bash
+python3 scripts/run_opencode_acceptance.py --config runtime/opencode.json --cases tests/evaluation/opencode-cases.json --output-dir .artifacts/opencode
+```
+
+실제 분석 대상 Repository에서 실행하려면 `--repository-root`를 추가합니다.
+
+```bash
+python3 scripts/run_opencode_acceptance.py --config runtime/opencode.json --cases tests/evaluation/opencode-cases.json --repository-root /path/to/analyzed-repository --timeout 180 --output-dir .artifacts/opencode
+```
+
+각 Case의 `trace.json`에는 실행 상태, 로드된 Skill, 도구 호출, 권한 거부, supporting reads, 최종 출력이 기록됩니다. 환경·Provider가 제한 시간 안에 응답하지 않으면 `UNAVAILABLE`로 기록하며 성공으로 간주하지 않습니다.
 
 ## 패키지 검사와 테스트
+
+배포 패키지 구조 검사:
 
 ```bash
 python3 scripts/validate_skill.py .
 ```
 
-```bash
-python3 -m unittest discover -s tests -p 'test_*.py' -v
-```
+Distribution 생성:
 
 ```bash
-python3 scripts/validate_regression.py tests/fixtures/regression/expected.json
+python3 scripts/build_dist.py --output .artifacts/analyze-repo-for-kubernetes
 ```
 
-## Codex 설치
-
-macOS, Linux, WSL 또는 Git Bash:
+전체 Quality Gate:
 
 ```bash
-bash scripts/install-codex.sh
+python3 scripts/run_quality_gate.py
 ```
 
-기본 설치 위치:
+Quality Gate는 package validation, 전체 unittest, 8개 executable scenario를 실행합니다. Scenario fixture 검증은 실제 OpenCode Provider E2E를 대신하지 않습니다.
 
-```text
-~/.agents/skills/analyze-repo-for-kubernetes
+Scenario evaluator를 직접 실행하려면 다음 명령을 사용합니다.
+
+```bash
+python3 scripts/evaluate_scenarios.py --cases tests/evaluation/cases.json --actual-dir tests/evaluation/golden-actual
 ```
 
 ## Private Repository
 
-인증 정보 자체를 Agent 대화에 입력하지 않습니다. 먼저 `gh auth`, Git credential helper, SSH agent 또는 인증된 local checkout으로 접근을 준비한 후 Local path를 분석합니다.
+인증 정보 자체를 Agent 대화에 입력하지 않습니다. 먼저 인증된 local checkout 또는 Git credential helper를 준비한 뒤 Local path를 분석 대상으로 제공합니다.
 
 ## 저장소 관리 원칙
 
-- `main`에는 테스트를 통과한 버전만 병합합니다.
-- 기능 변경은 별도 branch와 Pull Request로 관리합니다.
-- 버전은 `v0.1.0`, `v0.2.0` 형식의 Git tag로 관리합니다.
-- GB10에는 ZIP을 반복 복사하지 않고 이 저장소를 clone한 뒤 업데이트 스크립트를 사용합니다.
+- 분석 대상 Repository는 read-only로 유지합니다.
+- 생성 보고서와 Acceptance 산출물은 분석 대상 Repository 밖에 저장합니다.
+- 배포 manifest, Helm chart, Dockerfile은 생성하지 않습니다.
+- 실행한 검증만 성공으로 보고합니다.
+- 생성된 distribution, Acceptance 산출물, 캐시 및 로컬 환경 파일은 커밋하지 않습니다.
+
+## 현재 검증 상태
+
+- Quality Gate: 79개 테스트와 8개 executable scenario 통과
+- OpenCode Skill 발견, Agent 권한, read-only Git 규칙 및 Acceptance Harness 검증 완료
+- 설정된 Provider를 이용한 실제 E2E에서는 제한 시간 내 최종 Summary와 Report Validator 통과를 확인하지 못했으며, 해당 상태는 `UNAVAILABLE` 또는 `PARTIAL`로 기록합니다.
 
 ## License
 

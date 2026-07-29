@@ -1,0 +1,12 @@
+SKILL.md
+references/configuration-timing.md
+references/dependency-analysis.md
+references/evidence-and-readiness.md
+references/language-discovery-rules.md
+references/repository-analysis-checklist.md
+references/workflow.md
+assets/migration-assessment-template.md
+assets/migration-summary-template.md
+scripts/validate_report.py
+scripts/report_contract.py
+schemas/analysis-result.schema.json

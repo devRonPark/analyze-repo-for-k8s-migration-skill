@@ -7,3 +7,5 @@ venv/
 kubernetes-migration-summary*.md
 kubernetes-migration-assessment*.md
 .DS_Store
+dist/
+.artifacts/
