@@ -112,10 +112,20 @@ class OpenCodeAdapterTests(unittest.TestCase):
             self.assertIn(reference, agent)
         self.assertIn("Do not inspect lockfiles by default", agent)
 
+    def test_detailed_output_has_compact_decision_summary_rules(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
+        self.assertIn("### 핵심 요약", agent)
+        self.assertIn("Do not expose planning", agent)
+        self.assertIn("### 핵심 요약", template)
+        self.assertIn("기본값이나 예시를 채우지 않는다", template)
+
     def test_acceptance_cases_enforce_mode_specific_reads(self):
         cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]
         summary = next(case for case in cases if case["id"] == "minimal-summary")
         detailed = next(case for case in cases if case["id"] == "explicit-detailed")
+        self.assertIn("workflow.md", summary["expected_behavior"]["required_reads"])
+        self.assertIn("migration-summary-template.md", summary["expected_behavior"]["required_reads"])
         self.assertIn("repository-analysis-checklist.md", summary["forbidden_behavior"]["reads"])
         self.assertIn("migration-assessment-template.md", detailed["expected_behavior"]["required_reads"])
         self.assertIn("repository-analysis-checklist.md", detailed["expected_behavior"]["required_reads"])

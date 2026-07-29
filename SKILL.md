@@ -27,7 +27,7 @@ repository discovery.
 
 If the user says `현재 저장소` or `현재 workspace`, resolve the current Git
 repository root. Otherwise require a concrete Repository URL or Local path.
-When the target is missing, ask exactly this one question and stop the turn:
+When the target is missing, ask exactly this one question. Stop the turn after asking:
 
 ```text
 분석할 Repository URL 또는 Local path를 알려 주세요.
@@ -107,11 +107,18 @@ dependencies, keyed Kubernetes minimum-input gaps, and exactly one verdict.
 Do not require a dependency matrix, text dependency graph, full exclusion list,
 configuration timing detail, termination/recovery detail, or observability
 detail in Summary. Use only evidence-supported `image`, start command, and port;
-do not invent Ingress, resources, security settings, or image names.
+do not invent Ingress, resources, security settings, or image names. Use the
+Summary template headings verbatim; return no recommendations, remediation
+plans, or example image/runtime values.
 
 Detailed reports preserve the full component card, configuration timing,
 dependency matrix, text dependency graph, complete exclusions, operating-
 environment evidence, and readiness blocker detail.
+
+Start Detailed with the template's compact `핵심 요약`; later sections add
+distinct evidence instead of repeating its decision prose. Kubernetes
+design-input fields remain evidence-bound: do not fill defaults or examples for
+`workload.kind`, `metadata.name`, `Service`, `Ingress`, image, command, or args.
 
 ## Evidence and readiness contract
 

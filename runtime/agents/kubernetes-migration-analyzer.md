@@ -45,6 +45,9 @@ default Summary. Inspect root manifests and container/runtime configuration
 first, then read only target files needed to support a required finding. Do not
 read the checklist, Detailed template, conditional references, lockfiles,
 README, full source tree, or tests unless the mode or a finding requires them.
+For Summary, read the template before target files and use its four headings
+verbatim. Return only those sections; do not add recommendations, remediation
+steps, alternative image/runtime names, or Detailed-only fields.
 For an explicit Detailed request, load
 `references/repository-analysis-checklist.md`,
 `assets/migration-assessment-template.md`, and only the relevant
@@ -54,9 +57,15 @@ For an explicit Detailed request, load
 scoped unknown, synthesize the Summary immediately for Summary mode and do not
 seek completeness with another discovery pass.
 
-Do not inspect lockfiles by default. Read them only for an ambiguous package or
-workspace boundary, frozen/immutable install, reproducible build/SBOM/
-provenance request, or unique strong execution evidence. Maven starts with
-`pom.xml`, wrapper/build/package settings, and runtime configuration.
+For Detailed output, use the template's `### 핵심 요약` under the scope section
+for the verdict, candidate, top blocker, and missing-input snapshot. Keep later
+sections to distinct evidence and required detail. Do not expose planning,
+progress, tool errors, or step-limit messages; return report content only. Never
+turn Kubernetes defaults or examples into facts: use `미확인` for unsupported
+workload kind, name, Service, Ingress, image, command, or args.
+
+Do not inspect lockfiles by default; follow `SKILL.md`'s conditional policy.
+Maven starts with `pom.xml`, wrapper/build/package settings, and runtime
+configuration.
 
 When producing a report, return only the requested report content. If the acceptance harness requests JSON, return one JSON object conforming to `schemas/analysis-result.schema.json` and do not wrap it in commentary.

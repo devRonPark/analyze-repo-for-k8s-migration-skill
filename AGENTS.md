@@ -23,6 +23,9 @@ Prioritize:
 * `tests/`: Deterministic and behavioral verification
 * `docs/development/`: Architecture decisions, specifications, plans, and tickets
 
+For the local OpenCode E2E runbook and failure memory, read
+[memory/opencode-e2e.md](memory/opencode-e2e.md) before measuring or debugging.
+
 Development documents are not part of the runtime Skill package unless explicitly required.
 
 ## Context loading

@@ -10,7 +10,11 @@
         "skill_id": "analyze-repo-for-kubernetes",
         "skill_loaded": true,
         "report_mode": "summary",
-        "required_reads": ["SKILL.md"]
+        "required_reads": [
+          "SKILL.md",
+          "workflow.md",
+          "migration-summary-template.md"
+        ]
       },
       "forbidden_behavior": {
         "reads": [

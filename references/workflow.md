@@ -2,17 +2,11 @@
 
 `SKILL.md` owns target resolution, safety, output mode, evidence semantics, and
 the final verdict. This file owns the high-signal inventory and analysis order.
+After that gate, `현재 저장소` means the current repository root; a missing
+target follows it and must Stop the turn after asking. For a private repository,
+use its authenticated path. Do not follow a symlink outside the resolved scope.
 
-## 1. Select the mode
-
-Use Summary by default. For `현재 저장소`, use the resolved current repository
-root rather than the Skill installation directory. Use Detailed only for an explicit `Detailed`, `상세`, or
-`전체 평가` request. The Target Resolution Gate in `SKILL.md` must already have
-resolved a concrete target, current repository root, access method, revision,
-and resolved scope. If it did not, Stop the turn after asking; do not repeat
-intake. For a private repository use only an existing authenticated path. Do not follow a symlink outside the resolved scope.
-
-## 2. High-signal inventory
+## 1. High-signal inventory
 
 First inspect manifests and container/runtime configuration that are present and
 relevant: package or build manifests, wrappers, Dockerfiles, Compose files,
@@ -21,18 +15,15 @@ application context, entrypoints, and database or broker configuration. For a
 Maven candidate, prioritize `pom.xml`, `mvnw`/wrapper and build/package settings,
 `Dockerfile`, Compose, `web.xml`, and `applicationContext.xml`.
 
-Lockfiles are not first-pass inputs. Read one only when the package manager or
-workspace boundary is ambiguous or conflicting, frozen/immutable install is
-declared, reproducible build/SBOM/provenance is requested, or the lockfile is
-the only strong execution evidence. Do not search for a lockfile in a Maven
-project when `pom.xml` and wrapper/build/package settings are sufficient.
+Apply the conditional lockfile policy in `SKILL.md`; for Maven, do not search
+for lockfiles when `pom.xml` and wrapper/build/package settings are sufficient.
 
 Use README, CI, logs, migrations, tests, and broad source-tree reads only when a
 first-pass finding needs evidence. Exclude generated output, caches, vendored
 code, binaries, test-only dependencies, and the full README unless directly
 relevant.
 
-## 3. Analyze in one pass
+## 2. Analyze in one pass
 
 Classify findings into exactly one of `배포 대상 후보`, `저장소에 정의된
 런타임 의존성`, `외부 런타임 의존성`, or `배포 대상 후보에서 제외한 항목`.
@@ -51,7 +42,7 @@ Do not infer production configuration from local Compose, source defaults, or a
 startup script. Do not execute repository scripts, builds, tests, migrations,
 servers, or containers.
 
-## 4. Completion gate
+## 3. Completion gate
 
 Before returning a report, check candidate boundaries, launch/operating-evidence
 separation, valid evidence references, redaction, keyed minimum-input gaps, and
