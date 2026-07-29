@@ -1,0 +1,127 @@
+{
+  "cases": [
+    {
+      "id": "confirmed-summary",
+      "query": "현재 저장소를 Kubernetes 이관 관점에서 분석해줘.",
+      "repository_fixture": "tests/evaluation/repos/confirmed",
+      "report_mode": "summary",
+      "report_format": "json",
+      "report_file": "report.json",
+      "repeat_report": "repeat.json",
+      "expected_behavior": {
+        "candidate_names": ["web"],
+        "dependency_edges": [],
+        "evidence_statuses": ["확인됨"],
+        "readiness_verdict": "설계 입력 충분",
+        "stable_core_fields": ["candidate_names", "dependency_edges", "readiness_verdict"]
+      },
+      "forbidden_behavior": {"text": ["준비됨", "진행 불가"]},
+      "repository_snapshot": {"README.md": "fixture: confirmed web\n"}
+    },
+    {
+      "id": "inferred-summary",
+      "query": "현재 저장소를 Kubernetes 이관 관점에서 분석해줘.",
+      "repository_fixture": "tests/evaluation/repos/inferred",
+      "report_mode": "summary",
+      "report_format": "json",
+      "expected_behavior": {
+        "candidate_names": ["web"],
+        "dependency_edges": [],
+        "evidence_statuses": ["추정됨"],
+        "readiness_verdict": "설계 입력 충분"
+      },
+      "forbidden_behavior": {"text": ["준비됨", "진행 불가"]},
+      "repository_snapshot": {"README.md": "fixture: inferred web\n"}
+    },
+    {
+      "id": "unknown-summary",
+      "query": "현재 저장소를 Kubernetes 이관 관점에서 분석해줘.",
+      "repository_fixture": "tests/evaluation/repos/unknown",
+      "report_mode": "summary",
+      "report_format": "json",
+      "expected_behavior": {
+        "candidate_names": ["web"],
+        "dependency_edges": [],
+        "evidence_statuses": ["미확인"],
+        "readiness_verdict": "설계 입력 충분"
+      },
+      "forbidden_behavior": {"text": ["준비됨", "진행 불가"]},
+      "repository_snapshot": {"README.md": "fixture: unknown web\n"}
+    },
+    {
+      "id": "conflict-summary",
+      "query": "현재 저장소를 Kubernetes 이관 관점에서 분석해줘.",
+      "repository_fixture": "tests/evaluation/repos/conflict",
+      "report_mode": "summary",
+      "report_format": "json",
+      "expected_behavior": {
+        "candidate_names": ["web"],
+        "dependency_edges": [],
+        "evidence_statuses": ["상충됨"],
+        "readiness_verdict": "추가 정보 필요"
+      },
+      "forbidden_behavior": {"text": ["준비됨", "진행 불가"]},
+      "repository_snapshot": {"README.md": "fixture: conflict web\n"}
+    },
+    {
+      "id": "additional-summary",
+      "query": "현재 저장소를 Kubernetes 이관 관점에서 분석해줘.",
+      "repository_fixture": "tests/evaluation/repos/additional",
+      "report_mode": "summary",
+      "report_format": "json",
+      "expected_behavior": {
+        "candidate_names": ["web"],
+        "dependency_edges": ["web->postgres"],
+        "evidence_statuses": ["확인됨", "미확인"],
+        "readiness_verdict": "추가 정보 필요"
+      },
+      "forbidden_behavior": {"text": ["준비됨", "진행 불가"]},
+      "repository_snapshot": {"README.md": "fixture: additional input web postgres\n"}
+    },
+    {
+      "id": "detailed-dependency",
+      "query": "현재 저장소를 Kubernetes 이관 관점에서 상세 분석해줘.",
+      "repository_fixture": "tests/evaluation/repos/detailed",
+      "report_mode": "detailed",
+      "report_format": "json",
+      "expected_behavior": {
+        "candidate_names": ["web"],
+        "dependency_edges": ["web->postgres"],
+        "evidence_statuses": ["확인됨", "추정됨"],
+        "readiness_verdict": "설계 입력 충분"
+      },
+      "forbidden_behavior": {"text": ["준비됨", "진행 불가"]},
+      "repository_snapshot": {"README.md": "fixture: detailed web postgres\n"}
+    },
+    {
+      "id": "analysis-unavailable",
+      "query": "접근할 수 없는 저장소를 Kubernetes 이관 관점에서 분석해줘.",
+      "repository_fixture": "tests/evaluation/repos/unavailable",
+      "report_mode": "summary",
+      "report_format": "json",
+      "expected_behavior": {
+        "candidate_names": [],
+        "dependency_edges": [],
+        "evidence_statuses": ["미확인"],
+        "readiness_verdict": "분석 불가"
+      },
+      "forbidden_behavior": {"text": ["준비됨", "진행 불가"]},
+      "repository_snapshot": {"README.md": "fixture: unavailable target\n"}
+    },
+    {
+      "id": "external-dependency",
+      "query": "현재 저장소의 Kubernetes 외부 의존성을 분석해줘.",
+      "repository_fixture": "tests/evaluation/repos/external",
+      "report_mode": "summary",
+      "report_format": "json",
+      "expected_behavior": {
+        "candidate_names": ["web"],
+        "dependency_edges": ["web->stripe"],
+        "evidence_statuses": ["확인됨"],
+        "readiness_verdict": "설계 입력 충분"
+      },
+      "forbidden_behavior": {"text": ["준비됨", "진행 불가"]},
+      "repository_snapshot": {"README.md": "fixture: external stripe\n"}
+    }
+  ]
+}

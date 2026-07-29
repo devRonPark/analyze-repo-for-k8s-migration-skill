@@ -98,6 +98,8 @@ VALID_SUMMARY = """# Kubernetes 이관 요약
 
 NEW_VALID_SUMMARY = """# Kubernetes 설계 입력 요약
 
+<!-- analyze-repo-for-kubernetes: report-contract=1.0 -->
+
 ## 1. 분석 범위
 - 대상 유형: Local path
 - Repository URL 또는 Local path: /tmp/web
@@ -186,11 +188,14 @@ class SkillPackageTests(unittest.TestCase):
         report_text: str,
         mode: str = "summary",
         repo_root: Path | None = None,
+        legacy: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "summary.md"
             report.write_text(report_text, encoding="utf-8")
             command = ["python3", str(ROOT / "scripts/validate_report.py"), str(report), "--mode", mode]
+            if legacy:
+                command.append("--legacy")
             if repo_root is not None:
                 command.extend(["--repo-root", str(repo_root)])
             return subprocess.run(
@@ -211,17 +216,17 @@ class SkillPackageTests(unittest.TestCase):
 
     def test_target_resolution_gate_contract(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        intake = (ROOT / "references/interview-first-intake.md").read_text(encoding="utf-8")
+        intake = (ROOT / "references/workflow.md").read_text(encoding="utf-8")
         combined = skill + "\n" + intake
         for term in [
             "Target Resolution Gate",
-            "skill installation directory",
-            "repository discovery tool call",
+            "Skill installation directory",
+            "repository discovery",
             "Stop the turn after asking",
             "Repository URL",
             "Local path",
             "directory listing",
-            "tests/",
+            "tests",
         ]:
             self.assertIn(term, combined)
 
@@ -309,13 +314,13 @@ class SkillPackageTests(unittest.TestCase):
             ]
         )
         for term in [
-            "1차 inventory", "기능 실행에 필요", "공급 또는 관리 경계",
+            "First inspect manifests", "기능 실행에 필요", "공급 또는 관리 경계",
             "설계 차단 항목", "영향 범위", "Kubernetes 설계 입력 상태",
         ]:
             self.assertIn(term, text)
 
     def test_report_validator_accepts_component_briefing(self):
-        result = self.run_report_validator(VALID_SUMMARY)
+        result = self.run_report_validator(VALID_SUMMARY, legacy=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_report_validator_accepts_fact_based_summary(self):
@@ -333,6 +338,15 @@ class SkillPackageTests(unittest.TestCase):
             "# Kubernetes 설계 입력 요약",
             "# Kubernetes 설계 입력 상세 평가",
         ).replace(
+            "## 4. 구성과 관계",
+            "## 4. 구성과 관계\n\n"
+            "### Dependency matrix\n\n"
+            "| Source | Target | 근거 |\n"
+            "|---|---|---|\n"
+            "| web | 사용자 | Dockerfile:1 |\n\n"
+            "### Text dependency graph\n\n"
+            "```text\nweb --[HTTP]--> 사용자\n```\n",
+        ).replace(
             "## 6. Kubernetes 설계 입력 상태",
             "## 6. 설정과 상태 상세\n"
             "- 설정 상세: APP_MODE는 시작 시 적용 — 상태: 확인됨 / 근거: pom.xml:1\n\n"
@@ -345,7 +359,7 @@ class SkillPackageTests(unittest.TestCase):
 
     def test_report_validator_rejects_missing_component_property(self):
         report = VALID_SUMMARY.replace("- 운영 기동 명령: java -jar app.jar — 상태: 확인됨 / 근거: Dockerfile:1\n", "")
-        result = self.run_report_validator(report)
+        result = self.run_report_validator(report, legacy=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("운영 기동 명령", result.stdout)
 
@@ -354,7 +368,7 @@ class SkillPackageTests(unittest.TestCase):
             "- 기본 배포 구성: web — 상태: 확인됨 / 근거: Dockerfile:1\n",
             "",
         )
-        result = self.run_report_validator(report)
+        result = self.run_report_validator(report, legacy=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("기본 배포 구성", result.stdout)
 
@@ -365,17 +379,17 @@ class SkillPackageTests(unittest.TestCase):
             (repo_root / "pom.xml").write_text("<project/>\n", encoding="utf-8")
             (repo_root / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
 
-            result = self.run_report_validator(VALID_SUMMARY, repo_root=repo_root)
+            result = self.run_report_validator(VALID_SUMMARY, repo_root=repo_root, legacy=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
             missing = self.run_report_validator(
-                VALID_SUMMARY.replace("pom.xml:1", "missing.xml:1"), repo_root=repo_root
+                VALID_SUMMARY.replace("pom.xml:1", "missing.xml:1"), repo_root=repo_root, legacy=True
             )
             self.assertNotEqual(missing.returncode, 0)
             self.assertIn("인용 파일", missing.stdout)
 
             out_of_range = self.run_report_validator(
-                VALID_SUMMARY.replace("Dockerfile:1", "Dockerfile:2"), repo_root=repo_root
+                VALID_SUMMARY.replace("Dockerfile:1", "Dockerfile:2"), repo_root=repo_root, legacy=True
             )
             self.assertNotEqual(out_of_range.returncode, 0)
             self.assertIn("줄 범위", out_of_range.stdout)
@@ -390,12 +404,12 @@ class SkillPackageTests(unittest.TestCase):
             repo_root.mkdir()
             (repo_root / "pom.xml").write_text("<project/>\n", encoding="utf-8")
             (repo_root / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
-            result = self.run_report_validator(report, repo_root=repo_root)
+            result = self.run_report_validator(report, repo_root=repo_root, legacy=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_report_validator_rejects_missing_minimum_value_and_gap(self):
         report = VALID_SUMMARY.replace("- image: registry.example/web:1.0 — 상태: 확인됨 / 근거: Dockerfile:1\n", "")
-        result = self.run_report_validator(report)
+        result = self.run_report_validator(report, legacy=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("image", result.stdout)
 
@@ -404,7 +418,7 @@ class SkillPackageTests(unittest.TestCase):
             "- 없음: 확인된 최소 초안 작성에 추가 입력 없음 — 상태: 확인됨 / 근거: Dockerfile:1",
             "- 없음 — 상태: 확인됨 / 근거: Dockerfile:1",
         )
-        result = self.run_report_validator(report)
+        result = self.run_report_validator(report, legacy=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("key: value", result.stdout)
 
@@ -413,12 +427,12 @@ class SkillPackageTests(unittest.TestCase):
             "- 운영 기동 명령: java -jar app.jar — 상태: 확인됨 / 근거: Dockerfile:1",
             "- 운영 기동 명령: java -jar app.jar — 상태: 확인됨 / 근거: Dockerfile",
         )
-        result = self.run_report_validator(report)
+        result = self.run_report_validator(report, legacy=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("file:line 또는 검색(...)", result.stdout)
 
     def test_report_validator_accepts_absence_search_evidence(self):
-        result = self.run_report_validator(VALID_SUMMARY)
+        result = self.run_report_validator(VALID_SUMMARY, legacy=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_report_validator_accepts_markdown_wrapped_file_line_evidence(self):
@@ -426,7 +440,7 @@ class SkillPackageTests(unittest.TestCase):
             "근거: Dockerfile:1",
             "근거: `Dockerfile:1`",
         )
-        result = self.run_report_validator(report)
+        result = self.run_report_validator(report, legacy=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_report_validator_accepts_dynamic_route_file_reference(self):
@@ -436,7 +450,7 @@ class SkillPackageTests(unittest.TestCase):
             (repo_root / "pages").mkdir(parents=True)
             (repo_root / "pages/[id].tsx").write_text("export default null\n", encoding="utf-8")
             (repo_root / "pom.xml").write_text("<project/>\n", encoding="utf-8")
-            result = self.run_report_validator(report, repo_root=repo_root)
+            result = self.run_report_validator(report, repo_root=repo_root, legacy=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_report_validator_rejects_unstructured_absence_claim(self):
@@ -444,7 +458,7 @@ class SkillPackageTests(unittest.TestCase):
             "검색(scope=., pattern=Ingress|외부 route, result=없음)",
             "저장소에서 찾지 못함",
         )
-        result = self.run_report_validator(report)
+        result = self.run_report_validator(report, legacy=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("file:line 또는 검색(...)", result.stdout)
 
@@ -462,7 +476,7 @@ class SkillPackageTests(unittest.TestCase):
             "- 누락: 없음 — 상태: 확인됨 / 근거: pom.xml:1\n\n"
             "## 7. 최종 판정",
         )
-        result = self.run_report_validator(report, mode="detailed")
+        result = self.run_report_validator(report, mode="detailed", legacy=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Dependency matrix", result.stdout)
         self.assertIn("Text dependency graph", result.stdout)
@@ -490,19 +504,25 @@ class SkillPackageTests(unittest.TestCase):
             "- 누락: 없음 — 상태: 확인됨 / 근거: pom.xml:1\n\n"
             "## 7. 최종 판정",
         )
-        result = self.run_report_validator(report, mode="detailed")
+        result = self.run_report_validator(report, mode="detailed", legacy=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_report_validator_rejects_next_action_section(self):
         report = VALID_SUMMARY + "\n## 다음 작업\n- 작업: 배포\n"
-        result = self.run_report_validator(report)
+        result = self.run_report_validator(report, legacy=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("작업 계획", result.stdout)
 
-    def test_fixed_output_regression_fixture_is_deterministic(self):
-        fixture = ROOT / "tests/fixtures/regression/expected.json"
+    def test_executable_scenario_evaluator_passes(self):
         result = subprocess.run(
-            ["python3", str(ROOT / "scripts/validate_regression.py"), str(fixture)],
+            [
+                "python3",
+                str(ROOT / "scripts/evaluate_scenarios.py"),
+                "--cases",
+                str(ROOT / "tests/evaluation/cases.json"),
+                "--actual-dir",
+                str(ROOT / "tests/evaluation/golden-actual"),
+            ],
             capture_output=True,
             text=True,
             check=False,

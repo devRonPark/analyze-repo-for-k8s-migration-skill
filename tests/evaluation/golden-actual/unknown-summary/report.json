@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "mode": "summary",
+  "components": [{"name": "web", "evidence": [{"status": "미확인", "reference": "검색(scope=., pattern=runtime, result=없음)"}]}],
+  "dependencies": [],
+  "excluded_items": [],
+  "missing_inputs": [],
+  "evidence": [{"status": "미확인", "reference": "검색(scope=., pattern=runtime, result=없음)"}],
+  "design_input_verdict": "설계 입력 충분"
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "mode": "summary",
+  "components": [{"name": "web", "evidence": [{"status": "확인됨", "reference": "README.md:1"}]}],
+  "dependencies": [{"source": "web", "target": "postgres", "evidence": [{"status": "확인됨", "reference": "README.md:1"}]}],
+  "excluded_items": [],
+  "missing_inputs": [{"key": "postgres.endpoint", "blocking": true, "evidence": [{"status": "미확인", "reference": "검색(scope=., pattern=endpoint, result=없음)"}]}],
+  "evidence": [{"status": "확인됨", "reference": "README.md:1"}, {"status": "미확인", "reference": "검색(scope=., pattern=endpoint, result=없음)"}],
+  "design_input_verdict": "추가 정보 필요"
+}

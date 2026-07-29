@@ -127,7 +127,7 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 ```bash
-python3 scripts/validate_regression.py tests/fixtures/regression/expected.json
+python3 scripts/evaluate_scenarios.py --cases tests/evaluation/cases.json --actual-dir tests/evaluation/golden-actual
 ```
 
 ## Codex 설치
