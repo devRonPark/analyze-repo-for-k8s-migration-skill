@@ -10,10 +10,21 @@
         "skill_id": "analyze-repo-for-kubernetes",
         "skill_loaded": true,
         "report_mode": "summary",
-        "required_reads": ["SKILL.md"]
+        "required_reads": [
+          "SKILL.md",
+          "workflow.md",
+          "migration-summary-template.md"
+        ]
       },
       "forbidden_behavior": {
-        "reads": ["migration-assessment-template.md"],
+        "reads": [
+          "migration-assessment-template.md",
+          "repository-analysis-checklist.md",
+          "configuration-timing.md",
+          "dependency-analysis.md",
+          "language-discovery-rules.md",
+          "evidence-and-readiness.md"
+        ],
         "tools": ["edit", "write", "patch"]
       },
       "repository_snapshot": {
@@ -30,7 +41,10 @@
         "skill_id": "analyze-repo-for-kubernetes",
         "skill_loaded": true,
         "report_mode": "detailed",
-        "required_reads": ["migration-assessment-template.md"]
+        "required_reads": [
+          "migration-assessment-template.md",
+          "repository-analysis-checklist.md"
+        ]
       },
       "forbidden_behavior": {
         "reads": ["migration-summary-template.md"],
