@@ -645,7 +645,11 @@ def run_interactive_probe(
             timeout=timeout,
         )
         status = "PASS" if result.returncode == 0 else "FAIL"
-        payload: dict[str, Any] = command_output(result)
+        payload: dict[str, Any] = {
+            "returncode": result.returncode,
+            "stdout": result.stdout or "",
+            "stderr": result.stderr or "",
+        }
     except subprocess.TimeoutExpired as error:
         status = "UNAVAILABLE"
         payload = {

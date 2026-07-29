@@ -225,7 +225,7 @@ python3 scripts/evaluate_scenarios.py --cases tests/evaluation/cases.json --actu
 
 ## 현재 검증 상태
 
-- Quality Gate: 89개 테스트와 8개 executable scenario 통과
+- Quality Gate: 88개 테스트와 8개 executable scenario 통과
 - isolated profile의 `debug config/startup/skill/agent`와 read-only 대상 불변성 검증 통과
 - 현재 Provider 실행은 제한 시간 내 최종 Summary와 Report Validator 통과를 확인하지 못했으며, `UNAVAILABLE`로 기록합니다.
 - 현재 user profile은 전역 OpenCode log 경로 쓰기 권한과 전역 Agent 설치 여부가 blocker이며, 성공으로 보고하지 않습니다.
