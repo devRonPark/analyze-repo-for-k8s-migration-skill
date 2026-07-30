@@ -104,6 +104,19 @@ def summary_v2_errors(text: str) -> list[str]:
     return errors
 
 
+def repository_relative_hint(root: Path, name: str, limit: int = 3) -> str:
+    """같은 이름의 파일이 저장소에 있으면 저장소 상대 경로를 알려 준다."""
+    matches: list[str] = []
+    for candidate in root.rglob(name):
+        if candidate.is_file() and ".git" not in candidate.parts:
+            matches.append(candidate.relative_to(root).as_posix())
+            if len(matches) > limit:
+                return ""
+    if not matches:
+        return ""
+    return " (저장소 상대 경로로 인용하세요: " + ", ".join(sorted(matches)) + ")"
+
+
 def repository_reference_errors(text: str, repository_root: Path | None) -> list[str]:
     """--repo-root가 주어진 경우 positive evidence의 파일과 줄 범위를 검증한다."""
     if repository_root is None:
@@ -130,7 +143,8 @@ def repository_reference_errors(text: str, repository_root: Path | None) -> list
                 errors.append(f"저장소 밖 경로를 인용했습니다: {reference.group(0)}")
                 continue
             if not candidate.is_file():
-                errors.append(f"인용 파일이 저장소에 없습니다: {reference.group(0)}")
+                hint = repository_relative_hint(root, bare_name)
+                errors.append(f"인용 파일이 저장소에 없습니다: {reference.group(0)}{hint}")
                 continue
             line_count = len(candidate.read_text(encoding="utf-8", errors="replace").splitlines())
             start = int(reference.group("start"))

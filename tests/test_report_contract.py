@@ -116,6 +116,47 @@ class ReportContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("부재 근거는 검색(scope=", result.stdout)
 
+    def test_detailed_instructions_require_repository_relative_references(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
+
+        self.assertIn("repository-root-relative", agent)
+        self.assertIn("저장소 루트 기준 상대 경로", template)
+        for forbidden in ("bare filename", "absolute path"):
+            self.assertIn(forbidden, agent)
+
+    def test_bare_filename_reference_names_its_repository_relative_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            (repo / "src/main/webapp/WEB-INF").mkdir(parents=True)
+            (repo / "src/main/webapp/WEB-INF/applicationContext.xml").write_text(
+                "<beans/>\n" * 40, encoding="utf-8"
+            )
+            (repo / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+            report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+                "- 실행 형태: HTTP 서버 — 상태: 확인됨 / 근거: Dockerfile:1",
+                "- 실행 형태: HTTP 서버 — 상태: 확인됨 / 근거: applicationContext.xml:31-34",
+            )
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed", "--repo-root", str(repo))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("src/main/webapp/WEB-INF/applicationContext.xml", result.stdout)
+
+    def test_reference_with_trailing_prose_is_rejected(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- 언어: Java — 상태: 확인됨 / 근거: pom.xml:1",
+            "- 언어: Java — 상태: 확인됨 / 근거: pom.xml:1(java.version=17)",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("file:line 또는 검색(...)이 없습니다", result.stdout)
+
     def test_detailed_rejects_property_line_without_status_and_evidence(self):
         report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
             "- 실행 형태: HTTP 서버 — 상태: 확인됨 / 근거: Dockerfile:1",

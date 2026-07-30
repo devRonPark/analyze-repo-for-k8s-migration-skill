@@ -128,12 +128,23 @@ after `근거:`. `추정됨` additionally requires `/ 판단: <이유>`.
 - 키: 값 — 상태: 상충됨 / 근거: <path:line>, <path:line>
 ```
 
+Every `근거:` reference is a repository-root-relative path with `:line` or
+`:start-end`, taken from the path you actually read minus the target root: write
+`src/main/webapp/WEB-INF/applicationContext.xml:31-34`, never the bare filename
+`applicationContext.xml:31-34`, an absolute path, a directory without a line
+number, or a tool name such as `glob(root)`. Write nothing after a reference — no
+parentheses, no explanation — and separate multiple references with `, `. Put the
+explanation in the value before the `—`.
+
 Never translate or restyle the `검색` marker: `搜索(...)`, `search(...)`, and
 `검색(전체, ...)` are invalid, and `scope=`, `pattern=`, `result=없음` are
-required keys. A `미확인` slot cannot use a `path:line` as its only evidence — it
+required keys, with `scope=` naming a repository-relative path. A `미확인` slot cannot use a `path:line` as its only evidence — it
 needs the `검색(...)` form naming the scope that was checked. A `상충됨` slot
 lists both conflicting `path:line` references separated by `, ` with no prose
 between them; describe the disagreement in the value before the `—`.
+Every `미확인` entry under `#### 최소 입력 누락` keeps `범위:` and `결정:` before
+the `—`, including probes, `metadata.name`, and persistence decisions; an unknown
+without both keys is an incomplete evidence slot.
 
 For Detailed output, use the template's `### 핵심 요약` under the scope section
 for the verdict, candidate, top blocker, and missing-input snapshot. Keep later
