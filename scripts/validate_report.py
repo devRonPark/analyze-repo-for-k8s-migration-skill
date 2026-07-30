@@ -70,6 +70,13 @@ def summary_v2_errors(text: str) -> list[str]:
     expected = ["대상", "역할", "Kubernetes 해석", "포트", "상태", "주요 의존성", "근거"]
     if not any([cell.strip() for cell in line.strip().strip("|").split("|")] == expected for line in text.splitlines()):
         errors.append("Summary v2 배포 개요 표에 필수 열이 없습니다")
+    open_rows = [line for line in text.splitlines() if line.startswith("|") and any(f"| {kind} |" in line for kind in ("hard_blocker", "open_design_decision", "deployment_value", "recommendation"))]
+    if any(not any(f"| {kind} |" in row for kind in ("hard_blocker", "open_design_decision", "deployment_value", "recommendation")) for row in open_rows):
+        errors.append("열린 항목 분류가 유효하지 않습니다")
+    verdict = re.search(r"(?m)^- 판정: (설계 입력 충분|추가 정보 필요|분석 불가)$", text)
+    has_blocker = any("| hard_blocker |" in row for row in open_rows)
+    if verdict and ((verdict.group(1) == "추가 정보 필요" and not has_blocker) or (verdict.group(1) == "설계 입력 충분" and has_blocker)):
+        errors.append("판정과 hard_blocker 분류가 일치하지 않습니다")
     return errors
 
 

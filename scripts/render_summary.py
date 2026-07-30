@@ -245,7 +245,10 @@ def render_summary(payload: dict[str, Any], *, legacy: bool = False) -> str:
     if open_items:
         for item in open_items:
             item = item if isinstance(item, dict) else {"key": str(item)}
-            lines.append(f"| hard_blocker | {item.get('description', item.get('key', '미확인'))} | {item.get('impact_scope', '전체')} | {_reference(payload, item.get('reference'), str(item.get('key', 'open')), item.get('status', '미확인'))} |")
+            classification = item.get("classification", "hard_blocker")
+            if classification not in {"hard_blocker", "open_design_decision", "deployment_value", "recommendation"}:
+                raise ValueError("invalid open item classification")
+            lines.append(f"| {classification} | {item.get('description', item.get('key', '미확인'))} | {item.get('impact_scope', '전체')} | {_reference(payload, item.get('reference'), str(item.get('key', 'open')), item.get('status', '미확인'))} |")
     else:
         lines.append(f"| recommendation | 없음 | 없음 | {reference} |")
     lines.extend(["", "## 5. 핵심 근거", "", f"- 판정: {reference}"])
