@@ -4,6 +4,9 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
+
+from scripts import build_dist
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -101,6 +104,25 @@ class RepositoryDistributionTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_failed_distribution_swap_preserves_previous_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "analyze-repo-for-kubernetes"
+            output.mkdir()
+            (output / "previous.txt").write_text("previous", encoding="utf-8")
+
+            real_replace = build_dist.os.replace
+
+            def fail_staging_swap(source, destination):
+                if Path(source).name == output.name:
+                    raise OSError("injected swap failure")
+                return real_replace(source, destination)
+
+            with patch("scripts.build_dist.os.replace", side_effect=fail_staging_swap):
+                with self.assertRaises(OSError):
+                    build_dist.build(ROOT, output)
+
+            self.assertEqual((output / "previous.txt").read_text(encoding="utf-8"), "previous")
+
     def test_opencode_installer_copies_global_distribution(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
@@ -114,9 +136,11 @@ class RepositoryDistributionTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            installed = home / ".config/opencode/skills/analyze-repo-for-kubernetes"
+            installed = home / ".config/opencode/skill/analyze-repo-for-kubernetes"
             self.assertTrue((installed / "SKILL.md").is_file())
             self.assertFalse(installed.is_symlink())
+            self.assertTrue((home / ".config/opencode/agent/kubernetes-migration-analyzer.md").is_file())
+            self.assertTrue((home / ".config/opencode/command/analyze-repo-for-kubernetes.md").is_file())
 
     def test_opencode_installer_supports_project_local_destination(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -133,7 +157,9 @@ class RepositoryDistributionTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertTrue((project / ".opencode/skills/analyze-repo-for-kubernetes/SKILL.md").is_file())
+            self.assertTrue((project / ".opencode/skill/analyze-repo-for-kubernetes/SKILL.md").is_file())
+            self.assertTrue((project / ".opencode/agent/kubernetes-migration-analyzer.md").is_file())
+            self.assertTrue((project / ".opencode/command/analyze-repo-for-kubernetes.md").is_file())
 
     def test_opencode_installer_refreshes_duplicate_locations(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -151,7 +177,7 @@ class RepositoryDistributionTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            installed = home / ".config/opencode/skills/analyze-repo-for-kubernetes/SKILL.md"
+            installed = home / ".config/opencode/skill/analyze-repo-for-kubernetes/SKILL.md"
             self.assertTrue(installed.is_file())
             self.assertNotEqual(stale_skill.read_text(encoding="utf-8"), "stale test Skill")
             self.assertEqual(stale_skill.read_bytes(), installed.read_bytes())
@@ -176,7 +202,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertTrue((source / "README.md").is_file())
-            self.assertTrue((home / ".config/opencode/skills/analyze-repo-for-kubernetes/SKILL.md").is_file())
+            self.assertTrue((home / ".config/opencode/skill/analyze-repo-for-kubernetes/SKILL.md").is_file())
 
     def test_markdown_commands_do_not_use_shell_line_continuations(self):
         for path in ROOT.rglob("*.md"):

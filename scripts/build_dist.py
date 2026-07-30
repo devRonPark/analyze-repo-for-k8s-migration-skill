@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.validate_skill import validate
@@ -59,6 +60,25 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def replace_output(staging: Path, output: Path) -> None:
+    """Replace output while retaining a recoverable previous directory."""
+    backup = output.parent / f".{output.name}.backup-{uuid.uuid4().hex}"
+    had_output = output.exists() or output.is_symlink()
+    if had_output:
+        os.replace(output, backup)
+    try:
+        os.replace(staging, output)
+    except OSError:
+        if had_output:
+            os.replace(backup, output)
+        raise
+    if had_output:
+        if backup.is_dir() and not backup.is_symlink():
+            shutil.rmtree(backup)
+        else:
+            backup.unlink()
+
+
 def build(source_root: Path, output: Path) -> Path:
     source_root = source_root.resolve()
     output = output.resolve()
@@ -96,12 +116,7 @@ def build(source_root: Path, output: Path) -> Path:
         if errors:
             raise ValueError("built distribution failed validation: " + "; ".join(errors))
 
-        if output.exists() or output.is_symlink():
-            if output.is_dir() and not output.is_symlink():
-                shutil.rmtree(output)
-            else:
-                output.unlink()
-        os.replace(staging, output)
+        replace_output(staging, output)
         return output
     finally:
         shutil.rmtree(temporary_root, ignore_errors=True)
