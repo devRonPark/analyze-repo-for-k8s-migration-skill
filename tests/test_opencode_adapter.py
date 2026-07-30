@@ -92,6 +92,25 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertNotIn("| 연결 workload |", template)
         self.assertIn("Detailed output must not use Markdown tables", agent)
 
+    def test_agent_requires_high_signal_runtime_conflict_and_seed_checks(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        for text in (
+            "report a disagreement as `상충됨`",
+            "image tags exactly",
+            "credential-exposure location",
+            "external database",
+            "final evidence self-check",
+            "Never emit a\nseed username",
+            "never call it missing, unstable, unavailable",
+        ):
+            self.assertIn(text, agent)
+        self.assertIn("Embedded startup\ndata alone does not evidence a PersistentVolume", skill)
+        summary = (ROOT / "assets/migration-summary-template.md").read_text(encoding="utf-8")
+        self.assertIn("embedded database is a runtime dependency", summary)
+        self.assertNotIn("| <설계 차단|설계 결정|배포 입력|권장 사항>", summary)
+        self.assertIn("Release gate", agent)
+
     def test_acceptance_cases_enforce_mode_specific_reads(self):
         cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]
         summary = next(case for case in cases if case["id"] == "minimal-summary")

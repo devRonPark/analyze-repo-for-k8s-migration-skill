@@ -4,6 +4,17 @@
 
 Target: <source> @ <resolved revision> | Skill: <id and version> | Contract: 2.0 | Validation: pending
 
+<!-- Mandatory writing guardrails: report only repository facts and scoped
+unknowns. An embedded database is a runtime dependency, never a deployment
+target or table row. If an explicit launch profile has no exactly matching
+profile definition, selected server = 상충됨 and verdict = 추가 정보 필요; do
+not call the default profile's server confirmed anywhere. An explicit image tag
+is 확인됨; compare it with the compiled target only as an alignment risk. Never
+reproduce any SQL INSERT value. Do not infer a Deployment, StatefulSet,
+persistence, external database, server compatibility, or production
+suitability. If a published port exists, include any documented context path.
+Do not add recommendations or remediation. -->
+
 ## 1. 결론
 
 - 판정: 설계 입력 충분 | 추가 정보 필요 | 분석 불가

@@ -81,6 +81,29 @@ report contract.
    execution evidence. For Maven, inspect `pom.xml`, wrapper/build/package
    settings, and runtime configuration first; do not search for lockfiles.
 
+When those high-signal files show a build-tool or application-server invocation,
+cross-check its selected profile, version, and documented invocation before
+calling the runtime confirmed. Record a mismatch between build target and image
+runtime, or between a selected profile and an invoked profile, as `상충됨` and a
+keyed blocker. Parse an image reference exactly: an explicit tag is confirmed;
+registry or promotion policy remains a separate unknown.
+
+For a packaged Java web application, inspect the web descriptor and the runtime
+configuration that it loads when they are present. Preserve Java EE/Jakarta or
+server-version compatibility as a verification need, rather than selecting a
+server by inference. When runtime configuration loads schema or seed SQL,
+inspect only the referenced seed location for credential-shaped records. Report
+the location and exposure risk without reproducing values. Embedded startup
+data alone does not evidence a PersistentVolume, StatefulSet, or an external
+database requirement; make the data-lifecycle decision an open item.
+
+Before finalizing, preserve this distinction: an explicit image tag is a fact,
+while its registry policy and supported-version decision may be unknown. Do not
+label an explicit tag unstable, unavailable, or unsuitable from its spelling
+alone. Never output values from seed credentials. Do not infer workload kind,
+server compatibility, persistence behavior, or production suitability without
+direct evidence.
+
 ## Analysis contract
 
 Inspect the target read-only. A manifest, dependency, script, Dockerfile,
@@ -107,7 +130,9 @@ dependencies, keyed Kubernetes minimum-input gaps, and exactly one verdict.
 Do not require a dependency matrix, text dependency graph, full exclusion list,
 configuration timing detail, termination/recovery detail, or observability
 detail in Summary. Use only evidence-supported `image`, start command, and port;
-do not invent Ingress, resources, security settings, or image names.
+do not invent Ingress, resources, security settings, or image names. Use the
+Summary template headings verbatim; return no recommendations, remediation
+plans, or example image/runtime values.
 
 Detailed reports preserve the full component card, configuration timing,
 dependency matrix, text dependency graph, complete exclusions, operating-

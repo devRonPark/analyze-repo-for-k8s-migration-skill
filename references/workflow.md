@@ -21,11 +21,22 @@ application context, entrypoints, and database or broker configuration. For a
 Maven candidate, prioritize `pom.xml`, `mvnw`/wrapper and build/package settings,
 `Dockerfile`, Compose, `web.xml`, and `applicationContext.xml`.
 
-Lockfiles are not first-pass inputs. Read one only when the package manager or
-workspace boundary is ambiguous or conflicting, frozen/immutable install is
-declared, reproducible build/SBOM/provenance is requested, or the lockfile is
-the only strong execution evidence. Do not search for a lockfile in a Maven
-project when `pom.xml` and wrapper/build/package settings are sufficient.
+Apply the conditional lockfile policy in `SKILL.md`; for Maven, do not search
+for lockfiles when `pom.xml` and wrapper/build/package settings are sufficient.
+
+If a Dockerfile or documented launch command selects a Maven/Gradle profile,
+read the profile definitions and compare the selected identifier with the
+invocation. Also compare an explicit container base-image version with the
+compiled target version. These are execution facts: disagreements are
+`상충됨`, not a reason to choose the more plausible runtime. For a Java web
+application, inspect its web descriptor for the Java EE/Jakarta API level.
+
+When an application context or equivalent startup configuration loads a schema
+or data SQL file, inspect that referenced file only far enough to classify
+credential-shaped seed records. Do not output values. Treat an embedded
+database as an in-process dependency and state concern, but do not infer a
+PersistentVolume, StatefulSet, or external database requirement without direct
+evidence. Record the intended data lifecycle as a decision instead.
 
 Use README, CI, logs, migrations, tests, and broad source-tree reads only when a
 first-pass finding needs evidence. Exclude generated output, caches, vendored

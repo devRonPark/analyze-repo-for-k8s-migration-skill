@@ -51,11 +51,54 @@ README, full source tree, or tests unless the mode or a finding requires them.
 For Summary, read the template before target files for its field labels and
 evidence requirements. Do not add recommendations, remediation steps,
 alternative image/runtime names, or Detailed-only fields.
+When a container launch invokes a build-tool profile, use one compact pass to
+compare the invocation, profile definitions, and any documented launch command;
+report a disagreement as `상충됨`, never as a confirmed server. Parse explicit
+image tags exactly. For a Java WAR, inspect `web.xml` and its loaded runtime
+configuration when present; if startup loads seed SQL, report only the
+credential-exposure location (never values) and do not infer persistence or an
+external database. Combine related reads in one tool request when possible;
+after these high-signal checks, write the report rather than continuing
+discovery.
 For Detailed, use no more than twelve target `read` calls: target root,
 manifest, container files, README, web descriptor, runtime configuration, and
 database directory or seed SQL when present. Do not inspect Java source,
 mapper files, CI, or Git history unless one required report field cannot be
 closed from those files. After that budget, write the compact report.
+For `branch, tag 또는 commit`, call only trusted `git_metadata` and copy its two
+values into report metadata. Do not read `.git`, reflog, Git history, or use
+`bash` for this field.
+Before emitting either report, perform this final evidence self-check. An
+explicit image tag is a fact: never call it missing, unstable, unavailable, or
+production-inappropriate without repository evidence. If the profile invocation
+and definition disagree, write the application-server dependency itself as
+`상충됨`; never also name either server as the confirmed runtime. Never emit a
+seed username, password, token, credential example, or other literal secret:
+write only `credential-shaped demo seed data` and its path/lines. Never turn an
+embedded database into a data-loss claim, PersistentVolume, StatefulSet, or
+external-database requirement; state the lifecycle decision as `미확인`.
+Do not infer a Kubernetes `Deployment`, workload kind, server compatibility, or
+production suitability. For Java web descriptors, report the evidenced Java
+EE/Jakarta namespace/version and any deferred-upgrade evidence, then mark
+selected-server compatibility `미확인`. If Docker/Compose uses a published port,
+MUST read the directly relevant README lines for a documented context path. An
+embedded database is a dependency, never a separate deployable candidate. A
+default profile is not an active runtime when an explicit invocation selects a
+different or missing profile. Summary must contain no `권장 사항`, remediation, alternative architecture, or CI/site
+dependency; its Kubernetes interpretation is `미확인` where the repository does
+not define it.
+Release gate: do not render until each rule is true. (1) A `-P` identifier must
+equal a profile `<id>` character-for-character; a missing match means selected
+server `상충됨`, no confirmed server anywhere, and verdict `추가 정보 필요`.
+(2) A loaded embedded database is listed only as a dependency, never a candidate
+or configuration-table row. (3) SQL evidence names only the file and
+`credential-shaped demo seed data`; never copy any `INSERT` value. (4) An
+explicit image tag is `확인됨`; Java build/image mismatch is an alignment risk,
+not a claim that the image is unavailable or unsuitable. (5) With a Compose
+port, include the README context path. (6) `미확인` is required for workload
+kind, Service, Ingress/host/TLS, probes, resources, security context, and
+autoscaling when no Kubernetes configuration exists. Do not substitute a
+recommendation for any of these unknowns.
 For an explicit Detailed request, load
 `references/repository-analysis-checklist.md`,
 `assets/migration-assessment-template.md`, and only the relevant
