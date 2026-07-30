@@ -69,8 +69,8 @@ git diff --check
 - `runtime/opencode.json`
 - `runtime/agents/kubernetes-migration-analyzer.md`
 - `tests/test_opencode_adapter.py`
-- `docs/development/IMPLEMENTATION_PLAN.md`
-- `docs/development/STATUS.md`
+- `docs/development/plans/initial-skill-diet-roadmap.md`
+- `docs/development/archive/initial-opencode-milestone/status.md`
 
 ## Commit boundary
 
