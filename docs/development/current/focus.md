@@ -11,7 +11,8 @@ The secret-safe evidence boundary plan remains open in
 | --- | --- | --- |
 | `DET-004` | DONE | A Detailed report that repeats one verdict passes validation; conflicting verdicts fail. |
 | `DET-005` | DONE | Detailed report lines keep the property, minimum-input, and keyed-blocker shapes. |
-| `DET-006` — `DET-007` | TODO | Absence and conflict evidence keep the Korean `검색(...)` form and repository-relative `path:line` references. |
+| `DET-006` | DONE | Absence and conflict evidence keep the Korean `검색(...)` form and two parseable sources. |
+| `DET-007` | TODO | Every evidence reference is a repository-relative `path:line` with no trailing prose. |
 | `SEC-001` | IN_PROGRESS | Target evidence is redacted before the model can read it. |
 
 Read [the Detailed verdict-consistency ADR](../daily/2026-07-30/ADR-2026-07-30-010-detailed-verdict-consistency.md)

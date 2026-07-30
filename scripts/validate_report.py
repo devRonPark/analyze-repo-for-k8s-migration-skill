@@ -30,6 +30,10 @@ FILE_LINE_REFERENCE = re.compile(
 ABSENCE_REFERENCE = re.compile(
     r"검색\(scope=.+,\s*pattern=.+,\s*result=없음\)"
 )
+# 부재 근거 marker를 번역하거나 표기를 바꾼 형태. 사용자 표시 식별자이므로 그대로 써야 한다.
+ABSENCE_MARKER_ALIAS = re.compile(
+    r"(?i)(?:搜索|検索|search|검색\s+|찾기)\s*\(\s*(?:scope|범위)="
+)
 COMPONENT_HEADING = re.compile(r"^### 구성 요소:\s*\S+", re.MULTILINE)
 WORKLOAD_HEADING = re.compile(r"^### 배포 대상:\s*\S+", re.MULTILINE)
 PROPERTY_LINE = re.compile(
@@ -251,6 +255,19 @@ def evidence_semantic_errors(text: str) -> list[str]:
             absence_count = len(ABSENCE_REFERENCE.findall(evidence))
             if len(references) + absence_count < 2:
                 errors.append(f"상충됨 근거에 양쪽 source가 보존되지 않았습니다: {line}")
+    return errors
+
+
+def absence_marker_errors(text: str) -> list[str]:
+    """부재 근거 marker가 번역되거나 표기가 바뀐 줄을 거부한다."""
+    errors: list[str] = []
+    for line in text.splitlines():
+        if "근거:" not in line or not ABSENCE_MARKER_ALIAS.search(line):
+            continue
+        errors.append(
+            "부재 근거는 검색(scope=<범위>, pattern=<패턴>, result=없음) 형식이어야 합니다: "
+            f"{line}"
+        )
     return errors
 
 
@@ -493,6 +510,7 @@ def main() -> int:
             if mode == "detailed":
                 errors.extend(detailed_evidence_slot_errors(text))
                 errors.extend(design_blocker_format_errors(text))
+        errors.extend(absence_marker_errors(text))
         errors.extend(credential_literal_errors(text))
     if summary_v2:
         errors.extend(summary_v2_errors(text))

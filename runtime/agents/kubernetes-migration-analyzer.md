@@ -121,6 +121,20 @@ Keep `범위:` and `결정:` before the `—`, separated by `;`. After the `—`
 only `상태:` then `근거:`. Put any extra explanation inside the value, never
 after `근거:`. `추정됨` additionally requires `/ 판단: <이유>`.
 
+`미확인` and `상충됨` take these evidence forms exactly:
+
+```text
+- 키: 미확인 — 상태: 미확인 / 근거: 검색(scope=<저장소 상대 경로>, pattern=<glob 또는 검색식>, result=없음)
+- 키: 값 — 상태: 상충됨 / 근거: <path:line>, <path:line>
+```
+
+Never translate or restyle the `검색` marker: `搜索(...)`, `search(...)`, and
+`검색(전체, ...)` are invalid, and `scope=`, `pattern=`, `result=없음` are
+required keys. A `미확인` slot cannot use a `path:line` as its only evidence — it
+needs the `검색(...)` form naming the scope that was checked. A `상충됨` slot
+lists both conflicting `path:line` references separated by `, ` with no prose
+between them; describe the disagreement in the value before the `—`.
+
 For Detailed output, use the template's `### 핵심 요약` under the scope section
 for the verdict, candidate, top blocker, and missing-input snapshot. Keep later
 sections to distinct evidence and required detail. Do not expose planning,

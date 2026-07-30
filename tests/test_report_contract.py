@@ -81,6 +81,41 @@ class ReportContractTests(unittest.TestCase):
         self.assertIn("결정:", agent)
         self.assertNotIn("근거: 없음", agent)
 
+    def test_detailed_instructions_pin_absence_and_conflict_evidence(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
+
+        for text in (agent, template):
+            self.assertIn("검색(scope=", text)
+        self.assertIn("Never translate", agent)
+        self.assertIn("상태: 상충됨", agent)
+
+    def test_report_rejects_a_translated_absence_marker(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "검색(scope=., pattern=SECRET, result=없음)",
+            "搜索(scope=., pattern=SECRET, result=없음)",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("부재 근거는 검색(scope=", result.stdout)
+
+    def test_report_rejects_an_english_absence_marker(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "검색(scope=., pattern=SECRET, result=없음)",
+            "search(scope=., pattern=SECRET, result=없음)",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("부재 근거는 검색(scope=", result.stdout)
+
     def test_detailed_rejects_property_line_without_status_and_evidence(self):
         report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
             "- 실행 형태: HTTP 서버 — 상태: 확인됨 / 근거: Dockerfile:1",
