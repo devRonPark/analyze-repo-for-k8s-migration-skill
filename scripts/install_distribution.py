@@ -17,7 +17,7 @@ def remove(path: Path) -> None:
         path.unlink()
 
 
-def install(source: Path, targets: list[Path], fail_after: int | None = None) -> None:
+def install(source: Path, targets: list[Path]) -> None:
     source = source.resolve()
     stages: list[tuple[Path, Path]] = []
     committed: list[tuple[Path, Path | None]] = []
@@ -28,14 +28,12 @@ def install(source: Path, targets: list[Path], fail_after: int | None = None) ->
             shutil.copytree(source, stage)
             stages.append((target, stage))
 
-        for index, (target, stage) in enumerate(stages, start=1):
+        for target, stage in stages:
             backup = target.parent / f".{target.name}.backup-{uuid.uuid4().hex}" if (target.exists() or target.is_symlink()) else None
             if backup is not None:
                 target.replace(backup)
-            stage.replace(target)
             committed.append((target, backup))
-            if fail_after == index:
-                raise RuntimeError(f"injected failure after commit {index}")
+            stage.replace(target)
     except Exception:
         for target, backup in reversed(committed):
             remove(target)

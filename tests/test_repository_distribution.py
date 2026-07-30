@@ -154,8 +154,16 @@ class RepositoryDistributionTests(unittest.TestCase):
                 target.mkdir(parents=True)
                 (target / "version").write_text("old", encoding="utf-8")
 
-            with self.assertRaisesRegex(RuntimeError, "injected"):
-                install_distribution.install(source, targets, fail_after=2)
+            real_replace = Path.replace
+
+            def fail_second_swap(source_path, target_path):
+                if source_path.name.startswith(".skill.stage-") and target_path == targets[1]:
+                    raise OSError("injected swap failure")
+                return real_replace(source_path, target_path)
+
+            with patch.object(Path, "replace", new=fail_second_swap):
+                with self.assertRaisesRegex(OSError, "injected"):
+                    install_distribution.install(source, targets)
 
             self.assertEqual([target.joinpath("version").read_text(encoding="utf-8") for target in targets], ["old", "old"])
 

@@ -17,7 +17,7 @@ def load(path: Path = CONTRACT_PATH) -> dict[str, Any]:
     return profiles
 
 
-def profile(text: str, mode: str, legacy: bool, profiles: dict[str, Any] | None = None) -> dict[str, Any]:
+def profile(mode: str, legacy: bool, profiles: dict[str, Any] | None = None) -> dict[str, Any]:
     profiles = profiles or load()
     key = f"legacy_{mode}" if legacy else mode
     value = profiles.get(key)

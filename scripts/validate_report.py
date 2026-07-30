@@ -144,7 +144,7 @@ def component_briefing_errors(text: str, mode: str, legacy: bool) -> list[str]:
     if not cards:
         return ["구성 요소별 배포 브리핑에 구성 요소 카드가 없습니다"]
 
-    card = profile(text, mode, legacy).get("card")
+    card = profile(mode, legacy).get("card")
     if not isinstance(card, dict):
         return []
     categories = card["categories"]
@@ -370,7 +370,7 @@ def main() -> int:
     new_contract = not args.legacy
     if not args.legacy and MARKDOWN_VERSION_MARKER not in text:
         errors.append(f"현재 Markdown contract marker가 없습니다: {MARKDOWN_VERSION_MARKER}")
-    required_sections = profile(text, mode or "summary", args.legacy)["sections"]
+    required_sections = profile(mode or "summary", args.legacy)["sections"]
     for section in required_sections:
         if section not in text:
             errors.append(f"섹션이 없습니다: {section}")
