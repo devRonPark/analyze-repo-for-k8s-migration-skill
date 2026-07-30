@@ -46,6 +46,25 @@ exactly one verdict, and leaves `/home/daolts/jpetstore-6` unchanged.
 - Do not count a response without a complete, valid final Markdown report as
   successful.
 
+## Interactive Detailed run
+
+Install the current distribution into a temporary `HOME` instead of hand-copying
+the layout. `HOME="$run_dir/home" bash scripts/install-opencode.sh` places the
+Skill, agent, command, and trusted tools where both the agent's
+`$HOME/.config/opencode/skill/...` allow rule and `runtime/tools/read.ts`'s
+trusted-Skill roots accept them.
+
+Use a short, fixed run directory such as `/tmp/opencode-acceptance-det5`. With a
+`mktemp` random suffix the model retypes the Skill path from the loader output
+and a single dropped character makes every reference read fail with
+`path is outside the target or trusted Skill`; that run is not a valid result.
+
+Start the session with `tmux -L <socket> new-session -d`, send
+`/analyze-repo-for-kubernetes Detailed`, then read the raw final report from
+`$run_dir/home/.local/share/opencode/opencode.db` (`part`/`message` tables). The
+TUI renders Markdown, so `capture-pane` loses `#` heading markers and cannot be
+validated directly.
+
 ## Failure patterns to avoid
 
 1. Do not use a custom temp prefix that falls outside the agent's
