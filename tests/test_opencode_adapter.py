@@ -73,13 +73,15 @@ class OpenCodeAdapterTests(unittest.TestCase):
             self.assertIn(reference, agent)
         self.assertIn("Do not inspect lockfiles by default", agent)
 
-    def test_summary_prompt_requires_renderer_input_contract(self):
+    def test_summary_prompt_requires_direct_markdown_contract(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("return exactly one JSON object", agent)
-        self.assertIn("do not emit Markdown, fences, progress text, or commentary", agent)
-        self.assertIn("For renderer input JSON", agent)
-        self.assertIn("minimum_inputs", agent)
-        self.assertIn("verdict_reason", agent)
+        self.assertIn("final assistant response must be the completed Markdown report", agent)
+        self.assertIn("progress updates are allowed", agent)
+        self.assertIn("# Kubernetes 설계 입력 요약", agent)
+        self.assertIn("Korean 열린 항목 labels", agent)
+        self.assertNotIn("For renderer input JSON", agent)
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("progress\nupdates are allowed", skill)
 
     def test_detailed_output_has_compact_decision_summary_rules(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
@@ -91,6 +93,13 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertIn("70 lines and 1,200 Korean words", agent)
         self.assertNotIn("| 연결 workload |", template)
         self.assertIn("Detailed output must not use Markdown tables", agent)
+
+    def test_detailed_final_output_uses_the_verbatim_markdown_contract(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        normalized = agent.replace("\n", " ")
+        self.assertIn("must begin exactly with `# Kubernetes 설계 입력 상세 평가`", agent)
+        self.assertIn("all eight `##` headings from the Detailed template verbatim", normalized)
+        self.assertIn("report-contract=1.0", agent)
 
     def test_agent_requires_high_signal_runtime_conflict_and_seed_checks(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
@@ -132,25 +141,38 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertIn("assets/migration-summary-template.md", trace["supporting_reads"])
         self.assertTrue(trace["permission_denials"])
 
-    def test_summary_extraction_rejects_prose_around_json(self):
-        payload = (ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8")
-
-        self.assertIsNone(adapter.extract_report({"final_output": f"progress\n{payload}"}))
-        self.assertIsNone(adapter.extract_report({"final_output": f"```json\n{payload}\n```"}))
-
-    def test_finalizes_summary_before_exposing_it(self):
-        payload = json.loads((ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8"))
+    def test_retains_only_a_valid_direct_summary_markdown(self):
+        markdown = (ROOT / "tests/fixtures/reports/valid-summary.md").read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory() as tmp:
-            report = adapter.finalize_summary(
-                payload,
+            report = adapter.retain_summary_markdown(
+                markdown,
                 Path(tmp),
                 ROOT / "tests/fixtures/repos/sample",
             )
 
-        self.assertIn("Validation: passed", report)
         self.assertTrue(report.startswith("# Kubernetes 설계 입력 요약\n"))
 
-    def test_evaluator_uses_finalized_summary_markdown(self):
+    def test_retains_the_final_summary_after_interactive_progress(self):
+        report = (ROOT / "tests/fixtures/reports/valid-summary.md").read_text(encoding="utf-8")
+        markdown = "분석 중입니다.\n" + report
+        with tempfile.TemporaryDirectory() as tmp:
+            retained = adapter.retain_summary_markdown(
+                markdown,
+                Path(tmp),
+                ROOT / "tests/fixtures/repos/sample",
+            )
+        self.assertEqual(retained, report)
+
+    def test_rejects_summary_without_a_final_report_heading(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "does not contain"):
+                adapter.retain_summary_markdown(
+                    "분석 중입니다.",
+                    Path(tmp),
+                    ROOT / "tests/fixtures/repos/sample",
+                )
+
+    def test_evaluator_uses_direct_summary_markdown(self):
         case = {
             "id": "summary",
             "repository_fixture": "tests/fixtures/repos/sample",
@@ -161,9 +183,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             case_dir = Path(tmp) / "summary"
             case_dir.mkdir()
-            report = (ROOT / "tests/fixtures/reports/valid-summary.md").read_text(encoding="utf-8").replace(
-                "Validation: pending", "Validation: passed"
-            )
+            report = (ROOT / "tests/fixtures/reports/valid-summary.md").read_text(encoding="utf-8")
             (case_dir / "report.md").write_text(report, encoding="utf-8")
             (case_dir / "trace.json").write_text(json.dumps({
                 "status": "PASS",
@@ -172,6 +192,33 @@ class OpenCodeAdapterTests(unittest.TestCase):
                 "tool_calls": [],
                 "permission_denials": [],
                 "final_output": report,
+            }), encoding="utf-8")
+            result = evaluate_scenarios.validate_opencode_case(case, Path(tmp))
+
+        self.assertTrue(result["passed"], result["errors"])
+
+    def test_evaluator_accepts_help_without_repository_tools(self):
+        case = {
+            "id": "help",
+            "repository_fixture": "tests/fixtures/repos/sample",
+            "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"},
+            "expected_behavior": {
+                "required_output": ["/analyze-repo-for-kubernetes", "Detailed"],
+                "forbidden_output": ["# Kubernetes 설계 입력 요약"],
+                "forbidden_tools": ["read", "glob", "grep", "list", "bash"],
+            },
+            "forbidden_behavior": {"reads": [], "tools": []},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp) / "help"
+            case_dir.mkdir()
+            (case_dir / "trace.json").write_text(json.dumps({
+                "status": "PASS",
+                "skill": {"loaded": False},
+                "supporting_reads": [],
+                "tool_calls": [],
+                "permission_denials": [],
+                "final_output": "/analyze-repo-for-kubernetes\nDetailed 분석을 요청할 수 있습니다.",
             }), encoding="utf-8")
             result = evaluate_scenarios.validate_opencode_case(case, Path(tmp))
 
@@ -199,6 +246,55 @@ class OpenCodeAdapterTests(unittest.TestCase):
             self.assertIn("json", command)
             self.assertIn("--agent", command)
             self.assertIn("--dir", command)
+            return subprocess.CompletedProcess(command, 0, '{"type":"text","text":"ok"}\n', "")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            config_dir = root / "config"
+            home.mkdir()
+            config_dir.mkdir()
+            trace = adapter.run_case(
+                case,
+                ROOT / "runtime/opencode.json",
+                "/bin/echo",
+                ROOT,
+                home,
+                config_dir,
+                runner=runner,
+            )
+        self.assertEqual(trace["status"], "PASS")
+
+    def test_command_preserves_help_as_a_command_argument(self):
+        case = {"id": "help", "query": "--help", "repository_fixture": "tests/fixtures/repos/sample"}
+
+        def runner(command, **kwargs):
+            self.assertEqual(command[-2:], ["--", "--help"])
+            return subprocess.CompletedProcess(command, 0, '{"type":"text","text":"ok"}\n', "")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            trace = adapter.run_case(
+                case,
+                ROOT / "runtime/opencode.json",
+                "/bin/echo",
+                ROOT,
+                Path(tmp),
+                Path(tmp),
+                runner=runner,
+            )
+        self.assertEqual(trace["status"], "PASS")
+
+    def test_command_case_uses_the_installed_slash_command(self):
+        case = {
+            "id": "slash-command",
+            "query": ".",
+            "command": "analyze-repo-for-kubernetes",
+            "repository_fixture": "tests/fixtures/repos/sample",
+        }
+
+        def runner(command, **kwargs):
+            self.assertIn("--command", command)
+            self.assertIn("analyze-repo-for-kubernetes", command)
             return subprocess.CompletedProcess(command, 0, '{"type":"text","text":"ok"}\n', "")
 
         with tempfile.TemporaryDirectory() as tmp:

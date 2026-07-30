@@ -142,7 +142,6 @@ class SkillPackageTests(unittest.TestCase):
             "Skill installation directory",
             "repository discovery",
             "Stop the turn after asking",
-            "Repository URL",
             "Local path",
             "directory listing",
             "tests",

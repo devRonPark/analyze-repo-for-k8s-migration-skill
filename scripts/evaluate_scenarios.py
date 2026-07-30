@@ -234,7 +234,7 @@ def validate_case(case: dict[str, Any], actual_dir: Path) -> dict[str, Any]:
 
 
 def validate_opencode_case(case: dict[str, Any], actual_dir: Path) -> dict[str, Any]:
-    """Evaluate normalized OpenCode traces and, when present, report JSON."""
+    """Evaluate normalized OpenCode traces and direct report output."""
     case_id = case.get("id", "<unknown>")
     errors: list[str] = []
     case_dir = actual_dir / case_id
@@ -289,6 +289,17 @@ def validate_opencode_case(case: dict[str, Any], actual_dir: Path) -> dict[str, 
         if permission.lower() not in denials:
             errors.append(f"permission denial missing for: {permission}")
 
+    final_output = str(trace.get("final_output", ""))
+    for required in expected.get("required_output", []):
+        if required not in final_output:
+            errors.append(f"required response text missing: {required}")
+    for forbidden in expected.get("forbidden_output", []):
+        if forbidden in final_output:
+            errors.append(f"forbidden response text present: {forbidden}")
+    for forbidden_tool in expected.get("forbidden_tools", []):
+        if forbidden_tool in tools:
+            errors.append(f"forbidden tool call present: {forbidden_tool}")
+
     summary = expected.get("report_mode") == "summary"
     report_name = "report.md" if summary else case.get("report_file", "report.json")
     report_path = case_dir / report_name
@@ -304,9 +315,7 @@ def validate_opencode_case(case: dict[str, Any], actual_dir: Path) -> dict[str, 
                     "normalized report validation failed",
                 )
             )
-            if summary and "Validation: passed" not in report_path.read_text(encoding="utf-8"):
-                errors.append("finalized Summary receipt is missing")
-    if summary and not str(trace.get("final_output", "")).startswith("# Kubernetes 설계 입력 요약\n"):
+    if summary and not final_output.startswith("# Kubernetes 설계 입력 요약\n"):
         errors.append("final Summary output does not begin with the report heading")
     return {
         "id": case_id,

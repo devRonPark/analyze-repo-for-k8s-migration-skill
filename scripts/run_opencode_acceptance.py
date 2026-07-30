@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run OpenCode acceptance cases and normalize JSON events for evaluation."""
+"""Run OpenCode acceptance cases and retain their direct Markdown output."""
 from __future__ import annotations
 
 import argparse
@@ -14,15 +14,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 try:
-    from scripts.render_summary import render_summary
     from scripts.project_metadata import ProjectMetadata, load as load_project_metadata
-    from scripts.report_contract import SCHEMA_VERSION
-    from scripts.validate_target_report import finalize
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
-    from render_summary import render_summary
     from project_metadata import ProjectMetadata, load as load_project_metadata
-    from report_contract import SCHEMA_VERSION
-    from validate_target_report import finalize
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OPENCODE = "opencode"
@@ -160,10 +154,11 @@ def normalize_trace(
         lowered = text.lower()
         if "permission" in lowered and any(word in lowered for word in ("deny", "denied", "reject", "rejected")):
             denials.append({"event": text[:500]})
-    final_output = ""
-    for event in events:
-        if event.get("type") in {"text", "message", "assistant"}:
-            final_output += "\n" + event_content(event)
+    final_output = "\n".join(
+        event_content(event)
+        for event in events
+        if event.get("type") in {"text", "message", "assistant"}
+    ).strip()
     if not final_output:
         final_output = stdout.strip()
     return {
@@ -181,23 +176,24 @@ def normalize_trace(
     }
 
 
-def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
-    text = str(trace.get("final_output", ""))
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError:
-        return None
-    if isinstance(payload, dict) and payload.get("schema_version") == SCHEMA_VERSION:
-        return payload
-    return None
-
-
-def finalize_summary(payload: dict[str, Any], output_dir: Path, repository_root: Path) -> str:
+def retain_summary_markdown(markdown: str, output_dir: Path, repository_root: Path) -> str:
+    marker = "# Kubernetes 설계 입력 요약\n"
+    start = markdown.rfind(marker)
+    if start < 0:
+        raise ValueError("Summary output does not contain the report heading")
+    markdown = markdown[start:]
     report = output_dir / "report.md"
-    report.write_text(render_summary(payload), encoding="utf-8")
-    if finalize(report, repository_root):
-        raise ValueError("Summary finalization failed")
-    return report.read_text(encoding="utf-8")
+    report.write_text(markdown, encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/validate_report.py"), str(report), "--mode", "summary", "--repo-root", str(repository_root)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode:
+        raise ValueError(result.stdout.strip() or result.stderr.strip() or "Summary Markdown validation failed")
+    return markdown
 
 
 def unavailable_trace(
@@ -246,16 +242,16 @@ def run_case(
         "--dir",
         str(target.resolve()),
     ]
+    command_name = case.get("command")
+    if isinstance(command_name, str) and command_name:
+        command.extend(["--command", command_name])
     if model:
         command.extend(["--model", model])
     query = case["query"]
-    if case.get("expected_behavior", {}).get("report_mode") == "summary":
-        query += (
-            "\n\nAcceptance harness instruction: return exactly one JSON object "
-            "conforming to schemas/analysis-result.schema.json, without Markdown fences "
-            "or additional commentary."
-        )
-    command.append(query)
+    if query.startswith("-"):
+        command.append("--")
+    if query:
+        command.append(query)
     environment = os.environ.copy()
     environment.update(
         {
@@ -307,10 +303,6 @@ def run_case(
         project,
     )
     trace.update({"case_id": case["id"], "query": case["query"]})
-    report = extract_report(trace)
-    if report is not None:
-        trace["report_file"] = "report.json"
-        trace["report"] = report
     return trace
 
 
@@ -322,6 +314,12 @@ def main() -> int:
     parser.add_argument("--opencode", default=DEFAULT_OPENCODE)
     parser.add_argument("--model", help="선택적 provider/model 지정")
     parser.add_argument("--timeout", type=float, default=180, help="case별 OpenCode timeout 초")
+    parser.add_argument(
+        "--case",
+        action="append",
+        dest="case_ids",
+        help="실행할 case ID (여러 번 지정 가능)",
+    )
     parser.add_argument(
         "--repository-root",
         type=Path,
@@ -336,6 +334,12 @@ def main() -> int:
     project = load_project_metadata(ROOT)
     payload = load_json(args.cases)
     cases = payload.get("cases", []) if isinstance(payload, dict) else []
+    if args.case_ids:
+        selected = set(args.case_ids)
+        cases = [case for case in cases if case.get("id") in selected]
+        missing = selected - {case.get("id") for case in cases}
+        if missing:
+            parser.error(f"unknown case ID: {', '.join(sorted(missing))}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="opencode-acceptance-") as temporary:
         temporary_root = Path(temporary)
@@ -376,23 +380,15 @@ def main() -> int:
                 )
                 if trace["status"] in {"UNAVAILABLE", "SKIP"}:
                     unavailable_reason = trace.get("reason") or "OpenCode acceptance is unavailable"
-            report = trace.get("report")
-            if isinstance(report, dict):
-                safe_report = redact(report)
-                (case_dir / "report.json").write_text(
-                    json.dumps(safe_report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-                    encoding="utf-8",
-                )
-                if report.get("mode") == "summary":
-                    try:
-                        target = args.repository_root or (ROOT / case["repository_fixture"]).resolve()
-                        trace["final_output"] = finalize_summary(safe_report, case_dir, target)
-                        trace["rendered_report_file"] = "report.md"
-                    except ValueError as error:
-                        trace["renderer_error"] = str(error)
-                        trace["status"] = "FAIL"
-                        trace["reason"] = "Summary finalization failed"
-                        trace["final_output"] = "Summary finalization failed; inspect the run artifacts."
+            if trace["status"] == "PASS" and case.get("expected_behavior", {}).get("report_mode") == "summary":
+                try:
+                    target = args.repository_root or (ROOT / case["repository_fixture"]).resolve()
+                    trace["final_output"] = retain_summary_markdown(str(trace["final_output"]), case_dir, target)
+                    trace["report_file"] = "report.md"
+                except ValueError as error:
+                    trace["markdown_error"] = str(error)
+                    trace["status"] = "FAIL"
+                    trace["reason"] = "Summary Markdown validation failed"
             (case_dir / "trace.json").write_text(
                 json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",

@@ -18,6 +18,9 @@ protocols, and Kubernetes resource names exactly.
 
 ## Target Resolution Gate
 
+Before Target Resolution Gate, recognize `--help`, `도움말`, and `사용법`.
+Return only a compact Korean usage guide: start `opencode` in the target Git repository, invoke `/analyze-repo-for-kubernetes`, use `Detailed` for the full report, and use `.` for the current subdirectory. Do not inspect a repository or start analysis for help.
+
 Resolve the analysis target before any repository discovery. Keep the Skill root
 and the analysis target separate. The Skill root contains `SKILL.md`,
 references, assets, scripts, schemas, tests, and fixtures; it is not an analysis
@@ -25,21 +28,18 @@ target unless the user explicitly asks to analyze the current repository. The
 Skill installation directory is never a guessed target, and this gate precedes
 repository discovery.
 
-If the user says `현재 저장소` or `현재 workspace`, resolve the current Git
-repository root. Otherwise require a concrete Repository URL or Local path.
-When the target is missing, ask exactly this one question and stop the turn:
+With no explicit path, resolve `현재 저장소`, `현재 workspace`, and the command default to the current Git root. An explicit `.` preserves the current directory as the analysis subdirectory. Other Local paths must stay within that worktree. Do not clone or access Repository URLs. Reject a path outside the worktree, a non-Git path, or a repository-escaping symlink.
+When the target is missing, ask exactly this one question. Stop the turn after asking:
 
 ```text
-분석할 Repository URL 또는 Local path를 알려 주세요.
+분석할 Local path를 알려 주세요.
 ```
 
 Do not use directory listing, file search, shell, Git, or web tools to guess a
 missing target. Do not request passwords, tokens, private keys, or other
-credential values. After resolving an accessible target, announce:
-
-```text
-분석 대상: <type> | <resolved target> | revision: <branch/commit/default> | subdirectory: <path 또는 .>
-```
+credential values. Include the resolved target, revision, and subdirectory in
+the report's `Target:` line. In interactive mode, concise Korean progress
+updates are allowed. The final response must be the completed report.
 
 ## Safety boundary
 
