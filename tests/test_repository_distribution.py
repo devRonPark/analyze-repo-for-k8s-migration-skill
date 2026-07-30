@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from scripts import build_dist
+from scripts import install_distribution
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -141,6 +142,22 @@ class RepositoryDistributionTests(unittest.TestCase):
             self.assertFalse(installed.is_symlink())
             self.assertTrue((home / ".config/opencode/agent/kubernetes-migration-analyzer.md").is_file())
             self.assertTrue((home / ".config/opencode/command/analyze-repo-for-kubernetes.md").is_file())
+
+    def test_failed_multi_path_install_restores_every_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "new"
+            source.mkdir()
+            (source / "version").write_text("new", encoding="utf-8")
+            targets = [root / "one" / "skill", root / "two" / "skill"]
+            for target in targets:
+                target.mkdir(parents=True)
+                (target / "version").write_text("old", encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "injected"):
+                install_distribution.install(source, targets, fail_after=2)
+
+            self.assertEqual([target.joinpath("version").read_text(encoding="utf-8") for target in targets], ["old", "old"])
 
     def test_opencode_installer_supports_project_local_destination(self):
         with tempfile.TemporaryDirectory() as tmp:

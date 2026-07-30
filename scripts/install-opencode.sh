@@ -86,13 +86,11 @@ python3 "$SOURCE_DIR/scripts/build_dist.py" \
   --output "$temporary_root/$SKILL_ID"
 
 install_paths=("$TARGET_DIR" "${duplicate_paths[@]}")
+install_args=(--source "$temporary_root/$SKILL_ID")
 for install_path in "${install_paths[@]}"; do
-  mkdir -p "$(dirname "$install_path")"
-  if [ -e "$install_path" ] || [ -L "$install_path" ]; then
-    rm -rf "$install_path"
-  fi
-  cp -R "$temporary_root/$SKILL_ID" "$install_path"
+  install_args+=(--target "$install_path")
 done
+python3 "$SOURCE_DIR/scripts/install_distribution.py" "${install_args[@]}"
 
 mkdir -p "$AGENT_DIR" "$COMMAND_DIR"
 cp "$SOURCE_DIR/runtime/agents/$AGENT_ID.md" "$AGENT_PATH"
