@@ -181,15 +181,12 @@ def normalize_trace(
 
 def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
     text = str(trace.get("final_output", ""))
-    candidates = [text]
-    candidates.extend(re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL))
-    for candidate in candidates:
-        try:
-            payload = json.loads(candidate)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict) and payload.get("schema_version") == SCHEMA_VERSION:
-            return payload
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(payload, dict) and payload.get("schema_version") == SCHEMA_VERSION:
+        return payload
     return None
 
 
@@ -242,7 +239,7 @@ def run_case(
     if model:
         command.extend(["--model", model])
     query = case["query"]
-    if case.get("acceptance_type") == "analysis":
+    if case.get("expected_behavior", {}).get("report_mode") == "summary":
         query += (
             "\n\nAcceptance harness instruction: return exactly one JSON object "
             "conforming to schemas/analysis-result.schema.json, without Markdown fences "

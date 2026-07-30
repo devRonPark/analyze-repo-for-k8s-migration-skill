@@ -74,7 +74,8 @@ class OpenCodeAdapterTests(unittest.TestCase):
 
     def test_summary_prompt_requires_renderer_input_contract(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("If the acceptance harness requests JSON", agent)
+        self.assertIn("return exactly one JSON object", agent)
+        self.assertIn("do not emit Markdown, fences, progress text, or commentary", agent)
         self.assertIn("For renderer input JSON", agent)
         self.assertIn("minimum_inputs", agent)
         self.assertIn("verdict_reason", agent)
@@ -107,6 +108,12 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertTrue(trace["skill"]["loaded"])
         self.assertIn("assets/migration-summary-template.md", trace["supporting_reads"])
         self.assertTrue(trace["permission_denials"])
+
+    def test_summary_extraction_rejects_prose_around_json(self):
+        payload = (ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8")
+
+        self.assertIsNone(adapter.extract_report({"final_output": f"progress\n{payload}"}))
+        self.assertIsNone(adapter.extract_report({"final_output": f"```json\n{payload}\n```"}))
 
     def test_missing_opencode_is_unavailable(self):
         case = {"id": "missing", "query": "query", "repository_fixture": "tests/fixtures/repos/sample"}
