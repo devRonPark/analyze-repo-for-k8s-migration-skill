@@ -38,6 +38,36 @@ class ReportContractTests(unittest.TestCase):
             self.assertIn("eight-section", text)
             self.assertIn("evidence slot", text)
 
+    def test_detailed_repeats_one_verdict_in_the_decision_summary(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8")
+
+        self.assertIn("### 핵심 요약", report)
+        self.assertEqual(report.count("- 판정: 설계 입력 충분"), 2)
+
+    def test_detailed_rejects_conflicting_verdicts(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- 판정: 설계 입력 충분", "- 판정: 분석 불가", 1
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("판정이 서로 다릅니다", result.stdout)
+
+    def test_repeated_more_information_verdict_still_requires_a_keyed_blocker(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- 판정: 설계 입력 충분", "- 판정: 추가 정보 필요"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("설계 차단 항목", result.stdout)
+
     def test_detailed_rejects_unterminated_minimum_input_slot(self):
         report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
             "- 없음: 추가 입력 없음 — 상태: 확인됨 / 근거: Dockerfile:1",

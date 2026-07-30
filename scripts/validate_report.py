@@ -283,7 +283,7 @@ def detailed_evidence_slot_errors(text: str) -> list[str]:
 
 def readiness_blocker_errors(text: str) -> list[str]:
     verdicts = re.findall(r"(?m)^- 판정: (설계 입력 충분|추가 정보 필요|분석 불가)$", text)
-    if verdicts != ["추가 정보 필요"]:
+    if set(verdicts) != {"추가 정보 필요"}:
         return []
     errors: list[str] = []
     section = text.split("### 설계 차단 항목", 1)
@@ -457,8 +457,10 @@ def main() -> int:
         errors.append("legacy readiness verdict는 --legacy에서만 허용됩니다")
     if not verdicts:
         errors.append("명시적인 최종 판정이 없습니다")
-    elif len(verdicts) > 1:
-        errors.append("최종 판정은 정확히 하나여야 합니다")
+    elif len(set(verdicts)) > 1:
+        # 결론 우선 요약과 최종 절이 같은 판정을 반복하는 것은 허용하고,
+        # 서로 다른 판정만 거부한다.
+        errors.append(f"최종 판정이 서로 다릅니다: {', '.join(dict.fromkeys(verdicts))}")
     if not has_valid_evidence(text):
         errors.append("file:line 또는 검색(...) 근거를 찾을 수 없습니다")
 
