@@ -12,40 +12,7 @@ from scripts.report_contract import (  # noqa: E402
     MARKDOWN_VERSION_MARKER,
     validate_json_payload,
 )
-
-SUMMARY_SECTIONS = [
-    "## 1. 범위",
-    "## 2. 한눈에 보기",
-    "## 3. 구성 요소별 배포 브리핑",
-    "## 4. 구성 요소 관계",
-    "## 5. 최종 판정",
-]
-NEW_SUMMARY_SECTIONS = [
-    "## 1. 분석 범위",
-    "## 2. 배포 대상 후보와 주요 제외",
-    "## 3. 배포 대상별 요약",
-    "## 4. Kubernetes 설계 입력 상태",
-]
-
-DETAILED_SECTIONS = [
-    "## 1. 평가 범위",
-    "## 2. 한눈에 보기",
-    "## 3. 구성 요소별 배포 브리핑",
-    "## 4. 구성 요소 관계",
-    "## 5. 설정과 상태 상세",
-    "## 6. 최소 입력 누락과 conflict 상세",
-    "## 7. 최종 판정",
-]
-NEW_DETAILED_SECTIONS = [
-    "## 1. 분석 범위",
-    "## 2. 배포 대상 후보",
-    "## 3. 배포 대상별 실행 정보",
-    "## 4. 구성과 관계",
-    "## 5. 운영 환경 배포 근거",
-    "## 6. 설정과 상태 상세",
-    "## 7. 제외 항목과 설계 차단 항목 상세",
-    "## 8. Kubernetes 설계 입력 상태",
-]
+from scripts.markdown_contract import profile  # noqa: E402
 
 FIXTURES = {
     "no-dockerfile-monorepo": [
@@ -170,53 +137,20 @@ def component_cards(text: str) -> list[tuple[str, str]]:
     return cards
 
 
-def component_briefing_errors(text: str) -> list[str]:
+def component_briefing_errors(text: str, mode: str, legacy: bool) -> list[str]:
     """구성 요소마다 분류된 key:value 속성과 속성별 근거를 요구한다."""
     errors: list[str] = []
     cards = component_cards(text)
     if not cards:
         return ["구성 요소별 배포 브리핑에 구성 요소 카드가 없습니다"]
 
-    new_contract = "## 3. 배포 대상별 실행 정보" in text or "## 3. 배포 대상별 요약" in text
-    categories = [
-        "#### 역할과 실행",
-        "#### 빌드와 기동",
-        "#### 네트워크와 상태 확인",
-        "#### 설정과 상태",
-        "#### Kubernetes 최소 설계 입력",
-        "#### 최소 입력 누락",
-    ]
-    required_properties = [
-        "역할:", "배포 대상 여부:", "배포 구성:", "경로:", "유형:", "언어:", "프레임워크:", "런타임:",
-        "패키지 관리자:", "설치 명령:", "빌드 명령:", "이미지 빌드 명령:", "운영 기동 명령:", "컨테이너화:",
-        "프로토콜:", "수신 포트:", "상태 확인:",
-        "설정:", "Secret:", "저장소:", "볼륨 또는 세션:", "적용 시점:",
-    ]
-    minimum_fields = [
-        "workload.kind:", "metadata.name:", "image:", "command:", "args:",
-        "containerPort:", "Service:", "Ingress:",
-    ]
-    minimum_heading = "#### Kubernetes 최소 설계 입력"
-    if "## 3. 배포 대상별 요약" in text:
-        categories = ["#### 핵심 입력", "#### Kubernetes 최소 입력", "#### 최소 입력 누락"]
-        required_properties = [
-            "실행 형태:", "런타임:", "빌드 명령:", "운영 기동 명령:",
-            "이미지 빌드 명령:", "컨테이너화:", "프로토콜:", "수신 포트:",
-            "설정:", "Secret:", "쓰기 상태 또는 영속성:", "런타임 의존성:",
-        ]
-        minimum_heading = "#### Kubernetes 최소 입력"
-        minimum_fields = ["image:", "command:", "args:", "containerPort:"]
-    elif new_contract:
-        categories = [
-            "#### 실행 정보", "#### 설정과 상태", "#### Kubernetes 최소 설계 입력", "#### 최소 입력 누락",
-        ]
-        required_properties = [
-            "실행 형태:", "경로:", "언어:", "프레임워크:", "런타임:", "패키지 관리자:",
-            "설치 명령:", "빌드 명령:", "이미지 빌드 명령:", "운영 기동 명령:", "컨테이너화:",
-            "프로토콜:", "수신 포트:", "상태 확인:", "설정:", "Secret:",
-            "쓰기 상태 또는 영속성:", "적용 시점:", "종료와 복구:", "관찰 가능성:",
-        ]
-        minimum_heading = "#### Kubernetes 최소 설계 입력"
+    card = profile(text, mode, legacy).get("card")
+    if not isinstance(card, dict):
+        return []
+    categories = card["categories"]
+    required_properties = card["properties"]
+    minimum_fields = card["minimum_fields"]
+    minimum_heading = card["minimum_heading"]
 
     for heading, card in cards:
         for category in categories:
@@ -436,11 +370,7 @@ def main() -> int:
     new_contract = not args.legacy
     if not args.legacy and MARKDOWN_VERSION_MARKER not in text:
         errors.append(f"현재 Markdown contract marker가 없습니다: {MARKDOWN_VERSION_MARKER}")
-    required_sections = (
-        NEW_SUMMARY_SECTIONS if new_contract and mode == "summary"
-        else NEW_DETAILED_SECTIONS if new_contract and mode == "detailed"
-        else SUMMARY_SECTIONS if mode == "summary" else DETAILED_SECTIONS
-    )
+    required_sections = profile(text, mode or "summary", args.legacy)["sections"]
     for section in required_sections:
         if section not in text:
             errors.append(f"섹션이 없습니다: {section}")
@@ -460,7 +390,8 @@ def main() -> int:
         errors.append("file:line 또는 검색(...) 근거를 찾을 수 없습니다")
 
     errors.extend(evidence_table_errors(text))
-    errors.extend(component_briefing_errors(text))
+    if mode is not None:
+        errors.extend(component_briefing_errors(text, mode, args.legacy))
     if not args.legacy:
         errors.extend(evidence_semantic_errors(text))
         errors.extend(readiness_blocker_errors(text))

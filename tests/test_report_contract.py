@@ -101,6 +101,14 @@ class ReportContractTests(unittest.TestCase):
 
         self.assertIn("fixture-status", contract["evidence_statuses"])
 
+    def test_summary_template_sections_are_declared_in_markdown_contract(self):
+        from scripts import markdown_contract
+
+        sections = markdown_contract.load()["summary"]["sections"]
+        template = (ROOT / "assets/migration-summary-template.md").read_text(encoding="utf-8")
+
+        self.assertTrue(all(section in template for section in sections))
+
 
 if __name__ == "__main__":
     unittest.main()
