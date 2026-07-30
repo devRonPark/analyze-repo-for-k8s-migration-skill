@@ -1,4 +1,5 @@
 SKILL.md
+contracts/project-metadata.json
 references/configuration-timing.md
 references/dependency-analysis.md
 references/evidence-and-readiness.md

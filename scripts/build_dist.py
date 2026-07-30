@@ -14,11 +14,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.validate_skill import validate
-
-
-SKILL_ID = "analyze-repo-for-kubernetes"
-SKILL_VERSION = "1.0.0"
-MANIFEST_NAME = "manifest.json"
+from scripts.project_metadata import load
 
 
 def read_allowlist(source_root: Path) -> list[str]:
@@ -66,11 +62,12 @@ def sha256(path: Path) -> str:
 def build(source_root: Path, output: Path) -> Path:
     source_root = source_root.resolve()
     output = output.resolve()
+    metadata = load(source_root)
     entries = read_allowlist(source_root)
     output.parent.mkdir(parents=True, exist_ok=True)
 
     temporary_root = Path(tempfile.mkdtemp(prefix=".skill-build-", dir=output.parent))
-    staging = temporary_root / SKILL_ID
+    staging = temporary_root / metadata.skill_id
     try:
         for entry in entries:
             destination = staging / entry
@@ -78,8 +75,8 @@ def build(source_root: Path, output: Path) -> Path:
             shutil.copyfile(source_root / entry, destination)
 
         manifest = {
-            "skill_id": SKILL_ID,
-            "version": SKILL_VERSION,
+            "skill_id": metadata.skill_id,
+            "version": metadata.skill_version,
             "source_revision": source_revision(source_root),
             "files": {},
         }
@@ -90,7 +87,7 @@ def build(source_root: Path, output: Path) -> Path:
                     "sha256": sha256(path),
                     "size": path.stat().st_size,
                 }
-        (staging / MANIFEST_NAME).write_text(
+        (staging / metadata.manifest_name).write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
@@ -121,8 +118,9 @@ def main() -> int:
     )
     args = parser.parse_args()
     source_root = args.source_root.resolve()
-    output = args.output or source_root / "dist" / SKILL_ID
     try:
+        metadata = load(source_root)
+        output = args.output or source_root / "dist" / metadata.skill_id
         destination = build(source_root, output)
     except (OSError, ValueError) as error:
         print(f"실패: {error}")

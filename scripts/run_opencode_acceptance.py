@@ -15,12 +15,12 @@ from typing import Any, Callable
 
 try:
     from scripts.render_summary import render_summary
+    from scripts.project_metadata import ProjectMetadata, load as load_project_metadata
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
     from render_summary import render_summary
+    from project_metadata import ProjectMetadata, load as load_project_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_ID = "analyze-repo-for-kubernetes"
-AGENT_ID = "kubernetes-migration-analyzer"
 DEFAULT_OPENCODE = "opencode"
 SENSITIVE = re.compile(r"(?i)(api[_-]?key|token|password|secret)([=:：]\s*)[^\s,}]+")
 
@@ -139,7 +139,9 @@ def normalize_trace(
     metadata: dict[str, str],
     status: str,
     reason: str | None = None,
+    project: ProjectMetadata | None = None,
 ) -> dict[str, Any]:
+    project = project or load_project_metadata(ROOT)
     calls = collect_tool_calls(events)
     serialized = "\n".join(event_text(event) for event in events)
     all_text = f"{serialized}\n{stdout}\n{stderr}"
@@ -147,7 +149,7 @@ def normalize_trace(
     for path in re.findall(r"(?:SKILL\.md|references/[A-Za-z0-9._/-]+\.md|assets/[A-Za-z0-9._/-]+\.md)", all_text):
         if path not in reads:
             reads.append(path)
-    skill_loaded = SKILL_ID in all_text and ("skill" in all_text.lower() or "SKILL.md" in all_text)
+    skill_loaded = project.skill_id in all_text and ("skill" in all_text.lower() or "SKILL.md" in all_text)
     denials: list[dict[str, str]] = []
     for event in events:
         text = event_text(event)
@@ -165,8 +167,8 @@ def normalize_trace(
         "reason": reason,
         "returncode": returncode,
         "command": command,
-        "skill": {"id": SKILL_ID, "description": metadata.get("description", ""), "loaded": skill_loaded},
-        "agent": AGENT_ID,
+        "skill": {"id": project.skill_id, "description": metadata.get("description", ""), "loaded": skill_loaded},
+        "agent": project.agent_id,
         "events": events,
         "tool_calls": calls,
         "supporting_reads": reads,
@@ -189,7 +191,9 @@ def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-def unavailable_trace(case: dict[str, Any], reason: str, metadata: dict[str, str]) -> dict[str, Any]:
+def unavailable_trace(
+    case: dict[str, Any], reason: str, metadata: dict[str, str], project: ProjectMetadata
+) -> dict[str, Any]:
     return normalize_trace(
         [],
         "",
@@ -199,6 +203,7 @@ def unavailable_trace(case: dict[str, Any], reason: str, metadata: dict[str, str
         metadata,
         "UNAVAILABLE",
         reason,
+        project,
     ) | {"case_id": case["id"], "query": case["query"]}
 
 
@@ -215,9 +220,10 @@ def run_case(
     runner: CommandRunner = subprocess.run,
 ) -> dict[str, Any]:
     metadata = parse_frontmatter(root / "SKILL.md")
+    project = load_project_metadata(root)
     executable = shutil.which(opencode, path=os.environ.get("PATH")) if Path(opencode).name == opencode else opencode
     if not executable or not Path(executable).exists():
-        return unavailable_trace(case, "OpenCode executable not found", metadata)
+        return unavailable_trace(case, "OpenCode executable not found", metadata, project)
 
     target = repository_root or (root / case["repository_fixture"]).resolve()
     command = [
@@ -227,7 +233,7 @@ def run_case(
         "--format",
         "json",
         "--agent",
-        AGENT_ID,
+        project.agent_id,
         "--dir",
         str(target.resolve()),
     ]
@@ -272,11 +278,12 @@ def run_case(
             metadata,
             "UNAVAILABLE",
             f"OpenCode could not complete: {error}",
+            project,
         )
         trace.update({"case_id": case["id"], "query": case["query"]})
         return trace
     except OSError as error:
-        return unavailable_trace(case, f"OpenCode could not complete: {error}", metadata)
+        return unavailable_trace(case, f"OpenCode could not complete: {error}", metadata, project)
 
     events = event_lines(result.stdout)
     trace = normalize_trace(
@@ -288,6 +295,7 @@ def run_case(
         metadata,
         "PASS" if result.returncode == 0 else "FAIL",
         None if result.returncode == 0 else "OpenCode returned a nonzero exit code",
+        project,
     )
     trace.update({"case_id": case["id"], "query": case["query"]})
     report = extract_report(trace)
@@ -316,6 +324,7 @@ def main() -> int:
         help="provider 인증을 위해 현재 HOME을 유지합니다. --pure는 계속 적용됩니다.",
     )
     args = parser.parse_args()
+    project = load_project_metadata(ROOT)
     payload = load_json(args.cases)
     cases = payload.get("cases", []) if isinstance(payload, dict) else []
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -326,7 +335,7 @@ def main() -> int:
         # OPENCODE_CONFIG_DIR is isolated per run, so keep the installed Skill
         # beside the copied agent. This is the discovery root used by the
         # OpenCode CLI in pure acceptance runs.
-        installed_skill = config_dir / "skills" / SKILL_ID
+        installed_skill = config_dir / "skills" / project.skill_id
         agent_dir = config_dir / "agents"
         home.mkdir(parents=True, exist_ok=True)
         agent_dir.mkdir(parents=True)
@@ -337,13 +346,13 @@ def main() -> int:
             capture_output=True,
             text=True,
         )
-        shutil.copy2(ROOT / "runtime/agents/kubernetes-migration-analyzer.md", agent_dir / f"{AGENT_ID}.md")
+        shutil.copy2(ROOT / "runtime/agents" / f"{project.agent_id}.md", agent_dir / f"{project.agent_id}.md")
         unavailable_reason: str | None = None
         for case in cases:
             case_dir = args.output_dir / case["id"]
             case_dir.mkdir(parents=True, exist_ok=True)
             if unavailable_reason is not None:
-                trace = unavailable_trace(case, unavailable_reason, parse_frontmatter(ROOT / "SKILL.md"))
+                trace = unavailable_trace(case, unavailable_reason, parse_frontmatter(ROOT / "SKILL.md"), project)
             else:
                 trace = run_case(
                     case,
