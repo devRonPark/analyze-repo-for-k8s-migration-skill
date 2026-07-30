@@ -2,8 +2,11 @@
 
 ## Active priority
 
-The Detailed contract defects found by the JPetStore 6 Detailed E2E are recorded
-in [`../daily/2026-07-30/TICKET-LIST-2026-07-30-007-detailed-contract-defects.md`](../daily/2026-07-30/TICKET-LIST-2026-07-30-007-detailed-contract-defects.md).
+The next queue is
+[`../daily/2026-07-30/TICKET-LIST-2026-07-30-008-detailed-accuracy-followups.md`](../daily/2026-07-30/TICKET-LIST-2026-07-30-008-detailed-accuracy-followups.md):
+`DET-010` through `DET-014` carry the remaining golden-set deductions, and three
+open decisions are recorded there. The completed contract-defect work is in
+[`../daily/2026-07-30/TICKET-LIST-2026-07-30-007-detailed-contract-defects.md`](../daily/2026-07-30/TICKET-LIST-2026-07-30-007-detailed-contract-defects.md).
 The secret-safe evidence boundary plan remains open in
 [`../daily/2026-07-30/TICKET-LIST-2026-07-30-006-secret-safe-evidence-boundary.md`](../daily/2026-07-30/TICKET-LIST-2026-07-30-006-secret-safe-evidence-boundary.md).
 
@@ -16,6 +19,7 @@ The secret-safe evidence boundary plan remains open in
 | `DET-008` | DONE | Cited line ranges exist in the read file and all eight sections are present. |
 | `DET-009` | DONE | No `result=없음` claim contradicts a file the run read. |
 | `DET-003` | PARTIAL | JPetStore Detailed report scores 72/100; the MSA target and the 90-point threshold remain open. |
+| `DET-010` — `DET-014` | TODO | Context path, cited line ranges, build-time dependency edge, descriptor compatibility, and repeated `미확인` slot slips. |
 | `SEC-001` | IN_PROGRESS | Target evidence is redacted before the model can read it. |
 
 Read [the Detailed verdict-consistency ADR](../daily/2026-07-30/ADR-2026-07-30-010-detailed-verdict-consistency.md)
