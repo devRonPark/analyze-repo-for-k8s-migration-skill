@@ -27,7 +27,7 @@ Target: /tmp/web @ abc123def | Skill: analyze-repo-for-kubernetes 1.0.0 | Contra
 
 | 분류 | 항목 | 영향 | 근거 |
 |---|---|---|---|
-| deployment_value | image registry | 배포 시 입력 | 검색(scope=., pattern=registry, result=없음) |
+| 배포 입력 | image registry | 배포 시 입력 | 검색(scope=., pattern=registry, result=없음) |
 
 ## 5. 핵심 근거
 

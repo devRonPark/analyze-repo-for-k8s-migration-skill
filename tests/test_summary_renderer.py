@@ -15,6 +15,21 @@ def evidence(value: str, reference: str = "Dockerfile:1", status: str = "확인�
 
 
 class SummaryRendererTests(unittest.TestCase):
+    def test_renders_korean_open_item_labels(self):
+        payload = json.loads((ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8"))
+        payload["missing_inputs"] = [{
+            "key": "registry",
+            "description": "image registry",
+            "impact_scope": "배포 시 입력",
+            "status": "미확인",
+            "reference": "검색(scope=., pattern=registry, result=없음)",
+            "classification": "deployment_value",
+        }]
+
+        report = render_summary(payload)
+
+        self.assertIn("| 배포 입력 | image registry | 배포 시 입력 |", report)
+
     def test_rejects_non_summary_payloads(self):
         payload = json.loads((ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8"))
         payload["mode"] = "detailed"

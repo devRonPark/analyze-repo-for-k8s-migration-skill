@@ -29,7 +29,7 @@ Summary v2는 구성 요소별 장문 카드 대신 배포 개요를 사용한�
 
 | 분류 | 항목 | 영향 | 근거 |
 |---|---|---|---|
-| <hard_blocker|open_design_decision|deployment_value|recommendation> | <항목> | <영향> | <file:line 또는 검색(...)> |
+| <설계 차단|설계 결정|배포 입력|권장 사항> | <항목> | <영향> | <file:line 또는 검색(...)> |
 
 ## 5. 핵심 근거
 

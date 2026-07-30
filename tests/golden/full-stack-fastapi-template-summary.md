@@ -30,7 +30,7 @@ Target: fixture @ fixed | Skill: analyze-repo-for-kubernetes 1.0.0 | Contract: 2
 
 | 분류 | 항목 | 영향 | 근거 |
 |---|---|---|---|
-| deployment_value | Registry와 Tag | 배포 시 입력 | 검색(scope=., pattern=registry, result=없음) |
+| 배포 입력 | Registry와 Tag | 배포 시 입력 | 검색(scope=., pattern=registry, result=없음) |
 
 ## 5. 핵심 근거
 

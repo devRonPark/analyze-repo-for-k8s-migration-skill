@@ -11,11 +11,12 @@ try:
     from scripts.report_contract import (
         EVIDENCE_STATUSES,
         MARKDOWN_VERSION_MARKER,
+        OPEN_ITEM_LABELS,
         validate_json_payload,
     )
     from scripts.validate_report import ABSENCE_REFERENCE as ABSENCE, FILE_LINE_REFERENCE as FILE_LINE
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/render_summary.py ...
-    from report_contract import EVIDENCE_STATUSES, MARKDOWN_VERSION_MARKER, validate_json_payload
+    from report_contract import EVIDENCE_STATUSES, MARKDOWN_VERSION_MARKER, OPEN_ITEM_LABELS, validate_json_payload
     from validate_report import ABSENCE_REFERENCE as ABSENCE, FILE_LINE_REFERENCE as FILE_LINE
 
 
@@ -249,11 +250,11 @@ def render_summary(payload: dict[str, Any], *, legacy: bool = False) -> str:
         for item in open_items:
             item = item if isinstance(item, dict) else {"key": str(item)}
             classification = item.get("classification", "hard_blocker")
-            if classification not in {"hard_blocker", "open_design_decision", "deployment_value", "recommendation"}:
+            if classification not in OPEN_ITEM_LABELS:
                 raise ValueError("invalid open item classification")
-            lines.append(f"| {classification} | {item.get('description', item.get('key', '미확인'))} | {item.get('impact_scope', '전체')} | {_reference(payload, item.get('reference'), str(item.get('key', 'open')), item.get('status', '미확인'))} |")
+            lines.append(f"| {OPEN_ITEM_LABELS[classification]} | {item.get('description', item.get('key', '미확인'))} | {item.get('impact_scope', '전체')} | {_reference(payload, item.get('reference'), str(item.get('key', 'open')), item.get('status', '미확인'))} |")
     else:
-        lines.append(f"| recommendation | 없음 | 없음 | {reference} |")
+        lines.append(f"| {OPEN_ITEM_LABELS['recommendation']} | 없음 | 없음 | {reference} |")
     lines.extend(["", "## 5. 핵심 근거", "", f"- 판정: {reference}"])
     return "\n".join(lines) + "\n"
 

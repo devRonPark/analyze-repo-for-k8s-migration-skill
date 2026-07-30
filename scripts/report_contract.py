@@ -42,6 +42,12 @@ CONTAINERIZATION_VALUES = CONTRACT["containerization_values"]
 CONFIGURATION_TIMING = CONTRACT["configuration_timing"]
 MODES = CONTRACT["modes"]
 MODE_REQUIRED_FIELDS = CONTRACT["required_by_mode"]
+OPEN_ITEM_LABELS = {
+    "hard_blocker": "설계 차단",
+    "open_design_decision": "설계 결정",
+    "deployment_value": "배포 입력",
+    "recommendation": "권장 사항",
+}
 
 
 def _validate_evidence(value: Any, path: str, contract: dict[str, Any]) -> list[str]:
