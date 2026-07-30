@@ -30,7 +30,7 @@ class ReportContractTests(unittest.TestCase):
 
     def test_legacy_verdict_is_rejected_by_default(self):
         report = REPORT_FIXTURES / "valid-summary.md"
-        legacy = report.read_text(encoding="utf-8").replace("추가 정보 필요", "준비됨")
+        legacy = report.read_text(encoding="utf-8").replace("설계 입력 충분", "준비됨")
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "legacy.md"
             path.write_text(legacy, encoding="utf-8")
@@ -108,6 +108,17 @@ class ReportContractTests(unittest.TestCase):
         template = (ROOT / "assets/migration-summary-template.md").read_text(encoding="utf-8")
 
         self.assertTrue(all(section in template for section in sections))
+
+    def test_summary_v2_requires_conclusion_first_and_ordered_sections(self):
+        report = REPORT_FIXTURES / "valid-summary.md"
+        invalid = report.read_text(encoding="utf-8").replace("## 1. 결론", "## 1. 분석 범위")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "summary.md"
+            path.write_text(invalid, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "summary")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("섹션", result.stdout)
 
 
 if __name__ == "__main__":

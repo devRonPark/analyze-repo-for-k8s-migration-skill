@@ -7,6 +7,7 @@ from typing import Any
 
 
 MARKDOWN_VERSION_MARKER = "<!-- analyze-repo-for-kubernetes: report-contract=1.0 -->"
+SUMMARY_V2_MARKDOWN_VERSION_MARKER = "<!-- analyze-repo-for-kubernetes: report-contract=2.0 -->"
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas/analysis-result.schema.json"
 
 

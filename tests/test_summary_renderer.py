@@ -42,10 +42,8 @@ class SummaryRendererTests(unittest.TestCase):
 
         report = render_summary(payload)
 
-        self.assertIn("배포 대상 후보: web — 상태: 확인됨 / 근거: Dockerfile:1", report)
-        self.assertIn("배포 대상 후보: worker — 상태: 확인됨 / 근거: worker.py:2", report)
-        self.assertIn("주요 제외 항목: docs — 상태: 미확인 / 근거: 검색(scope=., pattern=docs, result=없음)", report)
-        self.assertIn("주요 제외 항목: tests — 상태: 확인됨 / 근거: README.md:2", report)
+        self.assertIn("- 배포 대상: web, worker — 근거: Dockerfile:1", report)
+        self.assertIn("| worker | Deployment 후보 | worker.py:2 |", report)
 
     def test_renders_schema_payload_as_valid_summary_markdown(self):
         fields = {
@@ -86,7 +84,7 @@ class SummaryRendererTests(unittest.TestCase):
 
         report = render_summary(payload)
         self.assertTrue(report.startswith("# Kubernetes 설계 입력 요약\n"))
-        self.assertIn("<!-- analyze-repo-for-kubernetes: report-contract=1.0 -->", report)
+        self.assertIn("<!-- analyze-repo-for-kubernetes: report-contract=2.0 -->", report)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "summary.md"
             path.write_text(report, encoding="utf-8")

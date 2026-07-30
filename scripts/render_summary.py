@@ -93,7 +93,7 @@ def _component_evidence(payload: dict[str, Any], component: dict[str, Any]) -> d
     return {"status": "미확인", "reference": _absence_reference(payload, component.get("name", "component"))}
 
 
-def render_summary(payload: dict[str, Any]) -> str:
+def _render_summary_v1(payload: dict[str, Any]) -> str:
     errors = validate_json_payload(payload)
     if errors:
         raise ValueError("invalid Summary JSON: " + "; ".join(errors))
@@ -193,6 +193,61 @@ def render_summary(payload: dict[str, Any]) -> str:
                 f"상태: {status} / 근거: {reference}{_judgment(status, item.get('reason'))}"
             )
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_summary(payload: dict[str, Any], *, legacy: bool = False) -> str:
+    """Render the compact, conclusion-first Summary v2 contract."""
+    if legacy:
+        return _render_summary_v1(payload)
+    errors = validate_json_payload(payload)
+    if errors:
+        raise ValueError("invalid Summary JSON: " + "; ".join(errors))
+    if payload.get("mode") != "summary":
+        raise ValueError("renderer requires mode=summary")
+    components = payload.get("components")
+    if not isinstance(components, list) or not components:
+        raise ValueError("summary requires at least one component")
+
+    scope = payload.get("scope") if isinstance(payload.get("scope"), dict) else {}
+    source = scope.get("Repository URL 또는 Local path", "unavailable")
+    revision = scope.get("branch, tag 또는 commit", "unavailable")
+    reference = _fallback_reference(payload, "summary")
+    names = [str(component.get("name", "미확인")) for component in components]
+    dependencies = payload.get("dependencies") or []
+    dependency_names = [str(item.get("target", "미확인")) for item in dependencies if isinstance(item, dict)]
+    open_items = payload.get("missing_inputs") or []
+    if payload.get("design_input_verdict") == "추가 정보 필요" and not open_items:
+        raise ValueError("추가 정보 필요 판정에는 열린 항목이 필요합니다")
+    lines = [
+        "# Kubernetes 설계 입력 요약", "", "<!-- analyze-repo-for-kubernetes: report-contract=2.0 -->", "",
+        f"Target: {source} @ {revision} | Skill: analyze-repo-for-kubernetes | Contract: 2.0 | Validation: pending", "",
+        "## 1. 결론", "",
+        f"- 판정: {payload.get('design_input_verdict', '분석 불가')}",
+        f"- 배포 대상: {', '.join(names)} — 근거: {reference}",
+        f"- 주요 런타임 의존성: {', '.join(dependency_names) or '없음'} — 근거: {reference}",
+        f"- 열린 항목 요약: {'있음' if open_items else '없음'} — 근거: {reference}", "",
+        "## 2. 예상 Kubernetes 구성", "",
+        "| 대상 | Kubernetes 해석 | 근거 |", "|---|---|---|",
+    ]
+    for component in components:
+        evidence = _component_evidence(payload, component)
+        lines.append(f"| {component.get('name', '미확인')} | Deployment 후보 | {evidence['reference']} |")
+    lines.extend(["", "## 3. 관계와 운영 경계", "", "| 관계 또는 경계 | Kubernetes 해석 | 근거 |", "|---|---|---|"])
+    if dependencies:
+        for dependency in dependencies:
+            if isinstance(dependency, dict):
+                lines.append(f"| {dependency.get('source', '미확인')} → {dependency.get('target', '미확인')} | 런타임 연결 | {reference} |")
+    else:
+        lines.append(f"| 없음 | 추가 경계 없음 | {reference} |")
+    lines.extend(["", "## 4. 열린 항목", "", "| 분류 | 항목 | 영향 | 근거 |", "|---|---|---|---|"])
+    if open_items:
+        for item in open_items:
+            item = item if isinstance(item, dict) else {"key": str(item)}
+            lines.append(f"| hard_blocker | {item.get('description', item.get('key', '미확인'))} | {item.get('impact_scope', '전체')} | {_reference(payload, item.get('reference'), str(item.get('key', 'open')), item.get('status', '미확인'))} |")
+    else:
+        lines.append(f"| recommendation | 없음 | 없음 | {reference} |")
+    lines.extend(["", "## 5. 핵심 근거", "", f"- 판정: {reference}"])
+    return "\n".join(lines) + "\n"
 
 
 def main() -> int:

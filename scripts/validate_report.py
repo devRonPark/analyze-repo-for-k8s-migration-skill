@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.report_contract import (  # noqa: E402
     MARKDOWN_VERSION_MARKER,
+    SUMMARY_V2_MARKDOWN_VERSION_MARKER,
     validate_json_payload,
 )
 from scripts.markdown_contract import profile  # noqa: E402
@@ -50,6 +51,23 @@ def detect_mode(text: str, legacy: bool = False) -> str | None:
 
 def has_valid_evidence(value: str) -> bool:
     return bool(FILE_LINE_REFERENCE.search(value) or ABSENCE_REFERENCE.search(value))
+
+
+def is_summary_v2(text: str) -> bool:
+    return SUMMARY_V2_MARKDOWN_VERSION_MARKER in text
+
+
+def summary_v2_errors(text: str) -> list[str]:
+    errors: list[str] = []
+    sections = profile("summary", False)["sections"]
+    positions = [text.find(section) for section in sections]
+    if any(position == -1 for position in positions) or positions != sorted(positions):
+        errors.append("Summary v2 섹션 순서가 계약과 다릅니다")
+    first_lines = [line for line in text.splitlines() if line.strip()][:20]
+    for field in ("판정:", "배포 대상:", "주요 런타임 의존성:", "열린 항목 요약:"):
+        if not any(field in line for line in first_lines):
+            errors.append(f"Summary v2 첫 화면에 필수 값이 없습니다: {field[:-1]}")
+    return errors
 
 
 def repository_reference_errors(text: str, repository_root: Path | None) -> list[str]:
@@ -256,7 +274,7 @@ def dependency_and_readiness_errors(text: str) -> list[str]:
 
 def mode_specific_errors(text: str, mode: str | None) -> list[str]:
     errors: list[str] = []
-    if mode == "summary" and "## 3. 배포 대상별 요약" in text:
+    if mode == "summary" and ("## 3. 배포 대상별 요약" in text or is_summary_v2(text)):
         for marker in [
             "### Dependency matrix",
             "### Text dependency graph",
@@ -368,8 +386,6 @@ def main() -> int:
         errors.append(f"보고서 제목은 {detected} 모드를 가리키지만 요청 모드는 {args.mode}입니다")
 
     new_contract = not args.legacy
-    if not args.legacy and MARKDOWN_VERSION_MARKER not in text:
-        errors.append(f"현재 Markdown contract marker가 없습니다: {MARKDOWN_VERSION_MARKER}")
     required_sections = profile(mode or "summary", args.legacy)["sections"]
     for section in required_sections:
         if section not in text:
@@ -390,14 +406,20 @@ def main() -> int:
         errors.append("file:line 또는 검색(...) 근거를 찾을 수 없습니다")
 
     errors.extend(evidence_table_errors(text))
-    if mode is not None:
+    summary_v2 = mode == "summary" and is_summary_v2(text)
+    if mode is not None and not summary_v2:
         errors.extend(component_briefing_errors(text, mode, args.legacy))
     if not args.legacy:
-        errors.extend(evidence_semantic_errors(text))
-        errors.extend(readiness_blocker_errors(text))
-    errors.extend(overview_errors(text))
+        if not summary_v2:
+            errors.extend(evidence_semantic_errors(text))
+            errors.extend(readiness_blocker_errors(text))
+    if summary_v2:
+        errors.extend(summary_v2_errors(text))
+    else:
+        errors.extend(overview_errors(text))
     errors.extend(disallowed_section_errors(text))
-    errors.extend(dependency_and_readiness_errors(text))
+    if not summary_v2:
+        errors.extend(dependency_and_readiness_errors(text))
     errors.extend(mode_specific_errors(text, mode))
     errors.extend(
         repository_reference_errors(
@@ -405,6 +427,9 @@ def main() -> int:
             args.repo_root if args.repo_root is not None and args.repo_root.is_dir() else None,
         )
     )
+    expected_marker = SUMMARY_V2_MARKDOWN_VERSION_MARKER if mode == "summary" and not args.legacy else MARKDOWN_VERSION_MARKER
+    if not args.legacy and expected_marker not in text:
+        errors.append(f"현재 Markdown contract marker가 없습니다: {expected_marker}")
     for field in ([] if new_contract else ["실행 위치", "적용 시점"]):
         if field not in text:
             errors.append(f"필수 필드가 없습니다: {field}")

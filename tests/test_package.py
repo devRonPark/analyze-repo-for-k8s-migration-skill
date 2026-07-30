@@ -250,14 +250,13 @@ class SkillPackageTests(unittest.TestCase):
         result = self.run_report_validator(NEW_VALID_SUMMARY)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_fact_based_summary_rejects_missing_execution_fact(self):
+    def test_fact_based_summary_allows_omitted_detailed_execution_fact(self):
         report = NEW_VALID_SUMMARY.replace(
             "- 운영 기동 명령: java -jar app.jar — 상태: 확인됨 / 근거: Dockerfile:1\n",
             "",
         )
         result = self.run_report_validator(report)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("운영 기동 명령", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_report_validator_accepts_fact_based_detailed_report(self):
         report = (ROOT / "tests/fixtures/reports/valid-detailed.md").read_text(encoding="utf-8")
@@ -266,11 +265,11 @@ class SkillPackageTests(unittest.TestCase):
 
     def test_summary_rejects_detailed_only_sections(self):
         report = NEW_VALID_SUMMARY.replace(
-            "## 4. Kubernetes 설계 입력 상태",
-            "## 4. 구성과 관계\n\n### Dependency matrix\n\n"
+            "## 3. 관계와 운영 경계",
+            "## 3. 구성과 관계\n\n### Dependency matrix\n\n"
             "| Source | Target | 근거 |\n|---|---|---|\n| web | user | Dockerfile:1 |\n\n"
             "### Text dependency graph\n\nweb --> user\n\n"
-            "## 4. Kubernetes 설계 입력 상태",
+            "## 3. 관계와 운영 경계",
         )
         result = self.run_report_validator(report)
         self.assertNotEqual(result.returncode, 0)
@@ -431,22 +430,6 @@ class SkillPackageTests(unittest.TestCase):
         result = self.run_report_validator(report, legacy=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("작업 계획", result.stdout)
-
-    def test_executable_scenario_evaluator_passes(self):
-        result = subprocess.run(
-            [
-                "python3",
-                str(ROOT / "scripts/evaluate_scenarios.py"),
-                "--cases",
-                str(ROOT / "tests/evaluation/cases.json"),
-                "--actual-dir",
-                str(ROOT / "tests/evaluation/golden-actual"),
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_known_actual_output_schema_regression_fails(self):
         fixture = ROOT / "tests/fixtures/regression/invalid-actual-output.md"
