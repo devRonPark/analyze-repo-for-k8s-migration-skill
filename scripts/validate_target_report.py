@@ -8,8 +8,11 @@ import sys
 from pathlib import Path
 
 
-def finalize(report: Path) -> int:
-    result = subprocess.run([sys.executable, str(Path(__file__).with_name("validate_report.py")), str(report), "--mode", "summary"], check=False)
+def finalize(report: Path, repository_root: Path | None = None) -> int:
+    command = [sys.executable, str(Path(__file__).with_name("validate_report.py")), str(report), "--mode", "summary"]
+    if repository_root is not None:
+        command.extend(["--repo-root", str(repository_root)])
+    result = subprocess.run(command, check=False)
     if result.returncode:
         return result.returncode
     text = report.read_text(encoding="utf-8")
@@ -25,4 +28,6 @@ def finalize(report: Path) -> int:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("report", type=Path)
-    raise SystemExit(finalize(parser.parse_args().report))
+    parser.add_argument("--repo-root", type=Path)
+    args = parser.parse_args()
+    raise SystemExit(finalize(args.report, args.repo_root))

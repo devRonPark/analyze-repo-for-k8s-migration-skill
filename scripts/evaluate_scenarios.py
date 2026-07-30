@@ -66,6 +66,42 @@ def repository_snapshot_errors(root: Path, expected: dict[str, str]) -> list[str
     return errors
 
 
+def fixture_snapshot_errors(case: dict[str, Any]) -> list[str]:
+    fixture = resolve_path(case.get("repository_fixture", ""), ROOT)
+    if not fixture.is_dir():
+        return [f"repository fixture is missing: {fixture}"]
+    snapshot = case.get("repository_snapshot", {})
+    if not isinstance(snapshot, dict):
+        return ["repository snapshot is not an object"]
+    return repository_snapshot_errors(fixture, snapshot)
+
+
+def report_validation_errors(
+    report_path: Path,
+    mode: str,
+    report_format: str,
+    message: str,
+) -> list[str]:
+    validation = subprocess.run(
+        [
+            sys.executable,
+            str(VALIDATOR),
+            str(report_path),
+            "--mode",
+            mode,
+            "--format",
+            report_format,
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if validation.returncode == 0:
+        return []
+    return [f"{message}: {validation.stdout.strip()}"]
+
+
 def report_core(payload: Any, text: str) -> dict[str, Any]:
     if isinstance(payload, dict):
         candidates = sorted(
@@ -127,36 +163,24 @@ def validate_case(case: dict[str, Any], actual_dir: Path) -> dict[str, Any]:
     errors: list[str] = []
     case_dir = actual_dir / case_id
     report_path = case_dir / case.get("report_file", "report.json")
-    fixture = resolve_path(case.get("repository_fixture", ""), ROOT)
     expected_behavior = case.get("expected_behavior", {})
     forbidden_behavior = case.get("forbidden_behavior", {})
 
-    if not fixture.is_dir():
-        errors.append(f"repository fixture is missing: {fixture}")
-    else:
-        snapshot = case.get("repository_snapshot", {})
-        if not isinstance(snapshot, dict):
-            errors.append("repository snapshot is not an object")
-        else:
-            errors.extend(repository_snapshot_errors(fixture, snapshot))
+    errors.extend(fixture_snapshot_errors(case))
 
     if not report_path.is_file():
         errors.append(f"missing actual report: {report_path}")
         return {"id": case_id, "passed": False, "errors": errors}
 
     report_format = case.get("report_format", "json")
-    command = [
-        sys.executable,
-        str(VALIDATOR),
-        str(report_path),
-        "--mode",
-        case["report_mode"],
-        "--format",
-        report_format,
-    ]
-    validation = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
-    if validation.returncode != 0:
-        errors.append(f"report validation failed: {validation.stdout.strip()}")
+    errors.extend(
+        report_validation_errors(
+            report_path,
+            case["report_mode"],
+            report_format,
+            "report validation failed",
+        )
+    )
 
     try:
         payload = load_json(report_path) if report_format == "json" else None
@@ -215,15 +239,7 @@ def validate_opencode_case(case: dict[str, Any], actual_dir: Path) -> dict[str, 
     errors: list[str] = []
     case_dir = actual_dir / case_id
     trace_path = case_dir / case.get("trace_file", "trace.json")
-    fixture = resolve_path(case.get("repository_fixture", ""), ROOT)
-    if not fixture.is_dir():
-        errors.append(f"repository fixture is missing: {fixture}")
-    else:
-        snapshot = case.get("repository_snapshot", {})
-        if not isinstance(snapshot, dict):
-            errors.append("repository snapshot is not an object")
-        else:
-            errors.extend(repository_snapshot_errors(fixture, snapshot))
+    errors.extend(fixture_snapshot_errors(case))
 
     if not trace_path.is_file():
         errors.append(f"missing OpenCode trace: {trace_path}")
@@ -273,29 +289,25 @@ def validate_opencode_case(case: dict[str, Any], actual_dir: Path) -> dict[str, 
         if permission.lower() not in denials:
             errors.append(f"permission denial missing for: {permission}")
 
-    report_name = case.get("report_file", "report.json")
+    summary = expected.get("report_mode") == "summary"
+    report_name = "report.md" if summary else case.get("report_file", "report.json")
     report_path = case_dir / report_name
     if expected.get("report_mode"):
         if not report_path.is_file():
             errors.append(f"missing normalized OpenCode report: {report_path}")
         else:
-            validation = subprocess.run(
-                [
-                    sys.executable,
-                    str(VALIDATOR),
-                    str(report_path),
-                    "--mode",
+            errors.extend(
+                report_validation_errors(
+                    report_path,
                     expected["report_mode"],
-                    "--format",
-                    "json",
-                ],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
+                    "markdown" if summary else "json",
+                    "normalized report validation failed",
+                )
             )
-            if validation.returncode != 0:
-                errors.append(f"normalized report validation failed: {validation.stdout.strip()}")
+            if summary and "Validation: passed" not in report_path.read_text(encoding="utf-8"):
+                errors.append("finalized Summary receipt is missing")
+    if summary and not str(trace.get("final_output", "")).startswith("# Kubernetes 설계 입력 요약\n"):
+        errors.append("final Summary output does not begin with the report heading")
     return {
         "id": case_id,
         "passed": not errors,

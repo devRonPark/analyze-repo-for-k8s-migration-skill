@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 from scripts import run_opencode_acceptance as adapter
+from scripts import evaluate_scenarios
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -114,6 +115,45 @@ class OpenCodeAdapterTests(unittest.TestCase):
 
         self.assertIsNone(adapter.extract_report({"final_output": f"progress\n{payload}"}))
         self.assertIsNone(adapter.extract_report({"final_output": f"```json\n{payload}\n```"}))
+
+    def test_finalizes_summary_before_exposing_it(self):
+        payload = json.loads((ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as tmp:
+            report = adapter.finalize_summary(
+                payload,
+                Path(tmp),
+                ROOT / "tests/fixtures/repos/sample",
+            )
+
+        self.assertIn("Validation: passed", report)
+        self.assertTrue(report.startswith("# Kubernetes 설계 입력 요약\n"))
+
+    def test_evaluator_uses_finalized_summary_markdown(self):
+        case = {
+            "id": "summary",
+            "repository_fixture": "tests/fixtures/repos/sample",
+            "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"},
+            "expected_behavior": {"report_mode": "summary", "skill_loaded": True, "skill_id": "analyze-repo-for-kubernetes"},
+            "forbidden_behavior": {"reads": [], "tools": []},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp) / "summary"
+            case_dir.mkdir()
+            report = (ROOT / "tests/fixtures/reports/valid-summary.md").read_text(encoding="utf-8").replace(
+                "Validation: pending", "Validation: passed"
+            )
+            (case_dir / "report.md").write_text(report, encoding="utf-8")
+            (case_dir / "trace.json").write_text(json.dumps({
+                "status": "PASS",
+                "skill": {"loaded": True, "id": "analyze-repo-for-kubernetes"},
+                "supporting_reads": [],
+                "tool_calls": [],
+                "permission_denials": [],
+                "final_output": report,
+            }), encoding="utf-8")
+            result = evaluate_scenarios.validate_opencode_case(case, Path(tmp))
+
+        self.assertTrue(result["passed"], result["errors"])
 
     def test_missing_opencode_is_unavailable(self):
         case = {"id": "missing", "query": "query", "repository_fixture": "tests/fixtures/repos/sample"}

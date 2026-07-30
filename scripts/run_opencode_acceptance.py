@@ -17,10 +17,12 @@ try:
     from scripts.render_summary import render_summary
     from scripts.project_metadata import ProjectMetadata, load as load_project_metadata
     from scripts.report_contract import SCHEMA_VERSION
+    from scripts.validate_target_report import finalize
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
     from render_summary import render_summary
     from project_metadata import ProjectMetadata, load as load_project_metadata
     from report_contract import SCHEMA_VERSION
+    from validate_target_report import finalize
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OPENCODE = "opencode"
@@ -188,6 +190,14 @@ def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
     if isinstance(payload, dict) and payload.get("schema_version") == SCHEMA_VERSION:
         return payload
     return None
+
+
+def finalize_summary(payload: dict[str, Any], output_dir: Path, repository_root: Path) -> str:
+    report = output_dir / "report.md"
+    report.write_text(render_summary(payload), encoding="utf-8")
+    if finalize(report, repository_root):
+        raise ValueError("Summary finalization failed")
+    return report.read_text(encoding="utf-8")
 
 
 def unavailable_trace(
@@ -375,12 +385,14 @@ def main() -> int:
                 )
                 if report.get("mode") == "summary":
                     try:
-                        (case_dir / "report.md").write_text(render_summary(safe_report), encoding="utf-8")
+                        target = args.repository_root or (ROOT / case["repository_fixture"]).resolve()
+                        trace["final_output"] = finalize_summary(safe_report, case_dir, target)
                         trace["rendered_report_file"] = "report.md"
                     except ValueError as error:
                         trace["renderer_error"] = str(error)
                         trace["status"] = "FAIL"
-                        trace["reason"] = "Summary renderer rejected the JSON payload"
+                        trace["reason"] = "Summary finalization failed"
+                        trace["final_output"] = "Summary finalization failed; inspect the run artifacts."
             (case_dir / "trace.json").write_text(
                 json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
