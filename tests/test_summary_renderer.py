@@ -43,7 +43,7 @@ class SummaryRendererTests(unittest.TestCase):
         report = render_summary(payload)
 
         self.assertIn("- 배포 대상: web, worker — 근거: Dockerfile:1", report)
-        self.assertIn("| worker | 애플리케이션 | Deployment 후보 | 없음 | Stateless | 없음 | worker.py:2 |", report)
+        self.assertIn("| worker | 배포 대상 후보 | 애플리케이션 | Deployment 후보 | 없음 | Stateless | 없음 | worker.py:2 |", report)
 
     def test_renders_schema_payload_as_valid_summary_markdown(self):
         fields = {
