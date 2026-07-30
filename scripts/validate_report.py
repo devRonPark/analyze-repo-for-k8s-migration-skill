@@ -67,6 +67,9 @@ def summary_v2_errors(text: str) -> list[str]:
     for field in ("판정:", "배포 대상:", "주요 런타임 의존성:", "열린 항목 요약:"):
         if not any(field in line for line in first_lines):
             errors.append(f"Summary v2 첫 화면에 필수 값이 없습니다: {field[:-1]}")
+    expected = ["대상", "역할", "Kubernetes 해석", "포트", "상태", "주요 의존성", "근거"]
+    if not any([cell.strip() for cell in line.strip().strip("|").split("|")] == expected for line in text.splitlines()):
+        errors.append("Summary v2 배포 개요 표에 필수 열이 없습니다")
     return errors
 
 

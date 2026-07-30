@@ -15,6 +15,10 @@ Target: <source> @ <resolved revision> | Skill: <id and version> | Contract: 2.0
 
 Summary v2는 구성 요소별 장문 카드 대신 배포 개요를 사용한다.
 
+| 대상 | 역할 | Kubernetes 해석 | 포트 | 상태 | 주요 의존성 | 근거 |
+|---|---|---|---|---|---|---|
+| <대상> | <역할> | <해석> | <포트 또는 없음> | <상태> | <의존성 또는 없음> | <file:line> |
+
 ## 3. 관계와 운영 경계
 
 | 관계 또는 경계 | Kubernetes 해석 | 근거 |

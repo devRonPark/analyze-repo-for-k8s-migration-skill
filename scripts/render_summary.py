@@ -227,11 +227,13 @@ def render_summary(payload: dict[str, Any], *, legacy: bool = False) -> str:
         f"- 주요 런타임 의존성: {', '.join(dependency_names) or '없음'} — 근거: {reference}",
         f"- 열린 항목 요약: {'있음' if open_items else '없음'} — 근거: {reference}", "",
         "## 2. 예상 Kubernetes 구성", "",
-        "| 대상 | Kubernetes 해석 | 근거 |", "|---|---|---|",
+        "| 대상 | 역할 | Kubernetes 해석 | 포트 | 상태 | 주요 의존성 | 근거 |", "|---|---|---|---|---|---|---|",
     ]
     for component in components:
         evidence = _component_evidence(payload, component)
-        lines.append(f"| {component.get('name', '미확인')} | Deployment 후보 | {evidence['reference']} |")
+        fields = component.get("fields") if isinstance(component.get("fields"), dict) else {}
+        value = lambda key, default: str(fields.get(key, {}).get("value", default)) if isinstance(fields.get(key), dict) else default
+        lines.append(f"| {component.get('name', '미확인')} | {value('실행 형태', '애플리케이션')} | {component.get('kubernetes_interpretation', 'Deployment 후보')} | {value('수신 포트', '없음')} | {value('쓰기 상태 또는 영속성', 'Stateless')} | {value('런타임 의존성', '없음')} | {evidence['reference']} |")
     lines.extend(["", "## 3. 관계와 운영 경계", "", "| 관계 또는 경계 | Kubernetes 해석 | 근거 |", "|---|---|---|"])
     if dependencies:
         for dependency in dependencies:
