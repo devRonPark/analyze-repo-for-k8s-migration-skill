@@ -228,7 +228,6 @@ def render_summary(payload: dict[str, Any], *, legacy: bool = False) -> str:
         f"- 주요 런타임 의존성: {', '.join(dependency_names) or '없음'} — 근거: {reference}",
         f"- 열린 항목 요약: {'있음' if open_items else '없음'} — 근거: {reference}", "",
         "## 2. 예상 Kubernetes 구성", "",
-        "| 대상 | Repository 사실 | 역할 | Kubernetes 해석 | 포트 | 상태 | 주요 의존성 | 근거 |", "|---|---|---|---|---|---|---|---|",
     ]
     for component in components:
         evidence = _component_evidence(payload, component)
@@ -237,24 +236,24 @@ def render_summary(payload: dict[str, Any], *, legacy: bool = False) -> str:
         fact = component.get("repository_classification", "배포 대상 후보")
         if fact not in {"배포 대상 후보", "저장소에 정의된 런타임 의존성", "외부 런타임 의존성", "배포 대상 후보에서 제외한 항목"}:
             raise ValueError("invalid repository classification")
-        lines.append(f"| {component.get('name', '미확인')} | {fact} | {value('실행 형태', '애플리케이션')} | {component.get('kubernetes_interpretation', 'Deployment 후보')} | {value('수신 포트', '없음')} | {value('쓰기 상태 또는 영속성', 'Stateless')} | {value('런타임 의존성', '없음')} | {evidence['reference']} |")
-    lines.extend(["", "## 3. 관계와 운영 경계", "", "| 관계 또는 경계 | Kubernetes 해석 | 근거 |", "|---|---|---|"])
+        lines.append(f"- {component.get('name', '미확인')} — Repository 사실: {fact}; 역할: {value('실행 형태', '애플리케이션')}; Kubernetes 해석: {component.get('kubernetes_interpretation', '미확인')}; 포트: {value('수신 포트', '없음')}; 상태: {value('쓰기 상태 또는 영속성', '미확인')}; 주요 의존성: {value('런타임 의존성', '없음')}; 근거: {evidence['reference']}")
+    lines.extend(["", "## 3. 관계와 운영 경계", ""])
     if dependencies:
         for dependency in dependencies:
             if isinstance(dependency, dict):
-                lines.append(f"| {dependency.get('source', '미확인')} → {dependency.get('target', '미확인')} | 런타임 연결 | {reference} |")
+                lines.append(f"- {dependency.get('source', '미확인')} → {dependency.get('target', '미확인')} — Kubernetes 해석: 런타임 연결; 근거: {reference}")
     else:
-        lines.append(f"| 없음 | 추가 경계 없음 | {reference} |")
-    lines.extend(["", "## 4. 열린 항목", "", "| 분류 | 항목 | 영향 | 근거 |", "|---|---|---|---|"])
+        lines.append(f"- 없음 — Kubernetes 해석: 추가 경계 없음; 근거: {reference}")
+    lines.extend(["", "## 4. 열린 항목", ""])
     if open_items:
         for item in open_items:
             item = item if isinstance(item, dict) else {"key": str(item)}
             classification = item.get("classification", "hard_blocker")
             if classification not in OPEN_ITEM_LABELS:
                 raise ValueError("invalid open item classification")
-            lines.append(f"| {OPEN_ITEM_LABELS[classification]} | {item.get('description', item.get('key', '미확인'))} | {item.get('impact_scope', '전체')} | {_reference(payload, item.get('reference'), str(item.get('key', 'open')), item.get('status', '미확인'))} |")
+            lines.append(f"- 분류: {OPEN_ITEM_LABELS[classification]}; 항목: {item.get('description', item.get('key', '미확인'))}; 영향: {item.get('impact_scope', '전체')}; 근거: {_reference(payload, item.get('reference'), str(item.get('key', 'open')), item.get('status', '미확인'))}")
     else:
-        lines.append(f"| {OPEN_ITEM_LABELS['recommendation']} | 없음 | 없음 | {reference} |")
+        lines.append(f"- 분류: {OPEN_ITEM_LABELS['deployment_value']}; 항목: 없음; 영향: 없음; 근거: {reference}")
     lines.extend(["", "## 5. 핵심 근거", "", f"- 판정: {reference}"])
     return "\n".join(lines) + "\n"
 

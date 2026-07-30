@@ -120,15 +120,15 @@ class ReportContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("섹션", result.stdout)
 
-    def test_summary_v2_requires_deployment_overview_columns(self):
+    def test_summary_v2_requires_deployment_overview_fields(self):
         report = REPORT_FIXTURES / "valid-summary.md"
-        invalid = report.read_text(encoding="utf-8").replace("| 대상 | Repository 사실 | 역할 | Kubernetes 해석 | 포트 | 상태 | 주요 의존성 | 근거 |", "| 대상 | 근거 |")
+        invalid = report.read_text(encoding="utf-8").replace("주요 의존성:", "의존성:")
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "summary.md"
             path.write_text(invalid, encoding="utf-8")
             result = self.run_validator(path, "--mode", "summary")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("배포 개요", result.stdout)
+        self.assertIn("배포 개요 bullet", result.stdout)
 
     def test_summary_v2_rejects_verdict_without_matching_blocker(self):
         invalid = (REPORT_FIXTURES / "valid-summary.md").read_text(encoding="utf-8").replace("- 판정: 설계 입력 충분", "- 판정: 추가 정보 필요")
@@ -141,7 +141,7 @@ class ReportContractTests(unittest.TestCase):
 
     def test_summary_v2_rejects_internal_open_item_labels(self):
         invalid = (REPORT_FIXTURES / "valid-summary.md").read_text(encoding="utf-8").replace(
-            "| 배포 입력 |", "| deployment_value |"
+            "분류: 배포 입력;", "분류: deployment_value;"
         )
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "summary.md"

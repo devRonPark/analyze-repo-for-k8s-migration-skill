@@ -68,19 +68,22 @@ def summary_v2_errors(text: str) -> list[str]:
     for field in ("판정:", "배포 대상:", "주요 런타임 의존성:", "열린 항목 요약:"):
         if not any(field in line for line in first_lines):
             errors.append(f"Summary v2 첫 화면에 필수 값이 없습니다: {field[:-1]}")
-    expected = ["대상", "Repository 사실", "역할", "Kubernetes 해석", "포트", "상태", "주요 의존성", "근거"]
-    if not any([cell.strip() for cell in line.strip().strip("|").split("|")] == expected for line in text.splitlines()):
-        errors.append("Summary v2 배포 개요 표에 필수 열이 없습니다")
+    overview = text.partition("## 2. 예상 Kubernetes 구성")[2].partition("## 3. 관계와 운영 경계")[0]
+    required = ("Repository 사실:", "역할:", "Kubernetes 해석:", "포트:", "상태:", "주요 의존성:", "근거:")
+    if not any(line.startswith("- ") and all(field in line for field in required) for line in overview.splitlines()):
+        errors.append("Summary v2 배포 개요 bullet에 필수 필드가 없습니다")
     labels = tuple(OPEN_ITEM_LABELS.values())
     open_section = text.partition("## 4. 열린 항목")[2].partition("## 5. 핵심 근거")[0]
-    open_rows = [
-        line for line in open_section.splitlines()
-        if line.startswith("|") and not line.startswith("| 분류 |") and not re.fullmatch(r"[| -]+", line)
-    ]
-    if any(not any(f"| {label} |" in row for label in labels) for row in open_rows):
+    open_rows = [line for line in open_section.splitlines() if line.startswith("- 분류:")]
+    if any(not any(f"분류: {label};" in row for label in labels) for row in open_rows):
         errors.append("열린 항목 분류가 유효하지 않습니다")
+    for line in text.splitlines():
+        if not line.startswith("- ") or "근거:" not in line:
+            continue
+        if not has_valid_evidence(line.rpartition("근거:")[2]):
+            errors.append(f"근거에 file:line 또는 검색(...)이 없습니다: {line}")
     verdict = re.search(r"(?m)^- 판정: (설계 입력 충분|추가 정보 필요|분석 불가)$", text)
-    has_blocker = any(f"| {OPEN_ITEM_LABELS['hard_blocker']} |" in row for row in open_rows)
+    has_blocker = any(f"분류: {OPEN_ITEM_LABELS['hard_blocker']};" in row for row in open_rows)
     if verdict and ((verdict.group(1) == "추가 정보 필요" and not has_blocker) or (verdict.group(1) == "설계 입력 충분" and has_blocker)):
         errors.append("판정과 hard_blocker 분류가 일치하지 않습니다")
     return errors

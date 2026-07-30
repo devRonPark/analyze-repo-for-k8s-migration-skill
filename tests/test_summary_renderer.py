@@ -28,7 +28,7 @@ class SummaryRendererTests(unittest.TestCase):
 
         report = render_summary(payload)
 
-        self.assertIn("| 배포 입력 | image registry | 배포 시 입력 |", report)
+        self.assertIn("- 분류: 배포 입력; 항목: image registry; 영향: 배포 시 입력;", report)
 
     def test_rejects_non_summary_payloads(self):
         payload = json.loads((ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8"))
@@ -58,7 +58,7 @@ class SummaryRendererTests(unittest.TestCase):
         report = render_summary(payload)
 
         self.assertIn("- 배포 대상: web, worker — 근거: Dockerfile:1", report)
-        self.assertIn("| worker | 배포 대상 후보 | 애플리케이션 | Deployment 후보 | 없음 | Stateless | 없음 | worker.py:2 |", report)
+        self.assertIn("- worker — Repository 사실: 배포 대상 후보; 역할: 애플리케이션; Kubernetes 해석: 미확인; 포트: 없음; 상태: 미확인; 주요 의존성: 없음; 근거: worker.py:2", report)
 
     def test_renders_schema_payload_as_valid_summary_markdown(self):
         fields = {

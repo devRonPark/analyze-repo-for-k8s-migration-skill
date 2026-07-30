@@ -43,8 +43,8 @@ class EvidenceReadinessContractTests(unittest.TestCase):
             "- 판정: 설계 입력 충분",
             "- 판정: 추가 정보 필요",
         ).replace(
-            "| 배포 입력 | image registry | 배포 시 입력 | 검색(scope=., pattern=registry, result=없음) |",
-            "| 설계 차단 | image | 특정 배포 대상 | 검색(scope=., pattern=image, result=없음) |",
+            "- 분류: 배포 입력; 항목: image registry; 영향: 배포 시 입력; 근거: 검색(scope=., pattern=registry, result=없음)",
+            "- 분류: 설계 차단; 항목: image; 영향: 특정 배포 대상; 근거: 검색(scope=., pattern=image, result=없음)",
         )
 
         result = self.validate(report)
