@@ -28,6 +28,42 @@ class ReportContractTests(unittest.TestCase):
         self.assertEqual(summary.returncode, 0, summary.stdout + summary.stderr)
         self.assertEqual(detailed.returncode, 0, detailed.stdout + detailed.stderr)
 
+    def test_detailed_instructions_require_completion_first_evidence_slots(self):
+        for path in (
+            ROOT / "SKILL.md",
+            ROOT / "runtime/agents/kubernetes-migration-analyzer.md",
+            ROOT / "references/repository-analysis-checklist.md",
+        ):
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("eight-section", text)
+            self.assertIn("evidence slot", text)
+
+    def test_detailed_rejects_unterminated_minimum_input_slot(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- 없음: 추가 입력 없음 — 상태: 확인됨 / 근거: Dockerfile:1",
+            "- image: registry decision remains open — 상태: 추정됨 / 근거: Dockerfile:1 / 판단: image name is absent",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("evidence slot", result.stdout)
+
+    def test_detailed_unknown_minimum_input_identifies_scope_and_decision(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- 없음: 추가 입력 없음 — 상태: 확인됨 / 근거: Dockerfile:1",
+            "- image: image registry is unknown — 상태: 미확인 / 근거: 검색(scope=., pattern=image registry, result=없음)",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("범위와 결정", result.stdout)
+
     def test_legacy_verdict_is_rejected_by_default(self):
         report = REPORT_FIXTURES / "valid-summary.md"
         legacy = report.read_text(encoding="utf-8").replace("설계 입력 충분", "준비됨")

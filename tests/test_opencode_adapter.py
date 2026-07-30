@@ -49,7 +49,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             self.assertEqual(bash_rules[rule], "allow")
 
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertRegex(agent, r"(?m)^steps:\s+14$")
+        self.assertRegex(agent, r"(?m)^steps:\s+32$")
         self.assertIn("bounded high-signal pass", agent)
         self.assertRegex(agent, r"synthesize the\s+Summary immediately")
         for rule in (
@@ -88,6 +88,9 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertIn("Do not expose planning", agent)
         self.assertIn("### 핵심 요약", template)
         self.assertIn("기본값이나 예시를 채우지 않는다", template)
+        self.assertIn("70 lines and 1,200 Korean words", agent)
+        self.assertNotIn("| 연결 workload |", template)
+        self.assertIn("Detailed output must not use Markdown tables", agent)
 
     def test_acceptance_cases_enforce_mode_specific_reads(self):
         cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]

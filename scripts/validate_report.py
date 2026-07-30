@@ -243,6 +243,29 @@ def evidence_semantic_errors(text: str) -> list[str]:
     return errors
 
 
+def detailed_evidence_slot_errors(text: str) -> list[str]:
+    """Require each Detailed minimum-input slot to reach a usable terminal state."""
+    errors: list[str] = []
+    for heading, card in component_cards(text):
+        start = card.find("#### 최소 입력 누락")
+        if start == -1:
+            continue
+        entries = [line for line in card[start:].splitlines() if line.startswith("- ")]
+        if not entries:
+            errors.append(f"{heading}에 최소 입력 누락 evidence slot이 없습니다")
+            continue
+        for entry in entries:
+            match = re.search(r"— 상태: (확인됨|추정됨|미확인|상충됨) / 근거:", entry)
+            if not match:
+                continue
+            state = match.group(1)
+            if state == "추정됨":
+                errors.append(f"{heading}의 최소 입력 누락 evidence slot이 종료되지 않았습니다: {entry}")
+            if state == "미확인" and ("범위:" not in entry or "결정:" not in entry):
+                errors.append(f"{heading}의 미확인 최소 입력에는 범위와 결정이 필요합니다: {entry}")
+    return errors
+
+
 def readiness_blocker_errors(text: str) -> list[str]:
     verdicts = re.findall(r"(?m)^- 판정: (설계 입력 충분|추가 정보 필요|분석 불가)$", text)
     if verdicts != ["추가 정보 필요"]:
@@ -432,6 +455,8 @@ def main() -> int:
         if not summary_v2:
             errors.extend(evidence_semantic_errors(text))
             errors.extend(readiness_blocker_errors(text))
+            if mode == "detailed":
+                errors.extend(detailed_evidence_slot_errors(text))
     if summary_v2:
         errors.extend(summary_v2_errors(text))
     else:

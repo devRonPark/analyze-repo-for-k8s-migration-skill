@@ -113,6 +113,16 @@ Detailed reports preserve the full component card, configuration timing,
 dependency matrix, text dependency graph, complete exclusions, operating-
 environment evidence, and readiness blocker detail.
 
+Immediately after identifying deployment candidates, create the internal
+eight-section Detailed skeleton. Complete each required evidence slot as
+`확인됨`, `상충됨`, or a scoped `미확인` before optional exploration; `추정됨`
+does not close an unresolved evidence slot.
+
+Start Detailed with the template's compact `핵심 요약`; later sections add
+distinct evidence instead of repeating its decision prose. Kubernetes
+design-input fields remain evidence-bound: do not fill defaults or examples for
+`workload.kind`, `metadata.name`, `Service`, `Ingress`, image, command, or args.
+
 ## Evidence and readiness contract
 
 This is the single owner of evidence status, absence evidence, and readiness

@@ -27,6 +27,12 @@ the actual network caller.
 
 ## Completion gate
 
+- immediately after candidate identification, create the internal eight-section
+  Detailed skeleton and use it to complete the report before optional reads;
+- every required evidence slot is terminal: `확인됨`, `상충됨`, or scoped
+  `미확인`; `추정됨` does not close an evidence slot;
+- an unknown minimum input names its candidate or shared `범위:` and the
+  `결정:` it prevents or leaves open;
 - all independently executable candidates and excluded items are represented;
 - install, build, image, startup, launch, and operating-environment evidence are
   not conflated;
