@@ -33,32 +33,26 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertEqual(permissions["skill"]["*"] , "deny")
         self.assertEqual(permissions["skill"]["analyze-repo-for-kubernetes"], "allow")
         self.assertEqual(permissions["bash"]["*"], "deny")
+        self.assertEqual(permissions["glob"], "allow")
+        self.assertEqual(permissions["git_metadata"], "allow")
+        for tool_name in ("grep", "list"):
+            self.assertEqual(permissions[tool_name], "deny")
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         self.assertIn("mode: primary", agent)
         self.assertIn("analyze-repo-for-kubernetes: allow", agent)
+        self.assertIn("trusted `glob` tool only to list target paths", agent)
+        self.assertIn("call only trusted `git_metadata`", agent)
 
-    def test_e2e_agent_has_bounded_summary_and_read_only_git_rules(self):
+    def test_e2e_agent_has_bounded_summary_and_no_target_shell_rules(self):
         config = json.loads((ROOT / "runtime/opencode.json").read_text(encoding="utf-8"))
         bash_rules = config["permission"]["bash"]
-        for rule in (
-            "git -C * status",
-            "git -C * status *",
-            "git -C * rev-parse *",
-            "git -C * symbolic-ref *",
-        ):
-            self.assertEqual(bash_rules[rule], "allow")
+        self.assertEqual(bash_rules, {"*": "deny"})
 
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         self.assertRegex(agent, r"(?m)^steps:\s+32$")
         self.assertIn("bounded high-signal pass", agent)
         self.assertRegex(agent, r"synthesize the\s+Summary immediately")
-        for rule in (
-            '"git -C * status": allow',
-            '"git -C * status *": allow',
-            '"git -C * rev-parse *": allow',
-            '"git -C * symbolic-ref *": allow',
-        ):
-            self.assertIn(rule, agent)
+        self.assertIn("no more than twelve target `read` calls", agent)
 
     def test_summary_and_detailed_routing_are_explicit(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")

@@ -41,10 +41,12 @@ if [ -n "$PROJECT_LOCAL" ]; then
   TARGET_ROOT="$PROJECT_LOCAL/.opencode/skill"
   AGENT_DIR="$PROJECT_LOCAL/.opencode/agent"
   COMMAND_DIR="$PROJECT_LOCAL/.opencode/command"
+  TOOL_DIR="$PROJECT_LOCAL/.opencode/tools"
 else
   TARGET_ROOT="${OPENCODE_SKILLS_DIR:-$HOME/.config/opencode/skill}"
   AGENT_DIR="$HOME/.config/opencode/agent"
   COMMAND_DIR="$HOME/.config/opencode/command"
+  TOOL_DIR="$HOME/.config/opencode/tools"
 fi
 TARGET_DIR="$TARGET_ROOT/$SKILL_ID"
 AGENT_PATH="$AGENT_DIR/$AGENT_ID.md"
@@ -92,9 +94,12 @@ for install_path in "${install_paths[@]}"; do
 done
 python3 "$SOURCE_DIR/scripts/install_distribution.py" "${install_args[@]}"
 
-mkdir -p "$AGENT_DIR" "$COMMAND_DIR"
+mkdir -p "$AGENT_DIR" "$COMMAND_DIR" "$TOOL_DIR"
 cp "$SOURCE_DIR/runtime/agents/$AGENT_ID.md" "$AGENT_PATH"
 cp "$SOURCE_DIR/runtime/commands/$SKILL_ID.md" "$COMMAND_PATH"
+cp "$SOURCE_DIR/runtime/tools/read.ts" "$TOOL_DIR/read.ts"
+cp "$SOURCE_DIR/runtime/tools/glob.ts" "$TOOL_DIR/glob.ts"
+cp "$SOURCE_DIR/runtime/tools/git_metadata.ts" "$TOOL_DIR/git_metadata.ts"
 
 echo "OpenCode Skill 설치 완료: $TARGET_DIR"
 echo "OpenCode Agent 등록 완료: $AGENT_PATH"

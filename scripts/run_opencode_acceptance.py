@@ -352,6 +352,7 @@ def main() -> int:
         agent_dir = config_dir / "agents"
         home.mkdir(parents=True, exist_ok=True)
         agent_dir.mkdir(parents=True)
+        shutil.copytree(ROOT / "runtime" / "tools", config_dir / "tools")
         subprocess.run(
             [sys.executable, str(ROOT / "scripts/build_dist.py"), "--output", str(installed_skill)],
             cwd=ROOT,

@@ -35,6 +35,12 @@ WORKLOAD_HEADING = re.compile(r"^### 배포 대상:\s*\S+", re.MULTILINE)
 PROPERTY_LINE = re.compile(
     r"^- [^:\n]+:.+ — 상태: (확인됨|추정됨|미확인|상충됨) / 근거: (.+)$"
 )
+CREDENTIAL_LITERAL = re.compile(
+    r"(?i)\b(?:password|passwd|token|api[_ -]?key)\s*[:=]\s*(?!\[REDACTED\])[^\s,;]+"
+)
+KOREAN_CREDENTIAL_LITERAL = re.compile(
+    r"(?:비밀번호|패스워드)\s+(?!값|정책|필드|없음|미확인|관련|입력|노출|문자열|변수|환경|value\b)[A-Za-z0-9][A-Za-z0-9_./+=-]*"
+)
 
 
 def detect_mode(text: str, legacy: bool = False) -> str | None:
@@ -240,6 +246,15 @@ def evidence_semantic_errors(text: str) -> list[str]:
             absence_count = len(ABSENCE_REFERENCE.findall(evidence))
             if len(references) + absence_count < 2:
                 errors.append(f"상충됨 근거에 양쪽 source가 보존되지 않았습니다: {line}")
+    return errors
+
+
+def credential_literal_errors(text: str) -> list[str]:
+    """Reject values that must be redacted from a repository analysis report."""
+    errors: list[str] = []
+    for line in text.splitlines():
+        if CREDENTIAL_LITERAL.search(line) or KOREAN_CREDENTIAL_LITERAL.search(line):
+            errors.append(f"credential literal must be redacted: {line}")
     return errors
 
 
@@ -457,6 +472,7 @@ def main() -> int:
             errors.extend(readiness_blocker_errors(text))
             if mode == "detailed":
                 errors.extend(detailed_evidence_slot_errors(text))
+        errors.extend(credential_literal_errors(text))
     if summary_v2:
         errors.extend(summary_v2_errors(text))
     else:

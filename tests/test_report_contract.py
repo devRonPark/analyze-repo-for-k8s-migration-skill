@@ -64,6 +64,19 @@ class ReportContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("범위와 결정", result.stdout)
 
+    def test_report_rejects_literal_credential_values(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- Secret: 없음 — 상태: 확인됨 / 근거: 검색(scope=., pattern=SECRET, result=없음)",
+            "- Secret: password: hunter2 — 상태: 확인됨 / 근거: Dockerfile:1",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("credential literal", result.stdout)
+
     def test_legacy_verdict_is_rejected_by_default(self):
         report = REPORT_FIXTURES / "valid-summary.md"
         legacy = report.read_text(encoding="utf-8").replace("설계 입력 충분", "준비됨")
