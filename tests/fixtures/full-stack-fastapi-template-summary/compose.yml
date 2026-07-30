@@ -1,0 +1,9 @@
+services:
+  backend:
+    build: ./backend
+  frontend:
+    build: ./frontend
+  prestart:
+    command: ./prestart.sh
+  db:
+    image: postgres:16
