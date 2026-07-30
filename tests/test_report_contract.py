@@ -68,6 +68,58 @@ class ReportContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("설계 차단 항목", result.stdout)
 
+    def test_detailed_instructions_pin_report_line_shapes(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
+        for shape in (
+            "- 키: 값 — 상태:",
+            "- 차단 항목:",
+        ):
+            self.assertIn(shape, agent)
+            self.assertIn(shape, template)
+        self.assertIn("범위:", agent)
+        self.assertIn("결정:", agent)
+        self.assertNotIn("근거: 없음", agent)
+
+    def test_detailed_rejects_property_line_without_status_and_evidence(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- 실행 형태: HTTP 서버 — 상태: 확인됨 / 근거: Dockerfile:1",
+            "- 실행 형태: HTTP 서버 — Servlet 컨테이너 위에서 기동",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("상태 / 근거 형식", result.stdout)
+
+    def test_detailed_rejects_minimum_input_with_status_after_scope(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- 없음: 추가 입력 없음 — 상태: 확인됨 / 근거: Dockerfile:1",
+            "- image: registry 미확인 — 범위: web / 결정: blocked / 상태: 미확인 / 근거: 검색(scope=., pattern=image, result=없음)",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("상태 / 근거 형식", result.stdout)
+
+    def test_detailed_rejects_unkeyed_design_blocker_line(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- 차단 항목: 없음 — 범주: 기타 / 영향 범위: 전체 / 상태: 확인됨 / 근거: Dockerfile:1",
+            "- Dockerfile 프로필 미일치: pom.xml에 없음 — 이미지만 영향 / 영향 범위: 전체 / 상태: 상충됨 / 근거: Dockerfile:1",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("차단 항목", result.stdout)
+
     def test_detailed_rejects_unterminated_minimum_input_slot(self):
         report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
             "- 없음: 추가 입력 없음 — 상태: 확인됨 / 근거: Dockerfile:1",

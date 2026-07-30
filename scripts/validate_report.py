@@ -35,6 +35,11 @@ WORKLOAD_HEADING = re.compile(r"^### 배포 대상:\s*\S+", re.MULTILINE)
 PROPERTY_LINE = re.compile(
     r"^- [^:\n]+:.+ — 상태: (확인됨|추정됨|미확인|상충됨) / 근거: (.+)$"
 )
+BLOCKER_LINE = re.compile(
+    r"범주: (이미지|Secret|외부 의존성|runtime|기타) / "
+    r"영향 범위: (전체|특정 배포 대상|production 경로) / "
+    r"상태: (확인됨|추정됨|미확인|상충됨) / 근거: (.+)$"
+)
 CREDENTIAL_LITERAL = re.compile(
     r"(?i)\b(?:password|passwd|token|api[_ -]?key)\s*[:=]\s*(?!\[REDACTED\])[^\s,;]+"
 )
@@ -281,22 +286,35 @@ def detailed_evidence_slot_errors(text: str) -> list[str]:
     return errors
 
 
+def design_blocker_lines(text: str) -> list[str]:
+    """`### 설계 차단 항목` 절의 bullet만 돌려준다."""
+    section = text.split("### 설계 차단 항목", 1)
+    if len(section) == 1:
+        return []
+    body = section[1].split("\n## ", 1)[0]
+    return [line for line in body.splitlines() if line.startswith("- ")]
+
+
+def design_blocker_format_errors(text: str) -> list[str]:
+    """차단 항목 bullet이 keyed 형식을 지키는지 판정과 무관하게 검사한다."""
+    errors: list[str] = []
+    for line in design_blocker_lines(text):
+        match = BLOCKER_LINE.search(line)
+        if not line.startswith("- 차단 항목:") or not match or not has_valid_evidence(match.group(4)):
+            errors.append(f"설계 차단 항목은 차단 항목·범주·영향 범위·상태·근거 형식이어야 합니다: {line}")
+    return errors
+
+
 def readiness_blocker_errors(text: str) -> list[str]:
     verdicts = re.findall(r"(?m)^- 판정: (설계 입력 충분|추가 정보 필요|분석 불가)$", text)
     if set(verdicts) != {"추가 정보 필요"}:
         return []
     errors: list[str] = []
-    section = text.split("### 설계 차단 항목", 1)
-    blocker_lines = [line for line in section[-1].splitlines() if line.startswith("- 차단 항목:")]
+    blocker_lines = [line for line in design_blocker_lines(text) if line.startswith("- 차단 항목:")]
     if not blocker_lines or any("차단 항목: 없음" in line for line in blocker_lines):
         return ["추가 정보 필요 판정에는 구체적인 설계 차단 항목이 필요합니다"]
-    blocker_pattern = re.compile(
-        r"범주: (이미지|Secret|외부 의존성|runtime|기타) / "
-        r"영향 범위: (전체|특정 배포 대상|production 경로) / "
-        r"상태: (확인됨|추정됨|미확인|상충됨) / 근거: (.+)$"
-    )
     for line in blocker_lines:
-        match = blocker_pattern.search(line)
+        match = BLOCKER_LINE.search(line)
         if not match or not has_valid_evidence(match.group(4)):
             errors.append(f"설계 차단 항목에 범주·영향 범위·상태·근거가 없습니다: {line}")
     return errors
@@ -474,6 +492,7 @@ def main() -> int:
             errors.extend(readiness_blocker_errors(text))
             if mode == "detailed":
                 errors.extend(detailed_evidence_slot_errors(text))
+                errors.extend(design_blocker_format_errors(text))
         errors.extend(credential_literal_errors(text))
     if summary_v2:
         errors.extend(summary_v2_errors(text))

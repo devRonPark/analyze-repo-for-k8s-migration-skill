@@ -107,6 +107,20 @@ evidence-slot terminal state. For an unknown minimum input, name its candidate
 or shared `범위:` and the `결정:` it leaves open, then complete the report
 instead of reading low-signal files.
 
+Every Detailed report line uses one of these three shapes character-for-shape.
+The validator rejects free-form prose after `—`, and `근거:` never takes a bare
+`없음`:
+
+```text
+- 키: 값 — 상태: 확인됨|추정됨|미확인|상충됨 / 근거: <file:line 또는 검색(...)>
+- <누락 key>: <이유>; 범위: <candidate 또는 shared scope>; 결정: <blocked 또는 open decision> — 상태: 확인됨|미확인|상충됨 / 근거: <file:line 또는 검색(...)>
+- 차단 항목: <내용> — 범주: 이미지|Secret|외부 의존성|runtime|기타 / 영향 범위: 전체|특정 배포 대상|production 경로 / 상태: 확인됨|추정됨|미확인|상충됨 / 근거: <file:line 또는 검색(...)>
+```
+
+Keep `범위:` and `결정:` before the `—`, separated by `;`. After the `—` write
+only `상태:` then `근거:`. Put any extra explanation inside the value, never
+after `근거:`. `추정됨` additionally requires `/ 판단: <이유>`.
+
 For Detailed output, use the template's `### 핵심 요약` under the scope section
 for the verdict, candidate, top blocker, and missing-input snapshot. Keep later
 sections to distinct evidence and required detail. Do not expose planning,
