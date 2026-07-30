@@ -43,8 +43,8 @@ class EvidenceReadinessContractTests(unittest.TestCase):
             "- 판정: 설계 입력 충분",
             "- 판정: 추가 정보 필요",
         ).replace(
-            "- 차단 항목: 없음 — 범주: 기타 / 영향 범위: 전체 / 상태: 확인됨 / 근거: Dockerfile:1",
-            "- 차단 항목: image — 범주: 이미지 / 영향 범위: 특정 배포 대상 / 상태: 미확인 / 근거: 검색(scope=., pattern=image, result=없음)",
+            "| deployment_value | image registry | 배포 시 입력 | 검색(scope=., pattern=registry, result=없음) |",
+            "| hard_blocker | image | 특정 배포 대상 | 검색(scope=., pattern=image, result=없음) |",
         )
 
         result = self.validate(report)
