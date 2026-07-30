@@ -16,9 +16,11 @@ from typing import Any, Callable
 try:
     from scripts.render_summary import render_summary
     from scripts.project_metadata import ProjectMetadata, load as load_project_metadata
+    from scripts.report_contract import SCHEMA_VERSION
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
     from render_summary import render_summary
     from project_metadata import ProjectMetadata, load as load_project_metadata
+    from report_contract import SCHEMA_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OPENCODE = "opencode"
@@ -186,7 +188,7 @@ def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
             payload = json.loads(candidate)
         except json.JSONDecodeError:
             continue
-        if isinstance(payload, dict) and payload.get("schema_version") == "1.0":
+        if isinstance(payload, dict) and payload.get("schema_version") == SCHEMA_VERSION:
             return payload
     return None
 

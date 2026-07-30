@@ -91,6 +91,16 @@ class ReportContractTests(unittest.TestCase):
             list(report_contract.CONFIGURATION_TIMING),
         )
 
+    def test_schema_fixture_changes_contract_values_without_python_constants(self):
+        schema = json.loads((ROOT / "schemas/analysis-result.schema.json").read_text(encoding="utf-8"))
+        schema["$defs"]["evidenceStatus"]["enum"].append("fixture-status")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "schema.json"
+            path.write_text(json.dumps(schema), encoding="utf-8")
+            contract = report_contract.load_contract(path)
+
+        self.assertIn("fixture-status", contract["evidence_statuses"])
+
 
 if __name__ == "__main__":
     unittest.main()
