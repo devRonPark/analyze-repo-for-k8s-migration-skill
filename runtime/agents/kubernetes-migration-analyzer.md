@@ -144,7 +144,16 @@ explanation in the value before the `—`.
 
 Never translate or restyle the `검색` marker: `搜索(...)`, `search(...)`, and
 `검색(전체, ...)` are invalid, and `scope=`, `pattern=`, `result=없음` are
-required keys, with `scope=` naming a repository-relative path. A `미확인` slot cannot use a `path:line` as its only evidence — it
+required keys, with `scope=` naming a repository-relative path.
+
+`result=없음` is a claim that the named search found nothing, so never write it
+about a file you read or listed: `검색(scope=., pattern=Dockerfile, result=없음)`
+is false when `Dockerfile` exists. An explicit image tag, a `CMD`/`ENTRYPOINT`,
+or a published port that appears in a file you read is `확인됨` with that
+`path:line`, not a `미확인` minimum input. A Kubernetes-only unknown stays
+`미확인` because no Kubernetes manifest exists: give it a Kubernetes-resource
+`pattern=` such as `{**/*deployment*,**/kustomization*}` and never the name of a
+file you already read. A `미확인` slot cannot use a `path:line` as its only evidence — it
 needs the `검색(...)` form naming the scope that was checked. A `상충됨` slot
 lists both conflicting `path:line` references separated by `, ` with no prose
 between them; describe the disagreement in the value before the `—`.

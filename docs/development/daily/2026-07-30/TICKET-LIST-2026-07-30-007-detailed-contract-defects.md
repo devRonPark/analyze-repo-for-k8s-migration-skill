@@ -208,6 +208,41 @@ validator는 끝이 시작보다 작은 범위를 `인용 줄 범위가 거꾸�
   (`근거: pom.xml`, `근거: mvnw, pom.xml`), `web.xml`을 파일명만으로 인용한 2건,
   `추정됨`에 `/ 판단:`이 빠진 1건이다.
 
+## DET-009 — 읽은 파일에 대한 거짓 부재 근거를 막는다
+
+- 상태: 완료
+- 결함: `DET-008` 보고서가 `image`, `command`, `args`, `containerPort`를
+  `검색(scope=., pattern=Dockerfile, result=없음)`으로 `미확인` 처리했다.
+  `Dockerfile:17`에는 명시 image tag가, `Dockerfile:21`에는 `CMD`가,
+  `docker-compose.yaml:24`에는 published port가 있으므로 부재 주장은 거짓이다.
+  golden-set 채점에서 가장 큰 감점 원인이었다.
+
+### 작업
+
+- agent 지시: `result=없음`은 읽거나 나열한 파일에 대해 쓸 수 없다. 읽은 파일에
+  있는 명시 image tag, `CMD`/`ENTRYPOINT`, published port는 `확인됨`과
+  `path:line`이며 `미확인` 최소 입력이 아니다. Kubernetes 전용 미확인은
+  `pattern=`에 Kubernetes 리소스 패턴을 쓰고 이미 읽은 파일명을 쓰지 않는다.
+- validator `false_absence_errors`: (1) 보고서가 이미 `path:line`으로 인용한
+  파일을 `pattern=`으로 부재 주장하면 거부한다(저장소 접근 불필요),
+  (2) `--repo-root`가 있으면 `pattern=` 토큰이 실제 파일인지 확인한다. glob이
+  섞인 pattern은 검색 범위를 확정할 수 없으므로 검사하지 않는다.
+
+### 검증 결과
+
+- 계약 테스트 3건 추가, Quality Gate 통과(unit test 137건).
+- 새 검사를 `DET-008` 보고서에 적용하면 거짓 부재 6건이 검출된다(7건 → 13건).
+- Detailed E2E 재실행: `/tmp/opencode-acceptance-det9`, 125줄 보고서를 2분 5초에
+  완성, 대상 Git 상태 전후 `## master...origin/master` 동일. 거짓 부재 근거
+  **0건**이고 전체 실패는 7건이다.
+- 사실 품질이 함께 올라갔다: `image`가 `openjdk:25` `확인됨`(`Dockerfile:17`)으로
+  기록되고, dependency matrix에 application server edge가 추가되었으며, 설계 차단
+  항목이 프로필 상충·seed 자격증명·Kubernetes 최소 입력 3건으로 keyed 형식을
+  지킨다.
+- 남은 7건: `근거: glob(src...)` 1건, `docker-compose.yaml:20-27`·`17-27`처럼 26줄
+  파일을 넘는 범위 2건, `미확인` 최소 입력의 `범위:`·`결정:` 누락 3건, `미확인`
+  근거의 `검색(...)` 누락 1건.
+
 ## DET-003 부분 채점 결과 (JPetStore 6)
 
 - 티켓 출처: [TICKET-LIST-2026-07-30-005](TICKET-LIST-2026-07-30-005-detailed-evidence-budget.md) `DET-003`

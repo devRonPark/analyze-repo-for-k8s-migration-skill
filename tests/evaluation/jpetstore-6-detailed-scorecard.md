@@ -1,10 +1,10 @@
-# JPetStore 6 Detailed scorecard — DET-008 report
+# JPetStore 6 Detailed scorecards
 
 Scores the interactive Detailed E2E **final report only** against
 [the independent Detailed golden set](jpetstore-6-detailed-golden.md). Tool reads
 and assistant progress messages earn no credit.
 
-## Run record
+## Run record — DET-008 report
 
 - Target: `/home/daolts/jpetstore-6`
 - Revision: `e1dd9a31d1cef68793cd0933ae06898e6fcfa807`
@@ -18,7 +18,7 @@ and assistant progress messages earn no credit.
 - `scripts/validate_report.py --mode detailed --repo-root /home/daolts/jpetstore-6`:
   7 failures
 
-## Score
+## Score — DET-008 report
 
 | Criterion | Weight | Score | Assessment |
 | --- | ---: | ---: | --- |
@@ -30,6 +30,22 @@ and assistant progress messages earn no credit.
 | Evidence discipline and decision usefulness | 10 | 6 | The verdict, its reason, and its references are usable, and unknowns name their scope and blocked decision. Deductions: four `result=없음` claims are false for files the run actually read (-3), and one `추정됨` states no judgement reason (-1). |
 | **Acceptance score** | **100** | **63** | **Below the 90-point DET-003 threshold. The report is structurally usable as a migration design input, but false absence evidence and the missing dependency edges still require correction before it can be trusted unreviewed.** |
 
+## Score after DET-009 (false-absence fix)
+
+Same procedure, run directory `/tmp/opencode-acceptance-det9`: complete
+eight-section report, 125 lines, 2m 5s, target Git status unchanged, 7 validator
+failures and zero false absence claims.
+
+| Criterion | Weight | Score | Assessment |
+| --- | ---: | ---: | --- |
+| Report completion and contract structure | 20 | 14 | Eight sections, `### 핵심 요약`, one verdict, and three keyed blockers. Deductions: `근거: glob(src…)` uses a tool name, three `미확인` minimum inputs drop `범위:`/`결정:`, one drops the `검색(...)` form, and the report is 125 lines against the 70-line budget. |
+| Candidate coverage | 10 | 10 | The sole WAR candidate is correct, and CI, test-only dependencies, and the site-deploy profiles are excluded with evidence (`pom.xml:48-58`, `pom.xml:184-243`). |
+| Execution, build, runtime, and network facts | 25 | 16 | `image` is now the fact `openjdk:25` (`Dockerfile:17`) instead of a false unknown, the profile conflict keeps both references, and build, start, and port facts hold. Deductions: the documented `/jpetstore/` context path (`README.md:57`) is still missing (-4); `docker-compose.yaml:20-27` and `:17-27` exceed the 26-line file (-3); the active `web-app_3_0.xsd` descriptor is labelled "Jakarta Servlet 4.0 API … JSP 3.0" (-2). |
+| State and dependency analysis | 15 | 10 | The dependency matrix now carries the embedded HSQLDB edge and the application-server edge with unresolved selection, and the graph matches. Deductions: the Maven/Cargo build- and start-time network dependency required by the golden set is still absent (-3), and the `persistence` unknown lacks both `범위:`/`결정:` and absence evidence (-2). |
+| Configuration, security, and compatibility risks | 20 | 15 | Seed credentials are a keyed blocker named by path and class with no values, the missing Kubernetes configuration is a keyed blocker, and the embedded-data lifecycle is raised as a decision. Deduction: Java EE/Jakarta compatibility is still not a keyed verification need and its level is mislabelled (-5). |
+| Evidence discipline and decision usefulness | 10 | 7 | No `result=없음` claim contradicts a read file, and the verdict, reason, and references are usable. Deductions: one tool-name evidence value and three unscoped unknowns (-3). |
+| **Acceptance score** | **100** | **72** | **Still below the 90-point threshold, but the false-absence class is gone and the dependency picture is materially more complete.** |
+
 ## Comparison with earlier attempts
 
 | Attempt | Report | Validator failures | Score |
@@ -37,8 +53,9 @@ and assistant progress messages earn no credit.
 | First interactive run (step limit) | none | n/a | 0 |
 | `steps: 24` rerun | complete | not measured | 59 |
 | DET-008 rerun | complete | 7 | 63 |
+| DET-009 rerun | complete | 7 | 72 |
 
-The gain since the 59-point rerun is factual: the profile conflict is now reported
+The gain from 59 to 63 was factual: the profile conflict is now reported
 as `상충됨` instead of a confirmed server, the seed credentials are named without
 values, and no PersistentVolume requirement is invented. The remaining gap is no
 longer report structure but false absence evidence and incomplete dependency
@@ -48,5 +65,5 @@ edges.
 
 The DET-003 five-candidate food-delivery target does not exist on this machine,
 so its golden set, scorecard, and E2E run remain outstanding. DET-003 acceptance
-is therefore not met for either target: JPetStore scores 63/100 and the MSA
-target has no evidence at all.
+is therefore not met for either target: the latest JPetStore run scores 72/100
+and the MSA target has no evidence at all.

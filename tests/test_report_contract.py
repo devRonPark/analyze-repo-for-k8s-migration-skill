@@ -116,6 +116,44 @@ class ReportContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("부재 근거는 검색(scope=", result.stdout)
 
+    def test_detailed_instructions_forbid_absence_claims_about_read_files(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+
+        self.assertIn("result=없음", agent)
+        self.assertIn("a file you read", agent)
+        self.assertIn("pattern=Dockerfile", agent)
+
+    def test_absence_claim_about_a_cited_file_is_rejected(self):
+        report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+            "- Secret: 없음 — 상태: 확인됨 / 근거: 검색(scope=., pattern=SECRET, result=없음)",
+            "- Secret: 없음 — 상태: 미확인 / 근거: 검색(scope=., pattern=Dockerfile, result=없음)",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("이미 인용한 파일", result.stdout)
+
+    def test_absence_claim_about_an_existing_repository_file_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            (repo / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+            (repo / "pom.xml").write_text("<project/>\n", encoding="utf-8")
+            (repo / "compose.yaml").write_text("services: {}\n", encoding="utf-8")
+            report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+                "- Secret: 없음 — 상태: 확인됨 / 근거: 검색(scope=., pattern=SECRET, result=없음)",
+                "- Secret: 없음 — 상태: 미확인 / 근거: 검색(scope=., pattern=compose.yaml, result=없음)",
+            )
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed", "--repo-root", str(repo))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("저장소에 존재", result.stdout)
+
     def test_detailed_instructions_require_read_line_numbers_and_all_sections(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
 

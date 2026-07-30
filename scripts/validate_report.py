@@ -274,6 +274,49 @@ def evidence_semantic_errors(text: str) -> list[str]:
     return errors
 
 
+def absence_patterns(text: str) -> list[tuple[str, str]]:
+    """부재 근거의 pattern 값을 `(token, line)` 쌍으로 돌려준다."""
+    pairs: list[tuple[str, str]] = []
+    for line in text.splitlines():
+        for match in ABSENCE_REFERENCE.finditer(line):
+            pattern = match.group(0).partition("pattern=")[2].rpartition(", result=")[0]
+            for token in pattern.strip("{}").split(","):
+                token = token.strip().strip("`").strip()
+                # glob이 섞인 pattern은 실제 검색 범위를 알 수 없으므로 검사하지 않는다.
+                if token and not set(token) & set("*?[]{}"):
+                    pairs.append((token, line))
+    return pairs
+
+
+def false_absence_errors(text: str, repository_root: Path | None) -> list[str]:
+    """읽은 파일이나 저장소에 있는 파일을 대상으로 한 `result=없음` 주장을 거부한다."""
+    cited: set[str] = set()
+    for line in text.splitlines():
+        if "근거:" not in line:
+            continue
+        for reference in FILE_LINE_REFERENCE.finditer(line.split("근거:", 1)[1]):
+            path = reference.group("path")
+            cited.add(path)
+            cited.add(Path(path).name)
+
+    errors: list[str] = []
+    for token, line in absence_patterns(text):
+        if token in cited or Path(token).name in cited:
+            errors.append(f"근거에서 이미 인용한 파일에 부재를 주장했습니다: {token} / {line}")
+            continue
+        if repository_root is None:
+            continue
+        root = repository_root.resolve()
+        matches = [
+            candidate
+            for candidate in ([root / token] if "/" in token else list(root.rglob(token))[:2])
+            if candidate.is_file()
+        ]
+        if matches:
+            errors.append(f"부재 근거의 pattern이 저장소에 존재합니다: {token} / {line}")
+    return errors
+
+
 def absence_marker_errors(text: str) -> list[str]:
     """부재 근거 marker가 번역되거나 표기가 바뀐 줄을 거부한다."""
     errors: list[str] = []
@@ -527,6 +570,12 @@ def main() -> int:
                 errors.extend(detailed_evidence_slot_errors(text))
                 errors.extend(design_blocker_format_errors(text))
         errors.extend(absence_marker_errors(text))
+        errors.extend(
+            false_absence_errors(
+                text,
+                args.repo_root if args.repo_root is not None and args.repo_root.is_dir() else None,
+            )
+        )
         errors.extend(credential_literal_errors(text))
     if summary_v2:
         errors.extend(summary_v2_errors(text))
