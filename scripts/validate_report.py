@@ -149,7 +149,9 @@ def repository_reference_errors(text: str, repository_root: Path | None) -> list
             line_count = len(candidate.read_text(encoding="utf-8", errors="replace").splitlines())
             start = int(reference.group("start"))
             end = int(reference.group("end") or start)
-            if start < 1 or end < start or end > line_count:
+            if end < start:
+                errors.append(f"인용 줄 범위가 거꾸로입니다: {reference.group(0)}")
+            elif start < 1 or end > line_count:
                 errors.append(
                     f"인용 줄 범위가 파일 범위를 벗어났습니다: {reference.group(0)} "
                     f"(파일 줄 수: {line_count})"

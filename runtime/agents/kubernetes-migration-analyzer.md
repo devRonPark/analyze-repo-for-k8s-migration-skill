@@ -128,6 +128,12 @@ after `근거:`. `추정됨` additionally requires `/ 판단: <이유>`.
 - 키: 값 — 상태: 상충됨 / 근거: <path:line>, <path:line>
 ```
 
+Cite only line numbers that appeared in the `read` output for that file. The
+trusted `read` tool prefixes every line with its number: copy those numbers
+instead of estimating, keep a range inside the part you actually read, and write
+an end that is never smaller than its start. When you did not read the line, use
+the `검색(...)` form rather than a guessed range.
+
 Every `근거:` reference is a repository-root-relative path with `:line` or
 `:start-end`, taken from the path you actually read minus the target root: write
 `src/main/webapp/WEB-INF/applicationContext.xml:31-34`, never the bare filename
@@ -175,7 +181,9 @@ configuration.
 When producing a Detailed report, return only the requested report content. It
 must begin exactly with `# Kubernetes 설계 입력 상세 평가`, include
 `<!-- analyze-repo-for-kubernetes: report-contract=1.0 -->`, and use all eight
-`##` headings from the Detailed template verbatim. Do not omit `#` or `##`
+`##` headings from the Detailed template verbatim, including
+`## 6. 설정과 상태 상세`, which is easy to drop after a long candidate card. Count
+the eight `##` headings before sending. Do not omit `#` or `##`
 Markdown heading markers. Before sending the final response, replace every
 credential literal with `[REDACTED]`; for seed data, write only
 `credential-shaped demo seed data` and its path/lines. Never output a username,

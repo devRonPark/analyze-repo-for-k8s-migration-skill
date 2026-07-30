@@ -116,6 +116,30 @@ class ReportContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("부재 근거는 검색(scope=", result.stdout)
 
+    def test_detailed_instructions_require_read_line_numbers_and_all_sections(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+
+        self.assertIn("line numbers that appeared in the `read`", agent)
+        self.assertIn("## 6. 설정과 상태 상세", agent)
+        self.assertIn("never smaller than its start", agent)
+
+    def test_reversed_line_range_is_reported_as_reversed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            (repo / "pom.xml").write_text("<project/>\n" * 200, encoding="utf-8")
+            (repo / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+            report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
+                "- 언어: Java — 상태: 확인됨 / 근거: pom.xml:1",
+                "- 언어: Java — 상태: 확인됨 / 근거: pom.xml:125-106",
+            )
+            path = Path(tmp) / "detailed.md"
+            path.write_text(report, encoding="utf-8")
+            result = self.run_validator(path, "--mode", "detailed", "--repo-root", str(repo))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("인용 줄 범위가 거꾸로입니다", result.stdout)
+
     def test_detailed_instructions_require_repository_relative_references(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
