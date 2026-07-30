@@ -208,6 +208,37 @@ validator는 끝이 시작보다 작은 범위를 `인용 줄 범위가 거꾸�
   (`근거: pom.xml`, `근거: mvnw, pom.xml`), `web.xml`을 파일명만으로 인용한 2건,
   `추정됨`에 `/ 판단:`이 빠진 1건이다.
 
+## DET-003 부분 채점 결과 (JPetStore 6)
+
+- 티켓 출처: [TICKET-LIST-2026-07-30-005](TICKET-LIST-2026-07-30-005-detailed-evidence-budget.md) `DET-003`
+- 기록: [JPetStore 6 Detailed scorecard](../../../../tests/evaluation/jpetstore-6-detailed-scorecard.md)
+
+`DET-008` 실행의 최종 보고서만 독립 golden set과 비교해 채점했다. transcript의 tool
+read와 진행 메시지에는 점수를 주지 않았다.
+
+| 항목 | 배점 | 점수 |
+| --- | ---: | ---: |
+| 보고서 완결성과 계약 구조 | 20 | 14 |
+| 배포 대상 후보 범위 | 10 | 10 |
+| 실행·빌드·런타임·네트워크 사실 | 25 | 13 |
+| 상태와 의존성 분석 | 15 | 9 |
+| 설정·보안·호환성 위험 | 20 | 11 |
+| 근거 규율과 의사결정 유용성 | 10 | 6 |
+| **합계** | **100** | **63** |
+
+59점이던 이전 실행보다 사실 정확도가 올라갔다. 프로필 불일치를 확정된 서버 대신
+`상충됨`으로 보고하고, seed 자격증명을 값 없이 위치로만 적으며, PersistentVolume
+요구를 지어내지 않는다.
+
+주요 감점은 형식이 아니라 근거의 사실성이다. 읽은 파일에 대해 `result=없음`을
+주장한 거짓 부재 근거 4건(`image`, `command`, `args`, `containerPort`), golden set이
+요구하는 application server와 Maven/Cargo 의존성 edge 누락, `README.md:57`의
+context path 누락, Java EE 수준 서술 불일치가 그것이다.
+
+`DET-003` 수용 기준(각 대상 90점 이상)은 충족하지 않았다. 5개 후보 food-delivery
+대상은 이 머신에 없어 golden set·scorecard·E2E 모두 미실시이므로 나머지 절반은
+차단 상태다.
+
 ## 남은 격차와 다음 단계
 
 45 → 14 → 21 → 14 → 7건으로 줄었고, 매 실행에서 여덟 개 섹션을 갖춘 최종 보고서를

@@ -14,7 +14,7 @@ The secret-safe evidence boundary plan remains open in
 | `DET-006` | DONE | Absence and conflict evidence keep the Korean `검색(...)` form and two parseable sources. |
 | `DET-007` | DONE | Every evidence reference is a repository-relative `path:line` with no trailing prose. |
 | `DET-008` | DONE | Cited line ranges exist in the read file and all eight sections are present. |
-| `DET-003` | TODO | Score the Detailed final report against the independent JPetStore golden set. |
+| `DET-003` | PARTIAL | JPetStore Detailed report scores 63/100; the MSA target and the 90-point threshold remain open. |
 | `SEC-001` | IN_PROGRESS | Target evidence is redacted before the model can read it. |
 
 Read [the Detailed verdict-consistency ADR](../daily/2026-07-30/ADR-2026-07-30-010-detailed-verdict-consistency.md)
