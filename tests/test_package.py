@@ -431,6 +431,22 @@ class SkillPackageTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("작업 계획", result.stdout)
 
+    def test_executable_scenario_evaluator_passes(self):
+        result = subprocess.run(
+            [
+                "python3",
+                str(ROOT / "scripts/evaluate_scenarios.py"),
+                "--cases",
+                str(ROOT / "tests/evaluation/cases.json"),
+                "--actual-dir",
+                str(ROOT / "tests/evaluation/golden-actual"),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_known_actual_output_schema_regression_fails(self):
         fixture = ROOT / "tests/fixtures/regression/invalid-actual-output.md"
         result = subprocess.run(

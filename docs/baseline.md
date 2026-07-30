@@ -7,7 +7,7 @@ The original VS-001 baseline on the clean source revision was:
 ```text
 python3 scripts/validate_skill.py .
 python3 -m unittest discover -s tests -p 'test_*.py' -v
-python3 scripts/validate_regression.py tests/fixtures/regression/expected.json
+# VS-008에서 폐기된 static regression wrapper
 ```
 
 Observed result before the vertical-slice changes:
