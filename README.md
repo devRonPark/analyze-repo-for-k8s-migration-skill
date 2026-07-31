@@ -52,11 +52,22 @@ bash scripts/install-opencode.sh --project-local /path/to/project
 `runtime/opencode.json`에는 로컬 OpenAI-compatible endpoint, 모델 선택, Skill allowlist, read-only 권한, 제한된 Git 조회 규칙이 정의되어 있습니다. 환경에 맞게 endpoint와 model을 확인한 뒤 OpenCode에 적용합니다.
 `bash scripts/install-opencode.sh`는 `/analyze-repo-for-kubernetes` custom command와 해당 command가 사용할 `kubernetes-migration-analyzer` agent까지 함께 등록합니다.
 
-대상 Git repository에서 OpenCode를 시작합니다.
+사용자 실행과 격리 테스트 실행은 서로 다른 경계를 사용합니다.
+
+사용자 실행은 분석 대상 Application Repository에서 OpenCode를 시작하고,
+현재 사용자의 전역 config·Agent·`~/.config/opencode/skills`를 그대로 사용합니다.
+대상 Repository 안에 `.opencode`를 생성하거나 복사하지 않습니다.
 
 ```bash
 cd /path/to/analyzed-repository
-opencode
+opencode --agent kubernetes-migration-analyzer --dir "$PWD"
+```
+
+대화형 실행 예:
+
+```bash
+cd /path/to/analyzed-repository
+opencode --mini --agent kubernetes-migration-analyzer --dir "$PWD"
 ```
 
 위 설정을 사용하면 OpenCode에서 다음 custom command로 호출할 수 있습니다.
@@ -122,6 +133,46 @@ OpenCode 실행 파일이 설치된 환경에서는 Skill distribution, Agent �
 python3 scripts/run_opencode_acceptance.py --config runtime/opencode.json --cases tests/evaluation/opencode-cases.json --output-dir .artifacts/opencode
 ```
 
+격리 acceptance/debug 실행은 분석 대상 Repository를 `--dir`와 subprocess `cwd`로
+동시에 사용하지만, OpenCode의 `HOME`, `OPENCODE_CONFIG`,
+`OPENCODE_CONFIG_DIR`, Agent, Skill, 로그는 임시 디렉터리로 분리합니다.
+임시 config에는 `runtime/opencode.json`, 지정 Agent, 현재 Skill,
+`analyze-repo-for-kubernetes` custom command만 들어갑니다.
+
+```bash
+python3 scripts/run_opencode_acceptance.py --mode isolated --cases tests/evaluation/opencode-cases.json --repository-root /path/to/analyzed-repository --output-dir /tmp/opencode-acceptance-output --repeat 3
+```
+
+실제 사용자 환경을 측정할 때는 `--mode user`를 사용합니다. 이 모드는 config나
+Skill을 설치하지 않고 전역 discovery 경로를 읽어 trace에 기록합니다.
+
+```bash
+python3 scripts/run_opencode_acceptance.py --mode user --cases tests/evaluation/opencode-cases.json --repository-root /path/to/analyzed-repository --output-dir /tmp/opencode-user-output
+```
+
+두 모드는 모두 `--output-dir`가 분석 대상 Repository 밖에 있어야 하며,
+`debug config`, `debug startup`, `debug skill`,
+`debug agent kubernetes-migration-analyzer`를 실행하고
+`--print-logs --log-level DEBUG` 결과를 보존합니다. 각 trace에는 `cwd`,
+`HOME`, `OPENCODE_CONFIG`, `OPENCODE_CONFIG_DIR`, Skill discovery path,
+Agent path, command path, provider/model, 권한 audit, 대상 Repository의
+`.opencode` 존재 여부와 Git/filesystem 전후 비교가 포함됩니다.
+
+대표 interactive 실행도 별도로 남길 때는 `--interactive`를 추가합니다.
+interactive 결과는 `interactive.json`과 별도 stdout/stderr log로 저장되며,
+timeout 또는 provider 오류는 `UNAVAILABLE`/`FAIL`로 유지됩니다.
+
+`--project-local` 설치는 계속 지원하지만 대상 Repository의 `.opencode`를
+변경할 수 있으므로 acceptance/debug 실행에서는 사용하지 않습니다.
+
+측정 결과는 실제 trace의 loaded file bytes/lines, tool call, event/step,
+elapsed time만 집계합니다. Provider/model usage event가 없으면 해당 수치는
+`null`로 남기며 추정하지 않습니다.
+
+```bash
+python3 scripts/measure_context.py --traces /tmp/opencode-acceptance-output --output /tmp/opencode-acceptance-output/context-measurement.json
+```
+
 실제 분석 대상 Repository에서 실행하려면 `--repository-root`를 추가합니다.
 
 ```bash
@@ -172,9 +223,11 @@ python3 scripts/evaluate_scenarios.py --cases tests/evaluation/cases.json --actu
 
 ## 현재 검증 상태
 
-- Quality Gate: 79개 테스트와 8개 executable scenario 통과
-- OpenCode Skill 발견, Agent 권한, read-only Git 규칙 및 Acceptance Harness 검증 완료
-- 설정된 Provider를 이용한 실제 E2E에서는 제한 시간 내 최종 Summary와 Report Validator 통과를 확인하지 못했으며, 해당 상태는 `UNAVAILABLE` 또는 `PARTIAL`로 기록합니다.
+- Quality Gate: 88개 테스트와 8개 executable scenario 통과
+- isolated profile의 `debug config/startup/skill/agent`와 read-only 대상 불변성 검증 통과
+- 현재 Provider 실행은 제한 시간 내 최종 Summary와 Report Validator 통과를 확인하지 못했으며, `UNAVAILABLE`로 기록합니다.
+- 현재 user profile은 전역 OpenCode log 경로 쓰기 권한과 전역 Agent 설치 여부가 blocker이며, 성공으로 보고하지 않습니다.
+- OpenShell 검증은 이번 범위가 아니며 VS-010/VS-011에 남깁니다.
 
 ## License
 

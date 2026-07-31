@@ -19,8 +19,6 @@ permission:
     "*": deny
     "$HOME/.config/opencode/skill/analyze-repo-for-kubernetes/**": allow
     "$HOME/.config/opencode/skills/analyze-repo-for-kubernetes/**": allow
-    "$HOME/.agents/skills/analyze-repo-for-kubernetes/**": allow
-    "$HOME/.claude/skills/analyze-repo-for-kubernetes/**": allow
     "/tmp/opencode-acceptance-*/config/skills/analyze-repo-for-kubernetes/**": allow
   task: deny
   webfetch: deny
