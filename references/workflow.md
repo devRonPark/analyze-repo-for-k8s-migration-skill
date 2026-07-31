@@ -2,9 +2,8 @@
 
 `SKILL.md` owns target resolution, safety, output mode, evidence semantics, and
 the final verdict. This file owns the high-signal inventory and analysis order.
-After that gate, `현재 저장소` means the current repository root; a missing
-target follows it and must Stop the turn after asking. For a private repository,
-use its authenticated path. Do not follow a symlink outside the resolved scope.
+After that gate, `현재 저장소` means the current Git root and `.` means the
+current subdirectory. A missing target follows it and must Stop the turn after asking. For a private repository, use its authenticated Local path. Analyze only paths within the current worktree. Do not clone Repository URLs. Do not follow a symlink outside the resolved scope.
 
 ## 1. High-signal inventory
 
@@ -17,6 +16,20 @@ Maven candidate, prioritize `pom.xml`, `mvnw`/wrapper and build/package settings
 
 Apply the conditional lockfile policy in `SKILL.md`; for Maven, do not search
 for lockfiles when `pom.xml` and wrapper/build/package settings are sufficient.
+
+If a Dockerfile or documented launch command selects a Maven/Gradle profile,
+read the profile definitions and compare the selected identifier with the
+invocation. Also compare an explicit container base-image version with the
+compiled target version. These are execution facts: disagreements are
+`상충됨`, not a reason to choose the more plausible runtime. For a Java web
+application, inspect its web descriptor for the Java EE/Jakarta API level.
+
+When an application context or equivalent startup configuration loads a schema
+or data SQL file, inspect that referenced file only far enough to classify
+credential-shaped seed records. Do not output values. Treat an embedded
+database as an in-process dependency and state concern, but do not infer a
+PersistentVolume, StatefulSet, or external database requirement without direct
+evidence. Record the intended data lifecycle as a decision instead.
 
 Use README, CI, logs, migrations, tests, and broad source-tree reads only when a
 first-pass finding needs evidence. Exclude generated output, caches, vendored

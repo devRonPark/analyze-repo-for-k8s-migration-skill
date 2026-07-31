@@ -1,4 +1,9 @@
-# Implementation Plan — `analyze-repo-for-kubernetes`
+# Historical Roadmap — Initial Skill Diet
+
+> This is the initial roadmap, not the active work queue. The current priority
+> is defined in [`../current/focus.md`](../current/focus.md). Its original
+> status evidence is preserved in
+> [`../archive/initial-opencode-milestone/status.md`](../archive/initial-opencode-milestone/status.md).
 
 ## Goal
 
@@ -24,34 +29,34 @@ validate_regression.py: 8 static cases PASS
 
 The eight regression cases compare prewritten `first` and `second` objects and are not proof of real agent determinism. VS-008 replaces that mechanism.
 
-## How Codex should use this plan
+## Original execution procedure
 
-1. Read `CODEX_START.md`.
-2. Select the first unblocked ticket from `STATUS.md`.
+1. Read the then-current implementation entrypoint.
+2. Select the first unblocked ticket from the then-current status ledger.
 3. Read only that ticket and its “Read first” files.
 4. Implement only the ticket scope.
 5. Run its verification commands plus the unified quality gate.
-6. Update `STATUS.md` with evidence; do not mark environment-dependent checks passed unless executed.
+6. Update the status ledger with evidence; do not mark environment-dependent checks passed unless executed.
 7. Commit at the ticket boundary.
 
 ## Ticket order
 
 | Ticket | Outcome | Status | Depends on |
 |---|---|---|---|
-| [VS-001](tickets/VS-001-baseline-quality-gate.md) | Lock the executable baseline and one-command quality gate | Ready now | None |
-| [VS-002](tickets/VS-002-metadata-structural-validator.md) | Align Skill metadata and replace phrase-lock package validation | Ready after VS-001 | VS-001 |
-| [VS-003](tickets/VS-003-opencode-runtime-distribution.md) | Build a minimal OpenCode runtime distribution and installer | Ready after VS-002 | VS-001, VS-002 |
-| [VS-004](tickets/VS-004-versioned-report-contract.md) | Version and enforce the current report contract | Ready after VS-001 | VS-001 |
-| [VS-005](tickets/VS-005-thin-target-safety-path.md) | Thin the target-resolution, safety, and minimum-request path | Ready after VS-002 | VS-001, VS-002 |
-| [VS-006](tickets/VS-006-discovery-classification-path.md) | Consolidate repository discovery and component classification | Ready after VS-002 | VS-001, VS-002 |
-| [VS-007](tickets/VS-007-evidence-readiness-path.md) | Consolidate evidence, dependency, configuration, and readiness rules | Ready after VS-004 | VS-001, VS-004, preferably VS-006 |
-| [VS-008](tickets/VS-008-executable-scenario-evaluator.md) | Replace static JSON duplication with an executable scenario evaluator | Ready after contract slices | VS-001, VS-004, VS-006, VS-007 |
-| [VS-009](tickets/VS-009-opencode-acceptance-harness.md) | Add OpenCode Skill loading and permission acceptance checks | Implementation ready; integration verification requires OpenCode installed | VS-003, VS-005, VS-008 |
-| [VS-009A](tickets/VS-009A-e2e-agent-bounded-completion.md) | Bound the OpenCode E2E agent's read-only Git access and Summary completion | Ready after VS-009 | VS-009 |
-| [VS-010](tickets/VS-010-openshell-secure-runtime.md) | Add OpenShell policy, preflight, and launch wrapper | Implementation ready; full verification requires a reachable OpenShell gateway | VS-003, VS-009A |
-| [VS-011](tickets/VS-011-full-stack-e2e-security.md) | Prove OpenCode-on-OpenShell analysis and security end to end | Environment-dependent | VS-004 through VS-010 |
-| [VS-012](tickets/VS-012-context-measurement-helper-decision.md) | Measure actual context loading and decide whether a discovery helper is justified | Ready for static measurement; full decision requires VS-011 traces | VS-005, VS-006, VS-008, VS-011 for full data |
-| [VS-013](tickets/VS-013-legacy-cleanup-release.md) | Remove obsolete platform assets and cut a verified release | Final slice | VS-003, VS-011, VS-012 |
+| [VS-001](../tickets/VS-001-baseline-quality-gate.md) | Lock the executable baseline and one-command quality gate | Ready now | None |
+| [VS-002](../tickets/VS-002-metadata-structural-validator.md) | Align Skill metadata and replace phrase-lock package validation | Ready after VS-001 | VS-001 |
+| [VS-003](../tickets/VS-003-opencode-runtime-distribution.md) | Build a minimal OpenCode runtime distribution and installer | Ready after VS-002 | VS-001, VS-002 |
+| [VS-004](../tickets/VS-004-versioned-report-contract.md) | Version and enforce the current report contract | Ready after VS-001 | VS-001 |
+| [VS-005](../tickets/VS-005-thin-target-safety-path.md) | Thin the target-resolution, safety, and minimum-request path | Ready after VS-002 | VS-001, VS-002 |
+| [VS-006](../tickets/VS-006-discovery-classification-path.md) | Consolidate repository discovery and component classification | Ready after VS-002 | VS-001, VS-002 |
+| [VS-007](../tickets/VS-007-evidence-readiness-path.md) | Consolidate evidence, dependency, configuration, and readiness rules | Ready after VS-004 | VS-001, VS-004, preferably VS-006 |
+| [VS-008](../tickets/VS-008-executable-scenario-evaluator.md) | Replace static JSON duplication with an executable scenario evaluator | Ready after contract slices | VS-001, VS-004, VS-006, VS-007 |
+| [VS-009](../tickets/VS-009-opencode-acceptance-harness.md) | Add OpenCode Skill loading and permission acceptance checks | Implementation ready; integration verification requires OpenCode installed | VS-003, VS-005, VS-008 |
+| [VS-009A](../tickets/VS-009A-e2e-agent-bounded-completion.md) | Bound the OpenCode E2E agent's read-only Git access and Summary completion | Ready after VS-009 | VS-009 |
+| [VS-010](../tickets/VS-010-openshell-secure-runtime.md) | Add OpenShell policy, preflight, and launch wrapper | Implementation ready; full verification requires a reachable OpenShell gateway | VS-003, VS-009A |
+| [VS-011](../tickets/VS-011-full-stack-e2e-security.md) | Prove OpenCode-on-OpenShell analysis and security end to end | Environment-dependent | VS-004 through VS-010 |
+| [VS-012](../tickets/VS-012-context-measurement-helper-decision.md) | Measure actual context loading and decide whether a discovery helper is justified | Ready for static measurement; full decision requires VS-011 traces | VS-005, VS-006, VS-008, VS-011 for full data |
+| [VS-013](../tickets/VS-013-legacy-cleanup-release.md) | Remove obsolete platform assets and cut a verified release | Final slice | VS-003, VS-011, VS-012 |
 
 ## Dependency graph
 

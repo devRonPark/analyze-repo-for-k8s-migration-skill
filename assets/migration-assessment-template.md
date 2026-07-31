@@ -2,6 +2,16 @@
 
 <!-- analyze-repo-for-kubernetes: report-contract=1.0 -->
 
+After deployment candidates are identified, create all eight sections before
+optional exploration. Each required evidence slot ends as `확인됨`, `상충됨`, or
+a scoped `미확인`; `추정됨` is not terminal. In `최소 입력 누락`, a `미확인`
+entry includes `범위:` and `결정:`.
+
+Keep a Detailed report within 70 lines and 1,200 Korean words: one candidate
+card, one dependency bullet, one configuration bullet, and at most three
+blockers. Every required field is one short line; use `미확인` rather than an
+explanation where evidence is absent.
+
 ## 1. 분석 범위
 
 - 대상 유형:
@@ -77,15 +87,13 @@
 #### 최소 입력 누락
 
 - 없음: 추가 입력 없음 — 상태: 확인됨 / 근거: <file:line 또는 검색(...)>
-- <누락 key>: <필요한 이유와 후속 설계 차단 여부> — 상태: <상태> / 근거: <file:line 또는 검색(...)>
+- <누락 key>: <필요한 이유와 후속 설계 차단 여부>; 범위: <candidate 또는 shared scope>; 결정: <blocked 또는 open decision> — 상태: <확인됨|미확인|상충됨> / 근거: <file:line 또는 검색(...)>
 
 ## 4. 구성과 관계
 
 ### Dependency matrix
 
-| 연결 workload | 의존 대상 | 종류 | protocol 또는 mechanism | endpoint 또는 configuration | 적용 시점 | 실행 위치 | 기능 실행에 필요 | 확인된 실행 정의에서 사용 여부 | 공급 또는 관리 경계 | 상태 또는 영속성 | 근거 |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | | | |
+- 연결 workload: <source>; 의존 대상: <target>; 종류: <type>; protocol 또는 mechanism: <protocol 또는 mechanism>; endpoint 또는 configuration: <endpoint 또는 configuration>; 적용 시점: <timing>; 실행 위치: <location>; 기능 실행에 필요: <yes/no/unknown>; 확인된 실행 정의에서 사용 여부: <yes/no/unknown>; 공급 또는 관리 경계: <boundary>; 상태 또는 영속성: <state>; 근거: <file:line 또는 검색(...)>
 
 ### Text dependency graph
 
@@ -93,7 +101,7 @@
 <배포 대상> --[종류, 적용 시점, 실행 위치]--> <런타임 의존성>
 ```
 
-Dependency matrix와 text dependency graph가 일치해야 한다. 표에는 저장소에 정의된 런타임 의존성과 외부 런타임 의존성을 모두 기록하고, 공급 또는 관리 경계로 구분한다.
+Dependency matrix bullets와 text dependency graph가 일치해야 한다. bullets에는 저장소에 정의된 런타임 의존성과 외부 런타임 의존성을 모두 기록하고, 공급 또는 관리 경계로 구분한다. Detailed report must not use Markdown tables.
 
 ### 배포 대상 후보에서 제외한 항목
 
@@ -131,6 +139,10 @@ Repository fact는 다음 형식을 사용한다.
 
 ```text
 - 키: 값 — 상태: 확인됨|추정됨|미확인|상충됨 / 근거: <file:line 또는 검색(...)>
+- 키: 미확인 — 상태: 미확인 / 근거: 검색(scope=<저장소 상대 경로>, pattern=<glob 또는 검색식>, result=없음)
+- 키: 값 — 상태: 상충됨 / 근거: <path:line>, <path:line>
 ```
 
 추정에는 `/ 판단: <추론 이유>`를 추가한다. 범위 metadata에는 억지로 상태와 파일 근거를 붙이지 않는다.
+`검색` marker는 번역하거나 표기를 바꾸지 않는다. `미확인`은 file:line 하나만으로 종료할 수 없고, `상충됨`은 두 참조를 `, `로 나열한다.
+근거의 경로는 저장소 루트 기준 상대 경로와 줄 번호로 쓰고(`src/main/webapp/WEB-INF/applicationContext.xml:31-34`), 참조 뒤에 설명을 붙이지 않는다.

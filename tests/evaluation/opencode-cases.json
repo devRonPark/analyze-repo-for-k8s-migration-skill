@@ -2,6 +2,155 @@
   "suite": "opencode",
   "cases": [
     {
+      "id": "slash-default-summary",
+      "query": "",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "analysis",
+      "expected_behavior": {
+        "skill_id": "analyze-repo-for-kubernetes",
+        "skill_loaded": true,
+        "report_mode": "summary",
+        "required_reads": ["workflow.md", "migration-summary-template.md"]
+      },
+      "forbidden_behavior": {
+        "reads": ["migration-assessment-template.md", "repository-analysis-checklist.md"],
+        "tools": ["edit", "write", "patch"]
+      },
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
+      "id": "slash-dot-summary",
+      "query": ".",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "analysis",
+      "expected_behavior": {
+        "skill_id": "analyze-repo-for-kubernetes",
+        "skill_loaded": true,
+        "report_mode": "summary",
+        "required_reads": ["workflow.md", "migration-summary-template.md"]
+      },
+      "forbidden_behavior": {
+        "reads": ["migration-assessment-template.md", "repository-analysis-checklist.md"],
+        "tools": ["edit", "write", "patch"]
+      },
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
+      "id": "slash-detailed",
+      "query": "Detailed",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "analysis",
+      "expected_behavior": {
+        "skill_id": "analyze-repo-for-kubernetes",
+        "skill_loaded": true,
+        "report_mode": "detailed",
+        "required_reads": ["migration-assessment-template.md", "repository-analysis-checklist.md"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": ["edit", "write", "patch"]},
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
+      "id": "help-flag",
+      "query": "--help",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "help",
+      "expected_behavior": {
+        "required_output": ["/analyze-repo-for-kubernetes", "Summary", "Detailed"],
+        "forbidden_output": ["# Kubernetes 설계 입력 요약"],
+        "forbidden_tools": ["read", "glob", "grep", "list", "bash"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": ["edit", "write", "patch"]},
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
+      "id": "help-korean",
+      "query": "도움말",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "help",
+      "expected_behavior": {
+        "required_output": ["/analyze-repo-for-kubernetes", "Summary", "Detailed"],
+        "forbidden_output": ["# Kubernetes 설계 입력 요약"],
+        "forbidden_tools": ["read", "glob", "grep", "list", "bash"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": ["edit", "write", "patch"]},
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
+      "id": "help-usage",
+      "query": "사용법",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "help",
+      "expected_behavior": {
+        "required_output": ["/analyze-repo-for-kubernetes", "Summary", "Detailed"],
+        "forbidden_output": ["# Kubernetes 설계 입력 요약"],
+        "forbidden_tools": ["read", "glob", "grep", "list", "bash"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": ["edit", "write", "patch"]},
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
+      "id": "url-rejected",
+      "query": "https://example.invalid/repository.git",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "target-rejection",
+      "expected_behavior": {
+        "required_output": ["Local path"],
+        "forbidden_output": ["# Kubernetes 설계 입력 요약"],
+        "forbidden_tools": ["read", "glob", "grep", "list", "bash"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": ["edit", "write", "patch"]},
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
+      "id": "outside-worktree-rejected",
+      "query": "../outside-worktree",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "target-rejection",
+      "expected_behavior": {
+        "required_output": ["Local path"],
+        "forbidden_output": ["# Kubernetes 설계 입력 요약"],
+        "forbidden_tools": ["read", "glob", "grep", "list", "bash"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": ["edit", "write", "patch"]},
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
+      "id": "non-git-path-rejected",
+      "query": "not-a-git-directory",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "target-rejection",
+      "expected_behavior": {
+        "required_output": ["Local path"],
+        "forbidden_output": ["# Kubernetes 설계 입력 요약"],
+        "forbidden_tools": ["read", "glob", "grep", "list", "bash"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": ["edit", "write", "patch"]},
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
+      "id": "symlink-escape-rejected",
+      "query": "symlink-outside-worktree",
+      "command": "analyze-repo-for-kubernetes",
+      "repository_fixture": "tests/fixtures/repos/sample",
+      "acceptance_type": "target-rejection",
+      "expected_behavior": {
+        "required_output": ["Local path"],
+        "forbidden_output": ["# Kubernetes 설계 입력 요약"],
+        "forbidden_tools": ["read", "glob", "grep", "list", "bash"]
+      },
+      "forbidden_behavior": {"reads": [], "tools": ["edit", "write", "patch"]},
+      "repository_snapshot": {"pom.xml": "<project/>\n", "Dockerfile": "FROM scratch\n"}
+    },
+    {
       "id": "minimal-summary",
       "query": "현재 저장소를 Kubernetes 이관 관점에서 분석해줘.",
       "repository_fixture": "tests/fixtures/repos/sample",

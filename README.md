@@ -6,7 +6,7 @@ OpenCode에서 `analyze-repo-for-kubernetes` Skill을 로드하여 애플리케�
 
 ## 주요 기능
 
-- Local path 또는 Repository URL 대상 확인과 Target Resolution Gate
+- Local Git worktree 대상 확인과 Target Resolution Gate
 - Dockerfile이 없거나 모노레포인 Repository의 구조·런타임 탐색
 - 배포 대상 후보, 저장소 런타임 의존성, 외부 런타임 의존성, 제외 항목 분류
 - Build·Runtime 동작, 포트, 설정, 스토리지 및 의존성 분석
@@ -36,12 +36,12 @@ bash scripts/install-opencode.sh
 기본 설치 위치:
 
 ```text
-~/.config/opencode/skills/analyze-repo-for-kubernetes
+~/.config/opencode/skill/analyze-repo-for-kubernetes
 ```
 
-설치 스크립트는 allowlist 기반 distribution을 생성하고 패키지 구조를 검사한 뒤 파일을 복사합니다. 동일한 Skill ID가 `~/.agents/skills` 또는 `~/.claude/skills` 같은 호환 경로에 이미 있어도 설치를 중단하지 않고 현재 배포본으로 함께 갱신합니다.
+설치 스크립트는 allowlist 기반 distribution을 생성하고 패키지 구조를 검사한 뒤 파일을 복사합니다. 또한 `kubernetes-migration-analyzer` Agent와 `/analyze-repo-for-kubernetes` command를 전역 OpenCode 설정에 등록합니다. 동일한 Skill ID가 `~/.agents/skills` 또는 `~/.claude/skills` 같은 호환 경로에 이미 있어도 설치를 중단하지 않고 현재 배포본으로 함께 갱신합니다.
 
-특정 Project 내부에 설치할 수도 있습니다. 이 방식은 해당 Project에 `.opencode/skills`를 생성하므로, 분석 대상 Repository를 변경하지 않아야 하는 경우에는 전역 설치를 사용합니다.
+특정 Project 내부에 설치할 수도 있습니다. 이 방식은 해당 Project에 `.opencode/skill`, `.opencode/agent`, `.opencode/command`를 생성하므로, 분석 대상 Repository를 변경하지 않아야 하는 경우에는 전역 설치를 사용합니다.
 
 ```bash
 bash scripts/install-opencode.sh --project-local /path/to/project
@@ -49,15 +49,8 @@ bash scripts/install-opencode.sh --project-local /path/to/project
 
 ## OpenCode Agent 설정
 
-분석 전용 Agent 정의를 OpenCode Agent 디렉터리에 복사합니다.
-
-```bash
-mkdir -p ~/.config/opencode/agents
-cp runtime/agents/kubernetes-migration-analyzer.md ~/.config/opencode/agents/
-```
-
 `runtime/opencode.json`에는 로컬 OpenAI-compatible endpoint, 모델 선택, Skill allowlist, read-only 권한, 제한된 Git 조회 규칙이 정의되어 있습니다. 환경에 맞게 endpoint와 model을 확인한 뒤 OpenCode에 적용합니다.
-또한 `/analyze-repo-for-kubernetes` custom command와 해당 command가 사용할 `kubernetes-migration-analyzer` agent가 명세되어 있습니다. 기존 OpenCode 설정을 유지하려면 `runtime/opencode.json`의 `command` 객체를 기존 `opencode.json` 또는 `opencode.jsonc`에 병합합니다.
+`bash scripts/install-opencode.sh`는 `/analyze-repo-for-kubernetes` custom command와 해당 command가 사용할 `kubernetes-migration-analyzer` agent까지 함께 등록합니다.
 
 사용자 실행과 격리 테스트 실행은 서로 다른 경계를 사용합니다.
 
@@ -82,6 +75,11 @@ opencode --mini --agent kubernetes-migration-analyzer --dir "$PWD"
 ```text
 /analyze-repo-for-kubernetes
 ```
+
+명시 subdirectory를 분석하려면 `.` 또는 현재 worktree 안의 Local path를
+인자로 제공합니다. `--help`, `도움말`, `사용법`은 repository를 읽지 않는
+사용 가이드만 반환합니다. Repository URL과 현재 worktree 밖 경로는 지원하지
+않습니다.
 
 분석 요청:
 

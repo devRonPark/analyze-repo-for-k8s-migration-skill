@@ -7,6 +7,11 @@ import re
 import sys
 from pathlib import Path
 
+try:
+    from scripts.project_metadata import load
+except ModuleNotFoundError:  # Direct invocation: python3 scripts/validate_skill.py ...
+    from project_metadata import load
+
 
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 XML_TAG_PATTERN = re.compile(r"<\/?[A-Za-z][^>]*>")
@@ -116,6 +121,10 @@ def validate(root: Path) -> list[str]:
     skill_path = skill_files[0]
     package_root = skill_path.parent
     try:
+        metadata = load(package_root)
+    except ValueError as error:
+        return [str(error)]
+    try:
         skill_text = skill_path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
         errors.append(f"SKILL.md is not valid UTF-8: {skill_path}")
@@ -130,7 +139,7 @@ def validate(root: Path) -> list[str]:
         errors.append("frontmatter requires name")
     elif len(name) > 64 or not NAME_PATTERN.fullmatch(name):
         errors.append("name must match ^[a-z0-9]+(-[a-z0-9]+)*$ and be 1-64 characters")
-    elif name != "analyze-repo-for-kubernetes":
+    elif name != metadata.skill_id:
         errors.append(f"unexpected Skill name: {name}")
 
     if not description:
@@ -178,7 +187,7 @@ def main() -> int:
     if errors:
         return fail(errors)
 
-    print("성공: analyze-repo-for-kubernetes 패키지 구조가 유효합니다.")
+    print(f"성공: {load(Path(args.root).resolve()).skill_id} 패키지 구조가 유효합니다.")
     return 0
 
 

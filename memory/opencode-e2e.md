@@ -13,12 +13,62 @@ does not change the runtime Skill contract.
 - Do not count a run that edits the target, writes a report into the target, or
   has an incomplete provider response.
 
-## Reproducible local run
+## Reproducible interactive run
 
 Build the current Skill into a temporary distribution and copy the agent into
 the temporary OpenCode config. The temporary directory must start with
 `/tmp/opencode-acceptance-`; the agent's `external_directory` permission allow
 rule is intentionally scoped to that prefix.
+
+```bash
+run_dir=$(mktemp -d /tmp/opencode-acceptance-interactive-XXXXXX)
+mkdir -p "$run_dir/home" "$run_dir/config/agents" "$run_dir/config/skills/analyze-repo-for-kubernetes"
+cp runtime/agents/kubernetes-migration-analyzer.md "$run_dir/config/agents/kubernetes-migration-analyzer.md"
+python3 scripts/build_dist.py --output "$run_dir/config/skills/analyze-repo-for-kubernetes"
+
+env HOME="$run_dir/home" OPENCODE_CONFIG="$PWD/runtime/opencode.json" OPENCODE_CONFIG_DIR="$run_dir/config" OPENCODE_DISABLE_AUTOUPDATE=1 opencode /home/daolts/jpetstore-6 --mini --agent kubernetes-migration-analyzer
+```
+
+`runtime/opencode.json` supplies the provider endpoint and model. Keep the
+temporary `HOME` and `OPENCODE_CONFIG_DIR`; otherwise a user config or stale
+Skill can change the result. In the TTY, enter `/analyze-repo-for-kubernetes`
+and wait for the final Markdown Summary. Concise assistant progress updates are
+allowed while the analysis runs. Confirm the final report has the title
+`Kubernetes 설계 입력 요약`, the required sections, Korean open-item labels,
+exactly one verdict, and leaves `/home/daolts/jpetstore-6` unchanged.
+
+## Result rules
+
+- This runbook covers only the interactive Summary flow. Do not use `opencode
+  run`, `--format json`, or a non-TTY wrapper for this check.
+- Provider connection errors, incomplete responses, or a response that reaches
+  the agent step cap without a complete report are availability failures.
+- Do not count a response without a complete, valid final Markdown report as
+  successful.
+
+## Interactive Detailed run
+
+Install the current distribution into a temporary `HOME` instead of hand-copying
+the layout. `HOME="$run_dir/home" bash scripts/install-opencode.sh` places the
+Skill, agent, command, and trusted tools where both the agent's
+`$HOME/.config/opencode/skill/...` allow rule and `runtime/tools/read.ts`'s
+trusted-Skill roots accept them.
+
+Use a short, fixed run directory such as `/tmp/opencode-acceptance-det5`. With a
+`mktemp` random suffix the model retypes the Skill path from the loader output
+and a single dropped character makes every reference read fail with
+`path is outside the target or trusted Skill`; that run is not a valid result.
+
+Start the session with `tmux -L <socket> new-session -d`, send
+`/analyze-repo-for-kubernetes Detailed`, then read the raw final report from
+`$run_dir/home/.local/share/opencode/opencode.db` (`part`/`message` tables). The
+TUI renders Markdown, so `capture-pane` loses `#` heading markers and cannot be
+validated directly.
+
+## Non-interactive measurement run
+
+Use this form only for elapsed-time measurement. It is not the interactive
+acceptance check above and never substitutes for it.
 
 ```bash
 run_dir=$(mktemp -d /tmp/opencode-acceptance-detailed-XXXXXX)
@@ -28,10 +78,6 @@ python3 scripts/build_dist.py --output "$run_dir/config/skills/analyze-repo-for-
 
 /usr/bin/time -f '\nELAPSED_SECONDS=%e' env HOME="$run_dir/home" OPENCODE_CONFIG="$PWD/runtime/opencode.json" OPENCODE_CONFIG_DIR="$run_dir/config" OPENCODE_DISABLE_AUTOUPDATE=1 opencode run -i --print-logs --log-level DEBUG --agent kubernetes-migration-analyzer --dir /home/daolts/jpetstore-6 '현재 저장소를 Kubernetes 이관 관점에서 Detailed 모드로 분석해줘. Detailed/상세/전체 평가를 명시적으로 요청한다. 분석이 끝나면 Detailed 보고서만 출력하고 대기해줘.'
 ```
-
-`runtime/opencode.json` supplies the provider endpoint and model. Keep the
-temporary `HOME` and `OPENCODE_CONFIG_DIR`; otherwise a user config or stale
-Skill can change the result.
 
 ## Mode and measurement rules
 
@@ -72,3 +118,14 @@ Skill can change the result.
 3. Do not claim a time for a provider-unavailable or partial run.
 4. Do not broaden target permissions, run builds, or modify the analyzed
    repository just to make the E2E pass.
+
+## Summary response check
+
+Validate the final TTY response, not merely that the session stayed open:
+
+1. Its final assistant response is the complete `Kubernetes 설계 입력 요약`
+   report; progress narration before it is allowed.
+2. It contains every Summary template section, Korean open-item labels, and
+   exactly one verdict.
+3. Compare `git -C /home/daolts/jpetstore-6 status --short --branch` before
+   and after the run; the output must be identical.

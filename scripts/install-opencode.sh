@@ -31,13 +31,26 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-SKILL_ID="analyze-repo-for-kubernetes"
+metadata_field() {
+  python3 "$SOURCE_DIR/scripts/project_metadata.py" --root "$SOURCE_DIR" --field "$1"
+}
+
+SKILL_ID="$(metadata_field skill_id)"
+AGENT_ID="$(metadata_field agent_id)"
 if [ -n "$PROJECT_LOCAL" ]; then
-  TARGET_ROOT="$PROJECT_LOCAL/.opencode/skills"
+  TARGET_ROOT="$PROJECT_LOCAL/.opencode/skill"
+  AGENT_DIR="$PROJECT_LOCAL/.opencode/agent"
+  COMMAND_DIR="$PROJECT_LOCAL/.opencode/command"
+  TOOL_DIR="$PROJECT_LOCAL/.opencode/tools"
 else
-  TARGET_ROOT="${OPENCODE_SKILLS_DIR:-$HOME/.config/opencode/skills}"
+  TARGET_ROOT="${OPENCODE_SKILLS_DIR:-$HOME/.config/opencode/skill}"
+  AGENT_DIR="$HOME/.config/opencode/agent"
+  COMMAND_DIR="$HOME/.config/opencode/command"
+  TOOL_DIR="$HOME/.config/opencode/tools"
 fi
 TARGET_DIR="$TARGET_ROOT/$SKILL_ID"
+AGENT_PATH="$AGENT_DIR/$AGENT_ID.md"
+COMMAND_PATH="$COMMAND_DIR/$SKILL_ID.md"
 
 duplicate_paths=()
 path_is_source() {
@@ -75,12 +88,19 @@ python3 "$SOURCE_DIR/scripts/build_dist.py" \
   --output "$temporary_root/$SKILL_ID"
 
 install_paths=("$TARGET_DIR" "${duplicate_paths[@]}")
+install_args=(--source "$temporary_root/$SKILL_ID")
 for install_path in "${install_paths[@]}"; do
-  mkdir -p "$(dirname "$install_path")"
-  if [ -e "$install_path" ] || [ -L "$install_path" ]; then
-    rm -rf "$install_path"
-  fi
-  cp -R "$temporary_root/$SKILL_ID" "$install_path"
+  install_args+=(--target "$install_path")
 done
+python3 "$SOURCE_DIR/scripts/install_distribution.py" "${install_args[@]}"
+
+mkdir -p "$AGENT_DIR" "$COMMAND_DIR" "$TOOL_DIR"
+cp "$SOURCE_DIR/runtime/agents/$AGENT_ID.md" "$AGENT_PATH"
+cp "$SOURCE_DIR/runtime/commands/$SKILL_ID.md" "$COMMAND_PATH"
+cp "$SOURCE_DIR/runtime/tools/read.ts" "$TOOL_DIR/read.ts"
+cp "$SOURCE_DIR/runtime/tools/glob.ts" "$TOOL_DIR/glob.ts"
+cp "$SOURCE_DIR/runtime/tools/git_metadata.ts" "$TOOL_DIR/git_metadata.ts"
 
 echo "OpenCode Skill 설치 완료: $TARGET_DIR"
+echo "OpenCode Agent 등록 완료: $AGENT_PATH"
+echo "OpenCode Command 등록 완료: /$SKILL_ID"

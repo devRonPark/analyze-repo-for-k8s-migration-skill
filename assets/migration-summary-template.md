@@ -1,64 +1,41 @@
 # Kubernetes 설계 입력 요약
 
-<!-- analyze-repo-for-kubernetes: report-contract=1.0 -->
+<!-- analyze-repo-for-kubernetes: report-contract=2.0 -->
 
-## 1. 분석 범위
+Target: <source> @ <resolved revision> | Skill: <id and version> | Contract: 2.0 | Validation: pending
 
-- 대상 유형:
-- Repository URL 또는 Local path:
-- 접근 방식:
-- 확인된 저장소 루트:
-- branch, tag 또는 commit:
-- 분석 경로:
-- 출력 모드: summary
+<!-- Mandatory writing guardrails: report only repository facts and scoped
+unknowns. An embedded database is a runtime dependency, never a deployment
+target or table row. If an explicit launch profile has no exactly matching
+profile definition, selected server = 상충됨 and verdict = 추가 정보 필요; do
+not call the default profile's server confirmed anywhere. An explicit image tag
+is 확인됨; compare it with the compiled target only as an alignment risk. Never
+reproduce any SQL INSERT value. Do not infer a Deployment, StatefulSet,
+persistence, external database, server compatibility, or production
+suitability. If a published port exists, include any documented context path.
+Do not add recommendations or remediation. -->
 
-범위와 접근 정보는 분석 metadata이므로 repository line 근거를 붙이지 않는다.
-
-## 2. 배포 대상 후보와 주요 제외
-
-- 배포 대상 후보: <이름과 실행 형태 목록> — 상태: <상태> / 근거: <file:line 또는 검색(...)>
-- 주요 제외 항목: <주요 제외 항목 또는 없음> — 상태: <상태> / 근거: <file:line 또는 검색(...)>
-
-## 3. 배포 대상별 요약
-
-배포 대상 후보마다 아래의 짧은 카드를 반복한다. Summary는 Detailed 카드의
-전체 필드를 채우지 않는다.
-
-### 배포 대상: <이름>
-
-#### 핵심 입력
-
-- 실행 형태:
-- 런타임:
-- 빌드 명령:
-- 운영 기동 명령:
-- 이미지 빌드 명령:
-- 컨테이너화:
-- 프로토콜:
-- 수신 포트:
-- 설정:
-- Secret:
-- 쓰기 상태 또는 영속성:
-- 런타임 의존성:
-
-#### Kubernetes 최소 입력
-
-- image:
-- command:
-- args:
-- containerPort:
-
-#### 최소 입력 누락
-
-- 없음: 추가 입력 없음 — 상태: 확인됨 / 근거: <file:line 또는 검색(...)>
-- <누락 key>: <필요한 이유와 후속 설계 차단 여부> — 상태: <상태> / 근거: <file:line 또는 검색(...)>
-
-## 4. Kubernetes 설계 입력 상태
+## 1. 결론
 
 - 판정: 설계 입력 충분 | 추가 정보 필요 | 분석 불가
-- 이유:
-- 판정을 뒷받침하는 근거:
+- 배포 대상: <대표 대상 목록> — 근거: <file:line 또는 검색(...)>
+- 주요 런타임 의존성: <대표 의존성 또는 없음> — 근거: <file:line 또는 검색(...)>
+- 열린 항목 요약: <분류별 요약 또는 없음> — 근거: <file:line 또는 검색(...)>
 
-### 설계 차단 항목
+## 2. 예상 Kubernetes 구성
 
-- 차단 항목: <없음 또는 구체적 누락> — 범주: <이미지|Secret|외부 의존성|runtime|기타> / 영향 범위: <전체|특정 배포 대상|production 경로> / 상태: <상태> / 근거: <file:line 또는 검색(...)>
+Summary v2는 구성 요소별 장문 카드 대신 대상당 한 개의 배포 개요 bullet을 사용한다.
+
+- <대상> — Repository 사실: <분류>; 역할: <역할>; Kubernetes 해석: <해석>; 포트: <포트 또는 없음>; 상태: <상태>; 주요 의존성: <의존성 또는 없음>; 근거: <file:line>
+
+## 3. 관계와 운영 경계
+
+- <관계 또는 경계> — Kubernetes 해석: <해석>; 근거: <file:line 또는 검색(...)>
+
+## 4. 열린 항목
+
+- 분류: <설계 차단 또는 설계 결정 또는 배포 입력>; 항목: <항목>; 영향: <영향>; 근거: <file:line 또는 검색(...)>
+
+## 5. 핵심 근거
+
+- <핵심 판단>: <file:line 또는 검색(...)>

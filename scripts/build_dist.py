@@ -11,14 +11,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.validate_skill import validate
-
-
-SKILL_ID = "analyze-repo-for-kubernetes"
-SKILL_VERSION = "1.0.0"
-MANIFEST_NAME = "manifest.json"
+from scripts.project_metadata import load
 
 
 def read_allowlist(source_root: Path) -> list[str]:
@@ -63,14 +60,34 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def replace_output(staging: Path, output: Path) -> None:
+    """Replace output while retaining a recoverable previous directory."""
+    backup = output.parent / f".{output.name}.backup-{uuid.uuid4().hex}"
+    had_output = output.exists() or output.is_symlink()
+    if had_output:
+        os.replace(output, backup)
+    try:
+        os.replace(staging, output)
+    except OSError:
+        if had_output:
+            os.replace(backup, output)
+        raise
+    if had_output:
+        if backup.is_dir() and not backup.is_symlink():
+            shutil.rmtree(backup)
+        else:
+            backup.unlink()
+
+
 def build(source_root: Path, output: Path) -> Path:
     source_root = source_root.resolve()
     output = output.resolve()
+    metadata = load(source_root)
     entries = read_allowlist(source_root)
     output.parent.mkdir(parents=True, exist_ok=True)
 
     temporary_root = Path(tempfile.mkdtemp(prefix=".skill-build-", dir=output.parent))
-    staging = temporary_root / SKILL_ID
+    staging = temporary_root / metadata.skill_id
     try:
         for entry in entries:
             destination = staging / entry
@@ -78,8 +95,8 @@ def build(source_root: Path, output: Path) -> Path:
             shutil.copyfile(source_root / entry, destination)
 
         manifest = {
-            "skill_id": SKILL_ID,
-            "version": SKILL_VERSION,
+            "skill_id": metadata.skill_id,
+            "version": metadata.skill_version,
             "source_revision": source_revision(source_root),
             "files": {},
         }
@@ -90,7 +107,7 @@ def build(source_root: Path, output: Path) -> Path:
                     "sha256": sha256(path),
                     "size": path.stat().st_size,
                 }
-        (staging / MANIFEST_NAME).write_text(
+        (staging / metadata.manifest_name).write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
@@ -99,12 +116,7 @@ def build(source_root: Path, output: Path) -> Path:
         if errors:
             raise ValueError("built distribution failed validation: " + "; ".join(errors))
 
-        if output.exists() or output.is_symlink():
-            if output.is_dir() and not output.is_symlink():
-                shutil.rmtree(output)
-            else:
-                output.unlink()
-        os.replace(staging, output)
+        replace_output(staging, output)
         return output
     finally:
         shutil.rmtree(temporary_root, ignore_errors=True)
@@ -121,8 +133,9 @@ def main() -> int:
     )
     args = parser.parse_args()
     source_root = args.source_root.resolve()
-    output = args.output or source_root / "dist" / SKILL_ID
     try:
+        metadata = load(source_root)
+        output = args.output or source_root / "dist" / metadata.skill_id
         destination = build(source_root, output)
     except (OSError, ValueError) as error:
         print(f"실패: {error}")

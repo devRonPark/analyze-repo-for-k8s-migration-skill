@@ -1,6 +1,7 @@
 from pathlib import Path
 import tempfile
 import unittest
+import json
 
 from scripts import validate_skill
 
@@ -12,17 +13,27 @@ DESCRIPTION = (
 
 
 class SkillValidatorTests(unittest.TestCase):
-    def make_package(self, *, directory="analyze-repo-for-kubernetes", description=DESCRIPTION):
+    def make_package(self, *, directory="analyze-repo-for-kubernetes", description=DESCRIPTION, skill_id="analyze-repo-for-kubernetes"):
         temporary = tempfile.TemporaryDirectory()
         root = Path(temporary.name) / directory
         (root / "references").mkdir(parents=True)
         (root / "assets").mkdir()
         (root / "scripts").mkdir()
+        (root / "contracts").mkdir()
         (root / "scripts/validate_report.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
         (root / "references/workflow.md").write_text("# Workflow\n", encoding="utf-8")
         (root / "SKILL.md").write_text(
-            f"---\nname: analyze-repo-for-kubernetes\ndescription: {description}\n---\n\n"
+            f"---\nname: {skill_id}\ndescription: {description}\n---\n\n"
             "Read [workflow](references/workflow.md).\n",
+            encoding="utf-8",
+        )
+        (root / "contracts/project-metadata.json").write_text(
+            json.dumps({
+                "skill_id": skill_id,
+                "agent_id": "kubernetes-migration-analyzer",
+                "skill_version": "1.0.0",
+                "manifest_name": "manifest.json",
+            }),
             encoding="utf-8",
         )
         self.addCleanup(temporary.cleanup)
@@ -30,6 +41,11 @@ class SkillValidatorTests(unittest.TestCase):
 
     def test_valid_metadata_and_structure_passes(self):
         errors = validate_skill.validate(self.make_package())
+
+        self.assertEqual(errors, [])
+
+    def test_metadata_defines_expected_skill_name(self):
+        errors = validate_skill.validate(self.make_package(directory="other-skill", skill_id="other-skill"))
 
         self.assertEqual(errors, [])
 

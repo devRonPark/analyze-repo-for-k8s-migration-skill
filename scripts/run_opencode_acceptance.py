@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run OpenCode acceptance cases and normalize JSON events for evaluation."""
+"""Run OpenCode acceptance cases and retain their direct Markdown output."""
 from __future__ import annotations
 
 import argparse
@@ -15,9 +15,15 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+try:
+    from scripts.project_metadata import ProjectMetadata, load as load_project_metadata
+except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
+    from project_metadata import ProjectMetadata, load as load_project_metadata
+
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_ID = "analyze-repo-for-kubernetes"
-AGENT_ID = "kubernetes-migration-analyzer"
+PROJECT = load_project_metadata(ROOT)
+SKILL_ID = PROJECT.skill_id
+AGENT_ID = PROJECT.agent_id
 DEFAULT_OPENCODE = "opencode"
 SENSITIVE = re.compile(r"(?i)(api[_-]?key|token|password|secret)([=:：]\s*)[^\s,}]+")
 
@@ -390,6 +396,19 @@ def is_analysis_case(case: dict[str, Any]) -> bool:
     return case.get("acceptance_type") == "analysis" or "report_mode" in case
 
 
+def case_command(case: dict[str, Any], use_command: bool = True) -> str | None:
+    """Return the slash command a case invokes, if it declares one.
+
+    A case opts into the installed custom command by naming it. Cases that
+    exercise the natural-language entry deliberately omit the key and must not
+    receive an implicit `--command`.
+    """
+    name = case.get("command")
+    if not use_command or not isinstance(name, str) or not name:
+        return None
+    return name
+
+
 def collect_tool_calls(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     calls: list[dict[str, Any]] = []
     known = {"read", "glob", "grep", "list", "bash", "skill", "edit", "write", "patch", "task"}
@@ -432,11 +451,13 @@ def normalize_trace(
     metadata: dict[str, str],
     status: str,
     reason: str | None = None,
+    project: ProjectMetadata | None = None,
     profile: dict[str, Any] | None = None,
     repository: dict[str, Any] | None = None,
     config_audit: dict[str, Any] | None = None,
     command_agent: str | None = None,
 ) -> dict[str, Any]:
+    project = project or load_project_metadata(ROOT)
     calls = collect_tool_calls(events)
     reads: list[str] = []
     for call in calls:
@@ -449,7 +470,7 @@ def normalize_trace(
             if path not in reads:
                 reads.append(path)
     skill_loaded = any(
-        call.get("tool") == "skill" and SKILL_ID in strings_in(call.get("input", {}))
+        call.get("tool") == "skill" and project.skill_id in strings_in(call.get("input", {}))
         for call in calls
     )
     if skill_loaded and "SKILL.md" not in reads:
@@ -463,10 +484,11 @@ def normalize_trace(
         lowered = text.lower()
         if "permission" in lowered and any(word in lowered for word in ("deny", "denied", "reject", "rejected")):
             denials.append({"event": text[:500]})
-    final_output = ""
-    for event in events:
-        if event.get("type") in {"text", "message", "assistant"}:
-            final_output += "\n" + event_content(event)
+    final_output = "\n".join(
+        event_content(event)
+        for event in events
+        if event.get("type") in {"text", "message", "assistant"}
+    ).strip()
     if not final_output:
         final_output = stdout.strip()
     trace = {
@@ -474,8 +496,8 @@ def normalize_trace(
         "reason": reason,
         "returncode": returncode,
         "command": command,
-        "skill": {"id": SKILL_ID, "description": metadata.get("description", ""), "loaded": skill_loaded},
-        "agent": AGENT_ID,
+        "skill": {"id": project.skill_id, "description": metadata.get("description", ""), "loaded": skill_loaded},
+        "agent": project.agent_id,
         "events": events,
         "tool_calls": calls,
         "supporting_reads": reads,
@@ -491,6 +513,26 @@ def normalize_trace(
     if command_agent is not None:
         trace["command_agent"] = command_agent
     return trace
+
+
+def retain_summary_markdown(markdown: str, output_dir: Path, repository_root: Path) -> str:
+    marker = "# Kubernetes 설계 입력 요약\n"
+    start = markdown.rfind(marker)
+    if start < 0:
+        raise ValueError("Summary output does not contain the report heading")
+    markdown = markdown[start:]
+    report = output_dir / "report.md"
+    report.write_text(markdown, encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/validate_report.py"), str(report), "--mode", "summary", "--repo-root", str(repository_root)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode:
+        raise ValueError(result.stdout.strip() or result.stderr.strip() or "Summary Markdown validation failed")
+    return markdown
 
 
 def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
@@ -515,6 +557,7 @@ def unavailable_trace(
     case: dict[str, Any],
     reason: str,
     metadata: dict[str, str],
+    project: ProjectMetadata | None = None,
     profile: dict[str, Any] | None = None,
     repository: dict[str, Any] | None = None,
     config_audit_result: dict[str, Any] | None = None,
@@ -528,6 +571,7 @@ def unavailable_trace(
         metadata,
         "UNAVAILABLE",
         reason,
+        project,
         profile=profile,
         repository=repository,
         config_audit=config_audit_result,
@@ -759,6 +803,7 @@ def run_case(
     pure: bool = True,
 ) -> dict[str, Any]:
     metadata = parse_frontmatter(root / "SKILL.md")
+    project = load_project_metadata(root)
     executable = executable_path(opencode)
     target = (repository_root or (root / case["repository_fixture"]).resolve()).resolve()
     profile = profile or {
@@ -772,6 +817,7 @@ def run_case(
             case,
             "OpenCode executable not found",
             metadata,
+            project,
             profile=profile,
             repository=repository_integrity(target, baseline),
             config_audit_result=config_audit_result,
@@ -783,7 +829,7 @@ def run_case(
         "--format",
         "json",
         "--agent",
-        AGENT_ID,
+        project.agent_id,
         "--dir",
         str(target.resolve()),
         "--print-logs",
@@ -794,16 +840,13 @@ def run_case(
         command.insert(2, "--pure")
     if model:
         command.extend(["--model", model])
+    if case_command(case, use_command):
+        command.extend(["--command", case_command(case, use_command)])
     query = case["query"]
-    if use_command and is_analysis_case(case):
-        command.extend(["--command", "analyze-repo-for-kubernetes"])
-    if is_analysis_case(case):
-        query += (
-            "\n\nAcceptance harness instruction: return exactly one JSON object "
-            "conforming to schemas/analysis-result.schema.json, without Markdown fences "
-            "or additional commentary."
-        )
-    command.append(query)
+    if query.startswith("-"):
+        command.append("--")
+    if query:
+        command.append(query)
     config_path = config.resolve() if config else None
     config_dir_path = config_dir.resolve() if config_dir else None
     environment = profile_environment(
@@ -836,10 +879,11 @@ def run_case(
             metadata,
             "UNAVAILABLE",
             f"OpenCode could not complete: {error}",
+            project,
             profile=profile | {"environment": {key: environment.get(key) for key in ("HOME", "OPENCODE_CONFIG", "OPENCODE_CONFIG_DIR")}},
             repository=repository_integrity(target, baseline),
             config_audit=config_audit_result,
-            command_agent=AGENT_ID if use_command and is_analysis_case(case) else None,
+            command_agent=AGENT_ID if case_command(case, use_command) else None,
         )
         trace.update({"case_id": case["id"], "query": case["query"]})
         trace["elapsed_seconds"] = round(time.monotonic() - started, 6)
@@ -855,6 +899,7 @@ def run_case(
             case,
             f"OpenCode could not complete: {error}",
             metadata,
+            project,
             profile=profile,
             repository=repository_integrity(target, baseline),
             config_audit_result=config_audit_result,
@@ -871,10 +916,11 @@ def run_case(
         metadata,
         "PASS" if result.returncode == 0 else "FAIL",
         None if result.returncode == 0 else "OpenCode returned a nonzero exit code",
+        project,
         profile=profile | {"environment": {key: environment.get(key) for key in ("HOME", "OPENCODE_CONFIG", "OPENCODE_CONFIG_DIR")}},
         repository=repository_integrity(target, baseline),
         config_audit=config_audit_result,
-        command_agent=AGENT_ID if use_command and is_analysis_case(case) else None,
+        command_agent=AGENT_ID if case_command(case, use_command) else None,
     )
     trace.update({"case_id": case["id"], "query": case["query"]})
     trace["elapsed_seconds"] = elapsed_seconds
@@ -933,6 +979,12 @@ def main() -> int:
         help="user mode에서도 --pure를 전달합니다. isolated mode는 항상 pure입니다.",
     )
     parser.add_argument(
+        "--case",
+        action="append",
+        dest="case_ids",
+        help="실행할 case ID (여러 번 지정 가능)",
+    )
+    parser.add_argument(
         "--repository-root",
         type=Path,
         help="모든 acceptance case를 이 read-only Repository 경로에서 실행합니다.",
@@ -942,6 +994,12 @@ def main() -> int:
         parser.error("--repeat must be at least 1")
     payload = load_json(args.cases)
     cases = payload.get("cases", []) if isinstance(payload, dict) else []
+    if args.case_ids:
+        selected = set(args.case_ids)
+        cases = [case for case in cases if case.get("id") in selected]
+        missing = selected - {case.get("id") for case in cases}
+        if missing:
+            parser.error(f"unknown case ID: {', '.join(sorted(missing))}")
     output_dir = args.output_dir.resolve()
     target_for_scope = args.repository_root.resolve() if args.repository_root else None
     if target_for_scope is not None and path_is_within(output_dir, target_for_scope):
@@ -968,6 +1026,7 @@ def main() -> int:
             installed_skill = config_dir / "skills" / SKILL_ID
             config_path = temporary_root / "runtime" / "opencode.json"
             copy_skill(ROOT, installed_skill)
+            shutil.copytree(ROOT / "runtime" / "tools", config_dir / "tools", dirs_exist_ok=True)
             isolated_config(source_config, config_path, installed_skill)
             agent_path = config_dir / "agents" / f"{AGENT_ID}.md"
             render_agent(ROOT / "runtime/agents/kubernetes-migration-analyzer.md", agent_path, installed_skill)
@@ -1082,6 +1141,20 @@ def main() -> int:
                     use_command=not args.no_command,
                     pure=isolated or args.pure,
                 )
+                if (
+                    trace["status"] == "PASS"
+                    and case.get("expected_behavior", {}).get("report_mode") == "summary"
+                ):
+                    try:
+                        summary_target = fixed_target or (ROOT / case["repository_fixture"]).resolve()
+                        trace["final_output"] = retain_summary_markdown(
+                            str(trace["final_output"]), case_dir, summary_target
+                        )
+                        trace["report_file"] = "report.md"
+                    except ValueError as error:
+                        trace["markdown_error"] = str(error)
+                        trace["status"] = "FAIL"
+                        trace["reason"] = "Summary Markdown validation failed"
                 (case_dir / "trace.json").write_text(
                     json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                     encoding="utf-8",

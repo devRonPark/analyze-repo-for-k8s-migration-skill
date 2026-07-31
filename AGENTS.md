@@ -132,6 +132,16 @@ Unless the current task explicitly authorizes execution:
 * Keep analyzed repositories read-only.
 * Write generated reports outside the analyzed repository.
 
+## Network Permission for Test Requests
+
+When the user explicitly requests a test or a model-integration test, run the
+requested command with `sandbox_permissions: require_escalated` when it needs
+network access. This includes connectivity checks and OpenCode runs against the
+local LLM endpoint `http://172.16.4.249:30000/v1`. Request only the permission
+needed for the specific command; do not assume escalation changes the
+persistent sandbox policy. If escalation is denied or unavailable, stop and
+report the blocker instead of silently retrying in the restricted network.
+
 ## Testing policy
 
 Use risk-based verification rather than mandatory test-first development for every change.
@@ -161,6 +171,68 @@ Do not create tests that lock:
 * Trivial branches
 
 Run targeted checks while implementing. Run the applicable broader quality gate before declaring the task complete.
+
+## OpenCode interactive E2E policy
+
+For an E2E test that represents an actual OpenCode user, use a detached `tmux`
+PTY session. Start `opencode` in the read-only target repository, inject the
+user request with `tmux send-keys`, and inspect the final conversation with
+`tmux capture-pane`. Do not treat `opencode run`, pipes, or a non-TTY wrapper
+as a substitute for this interactive E2E.
+
+Before the run, build the current Skill into a temporary directory whose prefix
+is `/tmp/opencode-acceptance-`, copy the configured agent there, and isolate
+`HOME` and `OPENCODE_CONFIG_DIR`. Use `runtime/opencode.json` for the provider
+configuration. The session must be removed after capture.
+
+For every interactive E2E, compare `git -C <target> status --short --branch`
+before and after. A passing Summary may include assistant-authored progress
+updates while it works, but its final assistant response must be a complete
+Markdown report titled `Kubernetes 설계 입력 요약`. Tool errors, an incomplete
+response, an invalid final report, or a changed target repository is a failure. Run this
+provider-backed test with `sandbox_permissions: require_escalated` when it
+uses the local LLM endpoint.
+
+## Golden-set scoring for interactive E2E
+
+When assessing a Skill report for any target repository, first prepare an
+independent, static-evidence golden set without loading the Skill or running
+the target. Record the target path, immutable revision, evidence date,
+required findings, blockers, and unknowns. Never use the E2E transcript as
+evidence for the golden set.
+
+Run the requested Summary or Detailed scenario through the detached `tmux` E2E
+procedure above. Capture and preserve the final assistant report, then compare
+only that report with the golden set. Score report completion separately from
+fact accuracy: give no credit for tool reads that are absent, misstated, or
+overstated in the final report. Include a weighted scorecard that covers:
+
+* report completion and required contract structure;
+* component, build, runtime, and network facts;
+* state and dependency analysis;
+* configuration, security, and compatibility risks; and
+* evidence discipline and decision usefulness.
+
+### Summary scoring boundary
+
+Score Summary against its compact contract, not a Detailed-mode Kubernetes
+checklist. Required Summary findings are repository-supported deployable units,
+build/image/start facts, reachable port or documented path, material runtime
+dependencies and state, actual execution conflicts, credential exposure risk,
+and the minimum design inputs that block a next decision.
+
+Do not deduct Summary points merely because it omits speculative platform-policy
+inputs such as Ingress host/TLS, probes, resource limits, security context, or
+autoscaling. Deduct only when the repository evidence makes that input a
+material, scoped decision or blocker. Do not reward invented defaults or
+recommendations for those fields. Score those broader policy inputs in Detailed
+mode when the corresponding evidence or requested scope exists.
+
+For each deduction, name the missing, conflicting, or unsupported finding and
+its repository evidence. Record the scorecard alongside the golden set under
+`tests/evaluation/`, retain the captured session only as diagnostic evidence,
+and report the target's unchanged pre/post Git status. A complete report is not
+automatically a reliable migration-design input.
 
 ## Change discipline
 

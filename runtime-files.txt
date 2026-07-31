@@ -1,4 +1,6 @@
 SKILL.md
+contracts/project-metadata.json
+contracts/markdown-report-contract.json
 references/configuration-timing.md
 references/dependency-analysis.md
 references/evidence-and-readiness.md
@@ -9,4 +11,5 @@ assets/migration-assessment-template.md
 assets/migration-summary-template.md
 scripts/validate_report.py
 scripts/report_contract.py
+scripts/markdown_contract.py
 schemas/analysis-result.schema.json

@@ -30,24 +30,16 @@
     "*": "deny",
     "read": "allow",
     "glob": "allow",
-    "grep": "allow",
-    "list": "allow",
+    "git_metadata": "allow",
+    "grep": "deny",
+    "list": "deny",
     "skill": {
       "*": "deny",
       "analyze-repo-for-kubernetes": "allow"
     },
     "edit": "deny",
     "bash": {
-      "*": "deny",
-      "git status *": "allow",
-      "git rev-parse *": "allow",
-      "git -C * status": "allow",
-      "git -C * status *": "allow",
-      "git -C * rev-parse *": "allow",
-      "git -C * symbolic-ref *": "allow",
-      "find *": "allow",
-      "ls *": "allow",
-      "rg *": "allow"
+      "*": "deny"
     },
     "external_directory": "deny",
     "task": "deny",

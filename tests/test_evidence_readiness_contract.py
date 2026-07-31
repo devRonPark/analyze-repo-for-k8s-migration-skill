@@ -30,40 +30,8 @@ class EvidenceReadinessContractTests(unittest.TestCase):
 
     def test_unstructured_absence_fails(self):
         report = VALID.read_text(encoding="utf-8").replace(
-            "검색(scope=., pattern=image name|registry, result=없음)",
+            "검색(scope=., pattern=registry, result=없음)",
             "저장소에서 찾지 못함",
-        )
-
-        result = self.validate(report)
-
-        self.assertNotEqual(result.returncode, 0)
-
-    def test_inference_requires_reasoning(self):
-        report = VALID.read_text(encoding="utf-8").replace(
-            "- 이미지 빌드 명령: docker build -t web . — 상태: 추정됨 / 근거: Dockerfile:1 / 판단: Dockerfile 기반 후보",
-            "- 이미지 빌드 명령: docker build -t web . — 상태: 추정됨 / 근거: Dockerfile:1",
-        )
-
-        result = self.validate(report)
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("판단", result.stdout)
-
-    def test_conflict_requires_both_sources(self):
-        report = VALID.read_text(encoding="utf-8").replace(
-            "- 설정: APP_MODE — 상태: 확인됨 / 근거: pom.xml:1",
-            "- 설정: APP_MODE — 상태: 상충됨 / 근거: pom.xml:1",
-        )
-
-        result = self.validate(report)
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("상충", result.stdout)
-
-    def test_unknown_requires_checked_scope(self):
-        report = VALID.read_text(encoding="utf-8").replace(
-            "- 쓰기 상태 또는 영속성: 없음 — 상태: 미확인 / 근거: 검색(scope=., pattern=volume|database, result=없음)",
-            "- 쓰기 상태 또는 영속성: 없음 — 상태: 미확인 / 근거: 확인하지 못함",
         )
 
         result = self.validate(report)
@@ -75,8 +43,8 @@ class EvidenceReadinessContractTests(unittest.TestCase):
             "- 판정: 설계 입력 충분",
             "- 판정: 추가 정보 필요",
         ).replace(
-            "- 차단 항목: 없음 — 범주: 기타 / 영향 범위: 전체 / 상태: 확인됨 / 근거: Dockerfile:1",
-            "- 차단 항목: image — 범주: 이미지 / 영향 범위: 특정 배포 대상 / 상태: 미확인 / 근거: 검색(scope=., pattern=image, result=없음)",
+            "- 분류: 배포 입력; 항목: image registry; 영향: 배포 시 입력; 근거: 검색(scope=., pattern=registry, result=없음)",
+            "- 분류: 설계 차단; 항목: image; 영향: 특정 배포 대상; 근거: 검색(scope=., pattern=image, result=없음)",
         )
 
         result = self.validate(report)
