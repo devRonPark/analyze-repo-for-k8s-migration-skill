@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kubernetes-migration-assistant"
+version = "0.1.0"
+description = "Repository analysis vertical slice for Kubernetes migration"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2,<3",
+]
+
+[tool.setuptools.packages.find]
+include = ["migration_assistant*"]

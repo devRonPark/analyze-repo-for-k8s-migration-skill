@@ -106,6 +106,45 @@ class ModelCompatibilityTests(unittest.TestCase):
         with self.assertRaises(AdapterRequestError):
             adapter.build_request([{"role": "", "content": "hello"}])
 
+    def test_assistant_tool_call_message_may_have_null_content(self):
+        request = OpenAICompatibleAdapter(Settings()).build_request(
+            [
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call-1",
+                            "type": "function",
+                            "function": {"name": "inspect_target", "arguments": "{}"},
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "call-1", "content": "{}"},
+            ]
+        )
+
+        self.assertIsNone(request.payload["messages"][0]["content"])
+
+    def test_tool_and_response_format_parameters_are_kept_in_the_generic_payload(self):
+        adapter = OpenAICompatibleAdapter(Settings())
+
+        request = adapter.build_request(
+            [{"role": "user", "content": "inspect"}],
+            tools=[{"type": "function", "function": {"name": "inspect_target"}}],
+            response_format={"type": "json_object"},
+        )
+
+        self.assertEqual(request.payload["tools"], [{"type": "function", "function": {"name": "inspect_target"}}])
+        self.assertEqual(request.payload["response_format"], {"type": "json_object"})
+
+    def test_transport_error_does_not_expose_api_key(self):
+        from migration_assistant.adapter import AdapterTransportError
+
+        error = AdapterTransportError("request failed", secret="super-secret-key")
+
+        self.assertNotIn("super-secret-key", str(error))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -99,6 +99,9 @@ class RepositoryTools:
         entries: list[dict[str, object]] = []
         for current, directories, files in __import__("os").walk(root, followlinks=False):
             current_path = Path(current)
+            if ".git" in current_path.relative_to(self.repository).parts:
+                continue
+            directories[:] = [directory for directory in directories if directory != ".git"]
             depth = len(current_path.relative_to(self.repository).parts) - base_depth
             if max_depth is not None and depth >= max_depth:
                 directories[:] = []
@@ -117,6 +120,8 @@ class RepositoryTools:
             raise RepositoryToolError("find pattern은 repository-relative여야 합니다.")
         matches: list[str] = []
         for path in self.repository.glob(pattern):
+            if ".git" in path.relative_to(self.repository).parts:
+                continue
             if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
                 raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
             if path.is_file():

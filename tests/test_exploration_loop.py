@@ -43,6 +43,7 @@ class ExplorationLoopTests(unittest.TestCase):
             planner = Planner([{ "tool": "list_tree", "args": {}}])
             result = ExplorationLoop(tools, planner, max_iterations=1).run()
             self.assertEqual(result.status, ExplorationStatus.PARTIAL)
+            self.assertTrue(any("iteration" in error for error in result.errors))
 
     def test_unresolved_and_conflicting_evidence_stay_separate_and_secret_is_redacted(self):
         with tempfile.TemporaryDirectory() as tmp:

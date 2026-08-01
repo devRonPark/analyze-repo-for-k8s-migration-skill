@@ -93,6 +93,7 @@ class ExplorationLoop:
             except (RepositoryToolError, TypeError, ValueError) as error:
                 result.errors.append(str(error))
                 return result
+        result.errors.append("최대 exploration iteration에 도달했습니다.")
         return result
 
     def _record_evidence(self, result: ExplorationResult, observation: object, status: str) -> None:
