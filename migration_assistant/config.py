@@ -3,32 +3,39 @@
 from __future__ import annotations
 
 import os
+from math import isfinite
 from dataclasses import dataclass
 from typing import Mapping
+
+
+DEFAULT_LLM_BASE_URL = "https://api.upstage.ai/v1"
+DEFAULT_LLM_MODEL = "solar-pro3"
+DEFAULT_LLM_TIMEOUT_SECONDS = 60.0
+DEFAULT_LLM_MAX_TOKENS = 4096
 
 
 @dataclass(frozen=True, slots=True)
 class Settings:
     """Runtime settings shared by the ADK application and service layers."""
 
-    llm_base_url: str = "https://api.upstage.ai/v1"
+    llm_base_url: str = DEFAULT_LLM_BASE_URL
     llm_api_key: str | None = None
-    llm_model: str = "solar-pro3"
-    llm_timeout_seconds: float = 60.0
-    llm_max_tokens: int = 4096
+    llm_model: str = DEFAULT_LLM_MODEL
+    llm_timeout_seconds: float = DEFAULT_LLM_TIMEOUT_SECONDS
+    llm_max_tokens: int = DEFAULT_LLM_MAX_TOKENS
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str] | None = None) -> "Settings":
         values = os.environ if environment is None else environment
         defaults = cls()
         try:
-            timeout = float(values.get("LLM_TIMEOUT_SECONDS", "60"))
-            max_tokens = int(values.get("LLM_MAX_TOKENS", "4096"))
+            timeout = float(values.get("LLM_TIMEOUT_SECONDS", str(DEFAULT_LLM_TIMEOUT_SECONDS)))
+            max_tokens = int(values.get("LLM_MAX_TOKENS", str(DEFAULT_LLM_MAX_TOKENS)))
         except ValueError as error:
             raise ValueError("LLM_TIMEOUT_SECONDS와 LLM_MAX_TOKENS는 숫자여야 합니다.") from error
 
-        if timeout <= 0:
-            raise ValueError("LLM_TIMEOUT_SECONDS는 0보다 커야 합니다.")
+        if not isfinite(timeout) or timeout <= 0:
+            raise ValueError("LLM_TIMEOUT_SECONDS는 유한한 0보다 큰 수여야 합니다.")
         if max_tokens <= 0:
             raise ValueError("LLM_MAX_TOKENS는 0보다 커야 합니다.")
 
