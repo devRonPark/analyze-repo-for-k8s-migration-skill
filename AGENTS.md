@@ -52,11 +52,24 @@ Repository가 새 parser 없이는 분석 불가가 되는 구조는 금지한�
 ## Tool 경계
 
 새 ADK 경로의 Tool은 관찰 가능한 사실만 반환한다. 최종 결론을 Tool에
-하드코딩하지 않는다. 기본 Tool surface는 다음을 유지한다.
+하드코딩하지 않는다.
+
+공개 Agent Tool surface는 정확히 다음 8개로 유지한다.
 
 `inspect_target`, `list_tree`, `find_files`, `search_text`, `read_file`,
-`read_file_lines`, `inspect_git_metadata`, `record_evidence`,
-`save_output_artifact`, `validate_analysis`, `validate_manifests`
+`read_file_lines`, `inspect_git_metadata`, `validate_analysis`
+
+Agent는 Repository Tool로 관찰 가능한 사실을 탐색하고 다음 탐색 행동을 선택한다.
+수집한 Evidence는 구조화된 `AnalysisResult`에 포함하며 `confirmed`, `inferred`,
+`unresolved`, `conflicting`으로 분류한다. Agent는 근거에 기반한
+`KubernetesMigrationPlan`을 생성한다.
+
+Application Service와 Python guardrail은 output directory 생성, artifact 저장, ZIP
+생성, `render_manifests(plan)`, `validate_manifests(manifest_set)`, schema validation,
+path/read-only/budget/redaction 경계를 담당한다. Renderer는
+`KubernetesMigrationPlan`만 입력받고, Validator는 생성된 manifest set만 입력받는다.
+`record_evidence`는 공개 Agent Tool로 등록하지 않으며, Evidence 기록은 Agent의
+구조화된 상태 또는 내부 ledger 동작으로 취급한다.
 
 ## 모델과 사용자 경험
 
