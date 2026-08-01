@@ -32,9 +32,11 @@ Tool은 사실을 관찰할 뿐 최종 Kubernetes 결론을 내리지 않는다.
 
 ## 영구 제품 제약
 
-- Agent의 도구 surface: `inspect_target`, `list_tree`, `find_files`, `search_text`,
-  `read_file`, `read_file_lines`, `inspect_git_metadata`, `record_evidence`,
-  `save_output_artifact`, `validate_analysis`, `validate_manifests`.
+- `Agent Tool surface`: `inspect_target`, `list_tree`, `find_files`, `search_text`,
+  `read_file`, `read_file_lines`, `inspect_git_metadata`, `validate_analysis`.
+  output directory 생성, artifact 저장, ZIP 생성, manifest render/validation은 Agent Tool이
+  아니다. Agent가 유효한 KubernetesMigrationPlan을 반환한 뒤 Application Service가 이를
+  결정론적으로 수행한다. Renderer는 Plan만, validator는 생성 manifest set만 입력으로 받는다.
 - Evidence 상태: `확인됨`, `추정됨`, `미확인`, `상충됨`. 양성 근거는
   repository-relative `path:line`; 부재 주장은 검색 범위ㆍpatternㆍ결과를 남긴다.
 - Secret value는 입력, ledger, report, manifest에 보관하거나 출력하지 않는다.
@@ -56,7 +58,7 @@ Tool은 사실을 관찰할 뿐 최종 Kubernetes 결론을 내리지 않는다.
 | 재사용할 안전 기준 | `SKILL.md`, `runtime/tools/read.ts`, `runtime/tools/glob.ts`, `runtime/tools/git_metadata.ts`, `scripts/validate_report.py` | target read-only, path escape 차단, line 근거, secret redaction, 부재/상충 근거 검사 원칙을 Python Tool/validator 계약으로 재구현 |
 | 재사용할 검증 사례 | `tests/fixtures/discovery/`, `tests/fixtures/reports/`, `tests/evaluation/` | Dockerfile 없는 monorepo, Node/Java conflict, line 근거, redaction, target immutability 사례만 새 unit/acceptance fixture의 출발점으로 사용 |
 | 설계 참조만 | `schemas/analysis-result.schema.json`, `assets/`, `contracts/`, `scripts/render_summary.py` | 기존 결과/report 구조는 Plan과 manifest를 표현하기에 부족하다. Pydantic Plan, ledger, rendered-manifest 계약을 새로 정의 |
-| 레거시로 분리 | `SKILL.md` orchestration, `runtime/`, `agents/`, OpenCode command/config/install/build/distribution/acceptance 관련 scripts와 tests | 새 ADK 실행 경로에서 import, invoke, dependency 금지. 삭제는 후속 별도 작업 |
+| 레거시로 분리 | `SKILL.md` orchestration, `runtime/`, `agents/`, OpenCode/Qwen/Codex Skill의 install/update/distribution/runtime/custom command/acceptance 관련 files와 tests | 개별 파일명이 나열되지 않았더라도 모두 legacy reference다. 새 ADK 실행 경로에서 import, invoke, dependency 금지. 삭제와 전면 목록화는 후속 별도 작업 |
 
 ## MVP acceptance 기준
 
@@ -77,3 +79,23 @@ Git input/Plan/manifest 요구와 충돌한다. 보존하되 활성 실행 경�
 다음 세션에서는 구현 전 `AGENTS.md`와 이 파일을 읽고, 새 Python application/package
 layout, Pydantic evidence/plan schema, Tool budget contract, manifest renderer/static
 validator, Streamlit work dashboard의 첫 milestone을 작은 독립 작업으로 계획한다.
+
+## 재발 방지 계약 메모
+
+- `Agent Tool surface`는 `inspect_target`, `list_tree`, `find_files`, `search_text`,
+  `read_file`, `read_file_lines`, `inspect_git_metadata`, `validate_analysis`로 고정한다.
+  `render_manifests`, `validate_manifests`, output directory 생성, artifact 저장, ZIP 생성은
+  Agent Tool Call이 아니라 valid KubernetesMigrationPlan 뒤 Application Service의 결정론적
+  책임이다. Renderer는 Plan만, validator는 생성 manifest set만 읽는다.
+- Day 1 사용자 CLI는 `analyze`이며 Repository 탐색, AnalysisResult, schema validation,
+  `analysis-result.json`, `analysis-report.md`까지만 완료한다. 사용자용 `generate` command와
+  plan/render/validate/generation artifact는 Day 2에만 등록한다.
+- `GO_HOLDOUT_REPO`는 일반 offline unit test와 분리할 수 있지만 최종 release acceptance에는
+  필수다. 누락 또는 invalid path는 skip/PASS가 아닌 configuration failure다.
+- `tools/validate_dryforge_graph.py`는 dryforge execution document를 검사하는
+  development-process utility다. 제품 package가 import하지 않고 배포 artifact/ADK 실행에
+  필요하지 않으며, plan 구조 변경 때만 실행한다. 제품 완료 증거는 task별 pytest, CLI 결과와
+  생성 artifact다.
+- OpenCode, Qwen, Codex Skill의 install/update/distribution/runtime/custom command/acceptance
+  관련 파일은 개별 파일명이 빠져도 legacy reference다. 신규 ADK application은 이를 import,
+  invoke 또는 runtime dependency로 사용하지 않는다.
