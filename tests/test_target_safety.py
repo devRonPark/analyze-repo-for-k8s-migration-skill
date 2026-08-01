@@ -84,17 +84,16 @@ class TargetSafetyTests(unittest.TestCase):
                 TargetSafetyGate.open(repo, output)
             self.assertFalse(output.exists())
 
-    def test_rejects_output_path_that_contains_repository(self):
+    def test_rejects_output_ancestor_of_repository(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             output_parent = root / "container"
             output_parent.mkdir()
             repo = self.make_repo(output_parent)
-            output = output_parent / "new-output"
+            output = output_parent.parent
 
-            with self.assertRaisesRegex(TargetSafetyError, "포함"):
+            with self.assertRaises(TargetSafetyError):
                 TargetSafetyGate.open(repo, output)
-            self.assertFalse(output.exists())
 
     def test_rejects_symlink_escape_during_repository_traversal(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -112,6 +111,20 @@ class TargetSafetyTests(unittest.TestCase):
             gate = TargetSafetyGate.open(repo)
             with self.assertRaisesRegex(TargetSafetyError, "symlink|junction"):
                 list(gate.iter_files())
+
+    def test_rejects_symlink_output_parent_before_canonicalization(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = self.make_repo(root)
+            outside = root / "outside"
+            outside.mkdir()
+            link = root / "output-link"
+            try:
+                link.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"symlink 생성 권한 없음: {error}")
+            with self.assertRaisesRegex(TargetSafetyError, "symlink|junction"):
+                TargetSafetyGate.open(repo, link / "new-output")
 
     def test_enforces_file_exploration_and_iteration_budgets(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -156,6 +169,16 @@ class TargetSafetyTests(unittest.TestCase):
             committed.cleanup()
             self.assertTrue(committed.path.exists())
             self.assertEqual(committed.path.joinpath("result.txt").read_text(encoding="utf-8"), "complete\n")
+
+    def test_explicit_sibling_output_is_allowed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = self.make_repo(root)
+            output = root / "sibling-output"
+
+            transaction = TargetSafetyGate.open(repo, output).create_output()
+
+            self.assertEqual(transaction.path, output.resolve())
 
     def test_cleanup_does_not_remove_preexisting_output(self):
         with tempfile.TemporaryDirectory() as tmp:

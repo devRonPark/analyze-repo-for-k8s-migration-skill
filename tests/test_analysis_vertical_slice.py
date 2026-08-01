@@ -35,6 +35,12 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             AnalysisResult.model_validate({"status": "complete", "evidence": [], "summary": "ok", "extra": True})
         with self.assertRaises(ValueError):
             AnalysisResult.model_validate({"status": "complete", "summary": "ok", "evidence": [{"status": "confirmed", "path": "app.py", "line_start": 0, "line_end": 1}]})
+        with self.assertRaises(ValueError):
+            AnalysisResult.model_validate({"status": "complete", "summary": "ok", "evidence": []})
+        with self.assertRaises(ValueError):
+            AnalysisResult.model_validate({"status": "unknown", "summary": "bad", "evidence": []})
+        with self.assertRaises(ValueError):
+            AnalysisResult.model_validate({"status": "partial", "summary": "no evidence", "evidence": [], "errors": ["ambiguous"]})
 
     def test_evidence_statuses_and_line_provenance_are_preserved(self):
         result = AnalysisResult.model_validate({
@@ -42,10 +48,11 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             "summary": "분석이 부분 완료되었습니다.",
             "evidence": [
                 {"status": EvidenceStatus.CONFIRMED.value, "path": "app.py", "line_start": 1, "line_end": 1, "text": "PORT = 8080"},
-                {"status": EvidenceStatus.UNRESOLVED.value, "absence_scope": "**/*.java", "absence_pattern": "main"},
+                {"status": EvidenceStatus.UNRESOLVED.value, "absence_scope": "**/*.java", "absence_pattern": "main", "result": "not searched"},
                 {"status": EvidenceStatus.CONFLICTING.value, "path": "app.py", "line_start": 1, "line_end": 1},
                 {"status": EvidenceStatus.INFERRED.value, "path": "app.py", "line_start": 1, "line_end": 1},
             ],
+            "errors": ["repository ambiguity remains"],
         })
         self.assertEqual({item.status for item in result.evidence}, {"confirmed", "inferred", "unresolved", "conflicting"})
 
@@ -99,8 +106,8 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             output_parent = root / "outputs"
             output_parent.mkdir()
             partial = analyze(repo, output_parent / "partial", Planner([{ "tool": "list_tree", "args": {}}]), max_iterations=1)
-            self.assertEqual(partial.status, "partial")
-            self.assertEqual(main(["analyze", str(repo), "--output", str(output_parent / "cli")], planner=Planner([{ "stop": True }])), 2)
+            self.assertEqual(partial.status, "failed")
+            self.assertEqual(main(["analyze", str(repo), "--output", str(output_parent / "cli")], planner=Planner([{ "stop": True }])), 1)
 
     def test_complete_without_evidence_is_downgraded_to_partial(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -108,7 +115,7 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             repo = self.make_repo(root)
             result = analyze(repo, root / "outputs" / "no-evidence", Planner([{ "stop": True }]))
 
-            self.assertEqual(result.status, "partial")
+            self.assertEqual(result.status, "failed")
             self.assertTrue(any("근거" in error for error in result.errors))
 
     def test_analysis_does_not_consume_git_internal_files_as_repository_evidence(self):
@@ -119,7 +126,7 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             output_parent = root / "outputs"
             output_parent.mkdir()
             result = analyze(repo, output_parent / "git-filtered", Planner([{ "stop": True }]))
-            self.assertEqual(result.status, "partial")
+            self.assertEqual(result.status, "failed")
 
 
 if __name__ == "__main__":

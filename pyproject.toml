@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Repository analysis vertical slice for Kubernetes migration"
 requires-python = ">=3.11"
 dependencies = [
+    "google-adk>=1,<2",
     "pydantic>=2,<3",
 ]
 

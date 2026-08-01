@@ -98,7 +98,10 @@ class ExplorationLoop:
 
     def _record_evidence(self, result: ExplorationResult, observation: object, status: str) -> None:
         safe_status = status if status in {item.value for item in EvidenceStatus} else EvidenceStatus.CONFIRMED.value
-        values = observation if isinstance(observation, list) else [observation]
+        if isinstance(observation, Mapping) and isinstance(observation.get("hits"), list):
+            values = observation["hits"]
+        else:
+            values = observation if isinstance(observation, list) else [observation]
         for value in values:
             if not isinstance(value, Mapping):
                 continue

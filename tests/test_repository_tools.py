@@ -11,6 +11,7 @@ from migration_assistant.repository_tools import (
     RepositoryTools,
     ToolBudget,
 )
+from migration_assistant.target import BudgetExceededError
 
 
 class RepositoryToolsTests(unittest.TestCase):
@@ -35,7 +36,7 @@ class RepositoryToolsTests(unittest.TestCase):
     def test_search_and_line_reads_return_repository_relative_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             tools = RepositoryTools(self.make_repo(Path(tmp)))
-            hits = tools.search_text("PORT")
+            hits = tools.search_text("PORT")["hits"]
             self.assertEqual({hit["path"] for hit in hits}, {"app.py", "notes.txt"})
             self.assertEqual(tools.read_file_lines("app.py", 1, 1)[0]["path"], "app.py")
             with self.assertRaises(RepositoryToolError):
@@ -65,6 +66,48 @@ class RepositoryToolsTests(unittest.TestCase):
             result = tools.validate_analysis({"evidence": [{"path": "missing.py", "line_start": 1, "line_end": 1}]})
             self.assertFalse(result["valid"])
             self.assertIn("missing.py", result["errors"][0])
+
+    def test_all_repository_file_tools_reject_git_internal_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            (repo / ".gitignore").write_text("build/\n", encoding="utf-8")
+            tools = RepositoryTools(repo)
+            self.assertFalse(tools.read_file(".gitignore")["binary"])
+            for operation in (
+                lambda: tools.list_tree(".git"),
+                lambda: tools.find_files(".git/*"),
+                lambda: tools.search_text("config", ".git"),
+                lambda: tools.read_file(".git/config"),
+                lambda: tools.read_file_lines(".git/config", 1, 1),
+            ):
+                with self.subTest(operation=operation):
+                    with self.assertRaises(RepositoryToolError):
+                        operation()
+
+    def test_search_result_cap_exposes_truncation_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = RepositoryTools(self.make_repo(Path(tmp)), ToolBudget(max_search_results=1))
+
+            result = tools.search_text("PORT")
+
+            self.assertEqual(result["returned_hit_count"], 1)
+            self.assertEqual(result["hit_count"], 2)
+            self.assertTrue(result["truncated"])
+
+    def test_total_byte_budget_is_shared_by_file_observations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = RepositoryTools(self.make_repo(Path(tmp)), ToolBudget(max_total_bytes=1))
+            with self.assertRaises(BudgetExceededError):
+                tools.read_file("app.py")
+
+    def test_file_response_is_truncated_by_shared_context_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            (repo / "large.txt").write_text("x" * 20, encoding="utf-8")
+            tools = RepositoryTools(repo, ToolBudget(max_tool_response_bytes=5))
+            result = tools.read_file("large.txt")
+            self.assertTrue(result["truncated"])
+            self.assertLessEqual(result["returned_bytes"], 5)
 
 
 if __name__ == "__main__":

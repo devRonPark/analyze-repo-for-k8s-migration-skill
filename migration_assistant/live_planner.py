@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping
 from typing import Any, Protocol
 
-from .agent import PUBLIC_AGENT_TOOL_NAMES
+from .tool_contract import PUBLIC_AGENT_TOOL_NAMES
 
 
 class CompletionAdapter(Protocol):

@@ -25,9 +25,29 @@ class SafetyBudget:
     max_files: int = 10_000
     max_explorations: int = 100
     max_iterations: int = 50
+    max_total_bytes: int = 100 * 1024 * 1024
+    max_search_results: int = 32
+    max_no_progress: int = 3
+    max_tool_response_bytes: int = 32 * 1024
     files_seen: int = 0
     explorations: int = 0
     iterations: int = 0
+    total_bytes: int = 0
+
+    def consume_exploration(self) -> None:
+        self.explorations += 1
+        if self.explorations > self.max_explorations:
+            raise BudgetExceededError("탐색 budget을 초과했습니다.")
+
+    def consume_iteration(self) -> None:
+        self.iterations += 1
+        if self.iterations > self.max_iterations:
+            raise BudgetExceededError("iteration budget을 초과했습니다.")
+
+    def consume_bytes(self, size: int) -> None:
+        if size < 0 or self.total_bytes + size > self.max_total_bytes:
+            raise BudgetExceededError("전체 file bytes budget을 초과했습니다.")
+        self.total_bytes += size
 
 
 @dataclass
@@ -71,13 +91,16 @@ class TargetSafetyGate:
 
         canonical_output = None
         if output_path is not None:
-            candidate = Path(output_path).expanduser().resolve(strict=False)
+            raw_candidate = Path(output_path).expanduser().absolute()
+            cls._assert_no_link_components(raw_candidate)
+            candidate = raw_candidate.resolve(strict=False)
             if candidate.exists():
                 raise TargetSafetyError("지정한 output directory가 이미 존재합니다.")
             if candidate == root or root in candidate.parents:
                 raise TargetSafetyError("output은 Repository 내부일 수 없습니다.")
-            if candidate in root.parents or candidate.parent == root.parent:
+            if candidate in root.parents:
                 raise TargetSafetyError("output이 Repository를 포함하는 상위 경로입니다.")
+            cls._assert_no_link_components(candidate)
             canonical_output = candidate
         return cls(root, budget or SafetyBudget(), canonical_output)
 
@@ -99,6 +122,7 @@ class TargetSafetyGate:
         size = path.stat().st_size
         if size > self.budget.max_file_size_bytes:
             raise BudgetExceededError("파일 크기 budget을 초과했습니다.")
+        self.consume_bytes(size)
         return path.read_bytes()
 
     def iter_files(self) -> Iterator[Path]:
@@ -117,14 +141,21 @@ class TargetSafetyGate:
                 yield path
 
     def consume_exploration(self) -> None:
-        self.budget.explorations += 1
-        if self.budget.explorations > self.budget.max_explorations:
-            raise BudgetExceededError("탐색 budget을 초과했습니다.")
+        self.budget.consume_exploration()
 
     def consume_iteration(self) -> None:
-        self.budget.iterations += 1
-        if self.budget.iterations > self.budget.max_iterations:
-            raise BudgetExceededError("iteration budget을 초과했습니다.")
+        self.budget.consume_iteration()
+
+    def consume_bytes(self, size: int) -> None:
+        self.budget.consume_bytes(size)
+
+    @staticmethod
+    def _assert_no_link_components(path: Path) -> None:
+        for component in reversed(path.parents):
+            if component.exists() and (component.is_symlink() or getattr(component, "is_junction", lambda: False)()):
+                raise TargetSafetyError("symlink 또는 junction output 경로가 차단되었습니다.")
+        if path.exists() and (path.is_symlink() or getattr(path, "is_junction", lambda: False)()):
+            raise TargetSafetyError("symlink 또는 junction output 경로가 차단되었습니다.")
 
     def create_output(self) -> OutputTransaction:
         output = self.output_path
@@ -139,6 +170,10 @@ class TargetSafetyGate:
                 suffix += 1
         elif output.exists():
             raise TargetSafetyError("지정한 output directory가 이미 존재합니다.")
+        output = output.resolve(strict=False)
+        if output == self.repository or self.repository in output.parents or output in self.repository.parents:
+            raise TargetSafetyError("output은 Repository 내부 또는 Repository를 포함하는 상위 경로일 수 없습니다.")
+        self._assert_no_link_components(output)
         output.parent.mkdir(parents=True, exist_ok=True)
         try:
             output.mkdir()

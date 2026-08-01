@@ -9,12 +9,11 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Mapping
 
-from .adapter import AdapterConfigurationError, OpenAICompatibleAdapter
+from .adapter import AdapterConfigurationError
 from .config import Settings
 from .exploration import EvidenceStatus, ExplorationLoop, ExplorationStatus, Planner
-from .live_planner import LiveRepositoryPlanner
 from .repository_tools import RepositoryTools
-from .target import TargetSafetyGate
+from .target import SafetyBudget, TargetSafetyGate
 
 try:
     from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -45,7 +44,9 @@ def _redact(value: str) -> str:
 
 
 def _validate_evidence(data: Mapping[str, Any]) -> dict[str, Any]:
-    allowed = {"status", "path", "line_start", "line_end", "text", "absence_scope", "absence_pattern"}
+    if not isinstance(data, Mapping):
+        raise ValueError("evidence must be an object")
+    allowed = {"status", "path", "line_start", "line_end", "text", "absence_scope", "absence_pattern", "result"}
     extra = set(data) - allowed
     if extra:
         raise ValueError(f"evidence extra field: {sorted(extra)}")
@@ -56,8 +57,8 @@ def _validate_evidence(data: Mapping[str, Any]) -> dict[str, Any]:
     start = data.get("line_start")
     end = data.get("line_end")
     if status == EvidenceStatus.UNRESOLVED.value:
-        if not isinstance(data.get("absence_scope"), str) or not isinstance(data.get("absence_pattern"), str):
-            raise ValueError("unresolved evidence에는 absence scope와 pattern이 필요합니다.")
+        if not all(isinstance(data.get(key), str) for key in ("absence_scope", "absence_pattern", "result")):
+            raise ValueError("unresolved evidence에는 absence scope, pattern, result가 필요합니다.")
     else:
         if not isinstance(path, str) or not path or Path(path).is_absolute() or ".." in Path(path).parts:
             raise ValueError("positive evidence에는 repository-relative path가 필요합니다.")
@@ -81,6 +82,7 @@ if PYDANTIC_AVAILABLE:
         text: str | None = None
         absence_scope: str | None = None
         absence_pattern: str | None = None
+        result: str | None = None
 
         @model_validator(mode="before")
         @classmethod
@@ -96,10 +98,32 @@ if PYDANTIC_AVAILABLE:
         iterations: int = 0
         errors: list[str] = Field(default_factory=list)
 
+        @model_validator(mode="before")
+        @classmethod
+        def redact_raw(cls, value: Any) -> Any:
+            if not isinstance(value, Mapping):
+                return value
+            normalized = dict(value)
+            if isinstance(normalized.get("summary"), str):
+                normalized["summary"] = _redact(normalized["summary"])
+            if isinstance(normalized.get("errors"), list):
+                normalized["errors"] = [_redact(item) if isinstance(item, str) else item for item in normalized["errors"]]
+            return normalized
+
         @model_validator(mode="after")
         def validate_status(self) -> "AnalysisResult":
             if self.status not in {item.value for item in AnalysisStatus}:
                 raise ValueError("analysis status가 올바르지 않습니다.")
+            if self.status == AnalysisStatus.COMPLETE.value:
+                positive = [item for item in self.evidence if item.path and item.line_start and item.line_end]
+                if not self.evidence or not positive:
+                    raise ValueError("complete 결과에는 line-backed evidence가 필요합니다.")
+            if self.status == AnalysisStatus.PARTIAL.value and not self.errors:
+                raise ValueError("partial 결과에는 partial 사유가 errors에 필요합니다.")
+            if self.status == AnalysisStatus.PARTIAL.value:
+                positive = [item for item in self.evidence if item.path and item.line_start and item.line_end]
+                if not positive:
+                    raise ValueError("partial 결과에도 최소 하나의 line-backed evidence가 필요합니다.")
             return self
 
 else:
@@ -163,42 +187,65 @@ def analyze(
     output: str | Path | None,
     planner: Planner | None = None,
     *,
-    max_iterations: int = 10,
+    max_iterations: int | None = None,
+    adk_model: object | None = None,
 ) -> AnalysisResult:
     require_pydantic()
-    if planner is None:
-        missing = [
-            name
-            for name in ("LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT_SECONDS", "LLM_MAX_TOKENS")
-            if not os.environ.get(name)
-        ]
-        if missing:
-            raise ModelConfigurationError(f"live model profile 설정이 없습니다: {', '.join(missing)}")
-        try:
-            settings = Settings.from_environment()
-            planner = LiveRepositoryPlanner(OpenAICompatibleAdapter(settings))
-        except (ValueError, AdapterConfigurationError) as error:
-            raise ModelConfigurationError(f"live model profile 설정이 올바르지 않습니다: {error}") from error
-    gate = TargetSafetyGate.open(repository, output)
+    budget = SafetyBudget(max_iterations=max_iterations if max_iterations is not None else SafetyBudget().max_iterations)
+    if budget.max_iterations < 1 or budget.max_iterations > 1000:
+        raise ValueError("max_iterations는 1 이상 1000 이하이어야 합니다.")
+    gate = TargetSafetyGate.open(repository, output, budget=budget)
     transaction = gate.create_output()
     try:
-        tools = RepositoryTools(gate.repository)
-        explored = ExplorationLoop(tools, planner, max_iterations=max_iterations).run()
-        evidence = [item.__dict__ for item in explored.evidence]
-        result_status = explored.status.value
-        result_errors = list(explored.errors)
-        if explored.status == ExplorationStatus.COMPLETE and not evidence:
-            result_status = ExplorationStatus.PARTIAL.value
-            result_errors.append("확인 가능한 Repository 근거가 수집되지 않아 partial로 분류했습니다.")
-        result = AnalysisResult.model_validate(
-            {
-                "status": result_status,
-                "summary": "Repository 탐색이 완료되었습니다." if result_status == ExplorationStatus.COMPLETE.value else "Repository 탐색이 부분 완료되었습니다.",
-                "evidence": evidence,
-                "iterations": explored.iterations,
-                "errors": result_errors,
-            }
-        )
+        tools = RepositoryTools(gate.repository, budget=gate.budget)
+        if planner is not None:
+            explored = ExplorationLoop(tools, planner, max_iterations=budget.max_iterations).run()
+            evidence = [item.__dict__ for item in explored.evidence]
+            result_status = explored.status.value
+            result_errors = list(explored.errors)
+            positive = [item for item in evidence if item.get("path") and item.get("line_start") and item.get("line_end")]
+            if not positive:
+                result_status = AnalysisStatus.FAILED.value
+                result_errors.append("확인 가능한 line-backed Repository 근거가 없어 partial/complete로 기록할 수 없습니다.")
+            result = AnalysisResult.model_validate(
+                {
+                    "status": result_status,
+                    "summary": "Repository 탐색이 완료되었습니다." if result_status == ExplorationStatus.COMPLETE.value else "Repository 탐색이 부분 완료되었습니다.",
+                    "evidence": evidence,
+                    "iterations": explored.iterations,
+                    "errors": result_errors,
+                }
+            )
+        else:
+            if adk_model is None:
+                missing = [
+                    name
+                    for name in ("LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT_SECONDS", "LLM_MAX_TOKENS")
+                    if not os.environ.get(name)
+                ]
+                if missing:
+                    raise ModelConfigurationError(f"live model profile 설정이 없습니다: {', '.join(missing)}")
+                try:
+                    settings = Settings.from_environment()
+                except (ValueError, AdapterConfigurationError) as error:
+                    raise ModelConfigurationError(f"live model profile 설정이 올바르지 않습니다: {error}") from error
+            else:
+                settings = Settings()
+            try:
+                from .adk_runner import run_adk_agent
+            except ModuleNotFoundError as error:
+                if (error.name or "").startswith("google"):
+                    from .agent import GoogleAdkDependencyError
+
+                    raise GoogleAdkDependencyError(
+                        "필수 dependency google-adk가 설치되지 않아 분석을 시작할 수 없습니다."
+                    ) from error
+                raise
+
+            run = run_adk_agent(tools, settings, budget, model_override=adk_model)
+            result = run.result
+            if result is None:
+                raise RuntimeError("ADK Runner가 AnalysisResult를 반환하지 않았습니다.")
         (transaction.path / "analysis-result.json").write_text(
             json.dumps(_result_to_dict(result), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
