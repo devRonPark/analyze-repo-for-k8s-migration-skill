@@ -11,3 +11,4 @@ kubernetes-migration-assessment*.md
 dist/
 .artifacts/
 .code-review-graph/
+.dryforge/
