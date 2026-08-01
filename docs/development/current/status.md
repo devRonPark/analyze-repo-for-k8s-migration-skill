@@ -1,5 +1,19 @@
 # Current Status
 
+## Current product state
+
+The product direction has changed to the Google ADK migration MVP. **Status:
+project harness 완료, implementation 미시작.** The migration phase intentionally
+contains no ADK Python package, Agent, Tool, Pydantic schema, renderer,
+validator, or Streamlit implementation yet; `dryforge ready` defines those
+implementation contracts and the plan.
+
+The OpenCode E2E and quality results below are preserved as a historical
+baseline. They are not completion evidence for the new ADK execution path and
+do not authorize reactivation of its OpenCode tickets.
+
+## Historical OpenCode baseline
+
 | Work item | Status | Evidence | Blocker |
 | --- | --- | --- | --- |
 | INT-001 — help before analysis | DONE | Help and usage routing contract is covered by target safety tests and the Quality Gate. | None. |

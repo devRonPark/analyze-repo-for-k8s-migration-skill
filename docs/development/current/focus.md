@@ -2,13 +2,23 @@
 
 ## Active priority
 
-The next queue is
-[`../daily/2026-07-30/TICKET-LIST-2026-07-30-008-detailed-accuracy-followups.md`](../daily/2026-07-30/TICKET-LIST-2026-07-30-008-detailed-accuracy-followups.md):
-`DET-010` through `DET-014` carry the remaining golden-set deductions, and three
-open decisions are recorded there. The completed contract-defect work is in
-[`../daily/2026-07-30/TICKET-LIST-2026-07-30-007-detailed-contract-defects.md`](../daily/2026-07-30/TICKET-LIST-2026-07-30-007-detailed-contract-defects.md).
-The secret-safe evidence boundary plan remains open in
-[`../daily/2026-07-30/TICKET-LIST-2026-07-30-006-secret-safe-evidence-boundary.md`](../daily/2026-07-30/TICKET-LIST-2026-07-30-006-secret-safe-evidence-boundary.md).
+The active priority is the three-day Google ADK migration MVP. The next step is
+`dryforge ready`: write the MVP specification and implementation plan before
+any ADK code is started. The migration has established product direction and
+permanent constraints; an absence of ADK implementation code is normal at this
+stage.
+
+Keep the MVP to one tool-using Agent, deterministic guardrails, a separate
+output directory, and the Korean Streamlit work dashboard. Do not reactivate
+OpenCode runtime work, multi-agent work, Helm, Cluster apply, or other deferred
+scope while preparing the specification and plan.
+
+## Superseded legacy OpenCode work
+
+The following tickets and their linked ADRs remain historical reference only.
+They are not prerequisites for the ADK MVP. `DET-010` through `DET-014` and
+`SEC-001` are deferred legacy work; their OpenCode/Qwen evidence must not be
+reported as ADK completion evidence.
 
 | Ticket | Status | Outcome |
 | --- | --- | --- |
@@ -18,15 +28,14 @@ The secret-safe evidence boundary plan remains open in
 | `DET-007` | DONE | Every evidence reference is a repository-relative `path:line` with no trailing prose. |
 | `DET-008` | DONE | Cited line ranges exist in the read file and all eight sections are present. |
 | `DET-009` | DONE | No `result=없음` claim contradicts a file the run read. |
-| `DET-003` | PARTIAL | JPetStore Detailed report scores 72/100; the MSA target and the 90-point threshold remain open. |
-| `DET-010` — `DET-014` | TODO | Context path, cited line ranges, build-time dependency edge, descriptor compatibility, and repeated `미확인` slot slips. |
-| `SEC-001` | IN_PROGRESS | Target evidence is redacted before the model can read it. |
+| `DET-003` | PARTIAL | Historical JPetStore Detailed baseline; the 90-point threshold is not an ADK MVP gate. |
+| `DET-010` — `DET-014` | DEFERRED | Legacy OpenCode detailed-report follow-ups; superseded for the current MVP. |
+| `SEC-001` | DEFERRED | Legacy OpenCode safe-evidence-boundary work; superseded for the current MVP. |
 
-Read [the Detailed verdict-consistency ADR](../daily/2026-07-30/ADR-2026-07-30-010-detailed-verdict-consistency.md)
-and [the secret-safe evidence boundary ADR](../daily/2026-07-30/ADR-2026-07-30-009-secret-safe-evidence-boundary.md)
-before implementation.
+The Detailed verdict-consistency and secret-safe evidence ADRs remain available
+as historical reference, not as required reading before ADK implementation.
 
 ## Deferred work
 
-The urgent `TKT-*` plan and the `VS-*` ticket set remain available, but neither
-is the active queue. Ticket IDs do not imply completion or current priority.
+The urgent `TKT-*` plan and the `VS-*` ticket set are deferred legacy work.
+Ticket IDs do not imply current priority.

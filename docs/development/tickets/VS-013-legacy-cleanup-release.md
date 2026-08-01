@@ -1,5 +1,15 @@
 # VS-013 — Remove obsolete platform assets and cut a verified release
 
+> **Status: Superseded**
+>
+> **Superseded by: Google ADK migration MVP**
+>
+> This ticket's OpenCode release objective is not current execution authority.
+> `scripts/run_opencode_acceptance.py` and `scripts/build_dist.py` are legacy
+> validation material, not completion gates for the new ADK path. Preserve this
+> document as historical context; do not execute its release scope for the ADK
+> MVP.
+
 ## Outcome
 
 The repository clearly supports OpenCode on OpenShell, contains no unowned legacy platform files in the runtime path, and publishes a release with measured behavior, security, and context results.
