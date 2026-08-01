@@ -2,9 +2,19 @@
 
 ```yaml
 cycle_type: delta
-cycle_marker: phase1-evidence-integrity-2026-08-02
+delta_id: 2026-08-02-evidence-integrity
+cycle_marker: 2026-08-02-evidence-integrity
 parent_cycle: first-project-cycle
 baseline_commit: 1686be7
+product_baseline: 1686be7
+control_plane_parent_commit: b761676
+control_plane_commit: HEAD after this documentation-only routing commit (parent b761676)
+executable_plan_path: .dryforge/delta/2026-08-02-evidence-integrity/plan.md
+first_task: D1
+last_task: D6
+root_plan_execution: forbidden in this delta
+t7_execution: forbidden until this delta is complete and Claude approves it
+routing_status: BLOCKED
 ```
 
 ## 목적
@@ -83,3 +93,19 @@ Agent Tool 8개 surface 변경, 기존 First Cycle task graph 변경을 수행�
 
 Ready 단계에서는 제품 코드와 기존 사용자 변경사항을 수정하지 않는다. D1~D6 구현과
 Solar Pro 3 live acceptance는 사용자 승인 후 별도의 delta `go` 실행에서만 수행한다.
+
+## routing 계약과 실행 차단
+
+실제 설치 plugin `dryforge 1.1.1`의 `skills/go/SKILL.md:99-101`은 root
+`.dryforge/{handoff,spec,plan}.md`만 읽는다. `skills/go/references/harness-lifecycle.md:8-18`
+은 `.dryforge/status.json`의 정확한 schema `{ "initialized": true }`와 marker 존재 여부를
+first-cycle/delta 판별자로 정의하며, 성공적인 first-cycle archive 뒤에 marker를 생성한다.
+현재 repository에는 marker가 없으므로 root 실행은 first-cycle이다. `skills/go/SKILL.md:124-134`
+및 `260-295`의 계약에 따르면 delta directory의 `plan.md`를 자동 선택할 수 없다.
+
+plugin interface `skills/go/agents/openai.yaml:1-7`의 정확한 호출 문구는
+`Use dryforge go to execute the 3-doc in .dryforge.`뿐이며 cycle ID 또는 plan path 선택
+옵션이 없다. 따라서 `.dryforge/delta/2026-08-02-evidence-integrity/plan.md`를 실행하는
+공식 Delta Go 호출은 없고, 현재 routing은 `BLOCKED`다. `status.json`을 추측으로 만들거나
+root `.dryforge/plan.md`를 delta plan으로 취급하지 않는다. root T1~T14 graph는 이번 delta
+대상이 아니며 T7은 delta 완료와 Claude 승인 전까지 실행 금지다.
