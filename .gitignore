@@ -13,3 +13,7 @@ dist/
 .code-review-graph/
 .dryforge/
 .phase1-harness-*
+/.env-file-loader-*
+/.env
+/.env.*
+!/.env.example

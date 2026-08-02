@@ -319,3 +319,28 @@ evidence와 명시적 사유가 있으므로 사용자 계약의 partial 허용 
    사실 전달, protocol error code만의 summary redaction, 3-of-3 gate다. 폐기할
    것은 아직 없으며, 다음 실험에서 실제 local checkout live 실행 결과를 별도로
    기록한다.
+
+## 개발 환경 변수 파일
+
+Live harness는 다음 순서로 처음 발견되는 env 파일 하나를 읽습니다: 명시적
+`--env-file`, `MIGRATION_ASSISTANT_ENV_FILE`, Repository root의 `.env`,
+`~/.config/kubernetes-migration-assistant/env`. 이미 셸에 설정된 환경변수는
+파일 값보다 우선합니다. 일반 `migration_assistant` CLI는 제품 package의
+경계를 유지하기 위해 env 파일을 자동으로 읽지 않으므로, 실행할 때 같은 파일을
+셸 프로세스에 먼저 로드합니다.
+
+Windows PowerShell 한 줄:
+
+```powershell
+$envFile=Join-Path ([Environment]::GetFolderPath('UserProfile')) '.config/kubernetes-migration-assistant/env'; Get-Content -LiteralPath $envFile -Encoding utf8 | ForEach-Object { $line=$_.Trim(); if ($line -and -not $line.StartsWith('#')) { if ($line.StartsWith('export ')) { $line=$line.Substring(7).Trim() }; $pair=$line.Split('=',2); $key=$pair[0].Trim(); if ($pair.Count -eq 2 -and $key -match '^[A-Za-z_][A-Za-z0-9_]*$' -and -not [Environment]::GetEnvironmentVariables('Process').Contains($key)) { $value=$pair[1].Trim(); if ($value.Length -ge 2 -and (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'")))) { $value=$value.Substring(1,$value.Length-2) }; [Environment]::SetEnvironmentVariable($key,$value,'Process') } } }; python -m migration_assistant analyze <repository-path>
+```
+
+Ubuntu bash 한 줄:
+
+```bash
+set -a; . "$HOME/.config/kubernetes-migration-assistant/env"; set +a; python -m migration_assistant analyze <repository-path>
+```
+
+위 명령은 사용자가 직접 관리하는 설정 파일을 셸 문법으로 로드하므로 해당
+파일을 신뢰할 수 있을 때 사용합니다. harness의 `devtools.env_file` 로더는
+명령 치환이나 변수 보간 없이 `KEY=VALUE`만 파싱합니다.

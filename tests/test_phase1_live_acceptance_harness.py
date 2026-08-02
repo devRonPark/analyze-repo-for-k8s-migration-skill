@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 from unittest.mock import patch
 
+from devtools.env_file import EnvFileLoadResult
 from devtools.run_phase1_live_acceptance import AcceptanceRun, _model_summary, evaluate_runs, run_acceptance
 from migration_assistant.adk_runner import AdkRun
 from migration_assistant.analysis import AnalysisResult, analyze
@@ -76,6 +77,17 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
 
         self.assertTrue(summary["environment_variables"]["LLM_API_KEY"]["present"])
         self.assertNotIn(secret, json.dumps(summary, ensure_ascii=False))
+
+    def test_model_summary_marks_loaded_file_values_as_env_file(self):
+        load_result = EnvFileLoadResult(
+            injected_keys=frozenset({"LLM_MODEL"}),
+            selected_path=Path("settings.env"),
+        )
+        with patch.dict(os.environ, {"LLM_MODEL": "file-model"}, clear=True):
+            summary = _model_summary(env_file=load_result)
+
+        self.assertEqual(summary["llm_model_source"], "env_file")
+        self.assertEqual(summary["environment_variables"]["LLM_MODEL"]["source"], "env_file")
 
     def test_unresolved_evidence_does_not_count_as_gate_success(self):
         repository = self.test_root / "repository"
