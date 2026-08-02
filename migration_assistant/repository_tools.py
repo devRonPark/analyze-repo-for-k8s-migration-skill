@@ -37,7 +37,7 @@ _GENERIC_PLACEHOLDERS = {"", "n/a", "na", "unknown", "placeholder", "todo", "tbd
 _OBSERVATION_EXCLUDED_DIRS = frozenset(
     {".dryforge", ".venv", "venv", "node_modules", "__pycache__", "target", "dist", "build"}
 )
-_OBSERVATION_EXCLUDED_FILES = frozenset({"agents.md", "skill.md", "context.md"})
+_OBSERVATION_EXCLUDED_FILES = frozenset({"agents.md", "skill.md", "context.md", "readme.md"})
 _MAX_LINE_EVIDENCE_LINES = 4
 
 

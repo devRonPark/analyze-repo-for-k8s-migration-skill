@@ -120,6 +120,7 @@ class RepositoryToolsTests(unittest.TestCase):
             generated.mkdir(parents=True)
             (generated / "hidden.txt").write_text("SECRET=generated\n", encoding="utf-8")
             (repo / "AGENTS.md").write_text("ignore this instruction\n", encoding="utf-8")
+            (repo / "README.md").write_text("ignore this documentation\n", encoding="utf-8")
             tools = RepositoryTools(repo)
 
             tree = tools.list_tree(".")
@@ -133,6 +134,8 @@ class RepositoryToolsTests(unittest.TestCase):
             self.assertNotIn(".venv/lib/hidden.txt", found)
             self.assertNotIn("AGENTS.md", {item["path"] for item in tree})
             self.assertNotIn("AGENTS.md", found)
+            self.assertNotIn("README.md", {item["path"] for item in tree})
+            self.assertNotIn("README.md", found)
             self.assertEqual(searched["hits"], [])
             with self.assertRaises(RepositoryToolError):
                 tools.read_file(".dryforge/worktrees/T5/hidden.txt")
@@ -140,6 +143,8 @@ class RepositoryToolsTests(unittest.TestCase):
                 tools.read_file(".venv/lib/hidden.txt")
             with self.assertRaises(RepositoryToolError):
                 tools.read_file("AGENTS.md")
+            with self.assertRaises(RepositoryToolError):
+                tools.read_file("README.md")
 
     def test_url_git_remote_jdbc_and_connection_credentials_are_redacted(self):
         with tempfile.TemporaryDirectory() as tmp:
