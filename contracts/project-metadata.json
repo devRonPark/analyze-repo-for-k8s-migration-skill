@@ -1,6 +1,0 @@
-{
-  "agent_id": "kubernetes-migration-analyzer",
-  "manifest_name": "manifest.json",
-  "skill_id": "analyze-repo-for-kubernetes",
-  "skill_version": "1.0.0"
-}
