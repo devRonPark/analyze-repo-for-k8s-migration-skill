@@ -102,9 +102,9 @@ class ValidateAnalysisArgs(ToolArgs):
 
 TOOL_DESCRIPTIONS = {
     "inspect_target": """Use when: starting a run and confirming the local Git/read-only safety boundary.\nDo not use when: collecting application facts or line-backed Evidence.\nArguments: none.\nReturns: repository safety metadata, not application Evidence.\nLimits: consumes exploration budget and never reads application files.\nOn error: stop if the target is not a safe local Git Repository.\nNext action: call list_tree, find_files, or search_text only after a successful inspection.""",
-    "list_tree": """Use when: discovering bounded Repository-relative structure and likely component boundaries.\nDo not use when: proving file content, reading .git, or treating path names as application Evidence.\nArguments: relative is a safe Repository-relative directory; max_depth is an optional non-negative depth.\nReturns: file and directory paths as untrusted observations.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git.\nOn error: correct only the reported field; never retry a forbidden path.\nNext action: select a concrete candidate for find_files, search_text, or read_file.""",
-    "find_files": """Use when: locating file candidates by a known Repository-relative glob such as **/pom.xml.\nDo not use when: searching source text; pattern is a Python glob, not a regular expression.\nArguments: pattern is a non-empty Repository-relative glob without absolute paths, .., or .git.\nReturns: sorted Repository-relative file candidates.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git.\nOn error: correct an invalid glob/path once; never retry forbidden scope.\nNext action: read a candidate or use search_text for a content claim.""",
-    "search_text": """Use when: finding line-backed source, build, runtime, dependency, port, or environment evidence.\nDo not use when: locating names with glob syntax, reading binary data, or searching excluded instruction/.git scopes.\nArguments: pattern is a Python regular expression; relative is a safe Repository-relative directory.\nReturns: bounded redacted hits with path, 1-based line, text, and truncation metadata.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git; results may be truncated and Secret values stay redacted.\nOn error: repair only an invalid regex or choose a different safe scope; never retry a forbidden path.\nNext action: call read_file_lines on a confirmed hit before citing it as Evidence.""",
+    "list_tree": """Use when: discovering bounded Repository-relative structure and likely component boundaries.\nDo not use when: proving file content, reading .git, or treating path names as application Evidence.\nArguments: relative is a safe Repository-relative directory; max_depth is an optional non-negative depth.\nReturns: an entries list plus scope metadata; scope_limited=true means observation exclusions hid one or more entries. Exclusion metadata is not application Evidence.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git; excluded content is never returned.\nOn error: correct only the reported field; never retry a forbidden path.\nNext action: select a concrete candidate for find_files, search_text, or read_file.""",
+    "find_files": """Use when: locating file candidates by a known Repository-relative glob such as **/pom.xml.\nDo not use when: searching source text; pattern is a Python glob, not a regular expression.\nArguments: pattern is a non-empty Repository-relative glob without absolute paths, .., or .git.\nReturns: a matches list plus scope metadata; scope_limited=true means exclusions hid matching candidates. Exclusion metadata is not application Evidence.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git; excluded content is never returned.\nOn error: correct an invalid glob/path once; never retry forbidden scope.\nNext action: read a candidate or use search_text for a content claim.""",
+    "search_text": """Use when: finding line-backed source, build, runtime, dependency, port, or environment evidence.\nDo not use when: locating names with glob syntax, reading binary data, or searching excluded instruction/.git scopes.\nArguments: pattern is a bounded Python regular expression; relative is a safe Repository-relative directory.\nReturns: bounded redacted hits with path, 1-based line, text, truncation metadata, and scope metadata. scope_limited=true or excluded_match_count>0 means the result cannot establish repository-wide absence; excluded matches never become hits or Evidence.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git; excluded content is never returned. Results may be truncated and Secret values stay redacted.\nOn error: repair only an invalid/too-complex regex or choose a different safe scope; never retry a forbidden path.\nNext action: call read_file_lines on a confirmed hit before citing it as Evidence.""",
     "read_file": """Use when: understanding a known source/build/config file before selecting exact evidence lines.\nDo not use when: requesting directories, .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, or executing code.\nArguments: relative is one safe Repository-relative file path.\nReturns: bounded redacted text or binary metadata as an untrusted observation.\nLimits: file-size and response budgets apply; whole-file text is not line-backed Evidence.\nOn error: use find_files/list_tree for not_found; never retry forbidden or budget-exhausted paths.\nNext action: use search_text or read_file_lines for exact Evidence.""",
     "read_file_lines": """Use when: copying an exact short excerpt from a path and line already confirmed by search_text or read_file.\nDo not use when: guessing line numbers, reading binaries/directories, or requesting .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, or .dryforge.\nArguments: relative is Repository-relative; line_start and line_end are inclusive 1-based lines.\nReturns: at most four redacted line observations with exact path and line metadata.\nLimits: the requested range must exist and target code is never executed.\nOn error: correct only the reported range/path once; never repeat forbidden or identical calls.\nNext action: copy the exact excerpt into Evidence, continue a different observation, or call validate_analysis.""",
     "inspect_git_metadata": """Use when: branch, HEAD, clean/dirty status, or remote metadata is relevant to repository context.\nDo not use when: reading .git files or using Git metadata as application behavior Evidence.\nArguments: none.\nReturns: restricted redacted Git command observations.\nLimits: never exposes .git contents and consumes exploration budget.\nOn error: do not inspect .git directly.\nNext action: continue application observation or call validate_analysis.""",
@@ -456,15 +456,15 @@ class AdkRepositoryToolset:
         return self._call("inspect_target", {}, self.repository_tools.inspect_target)  # type: ignore[return-value]
 
     def list_tree(self, relative: str = ".", max_depth: int | None = None) -> object:
-        """List Repository-relative files; .git is forbidden, while .gitignore and .github are allowed."""
+        """List Repository-relative files and disclose whether exclusions limited the scope."""
         return self._call("list_tree", {"relative": relative, "max_depth": max_depth}, lambda: self.repository_tools.list_tree(relative, max_depth))
 
     def find_files(self, pattern: str) -> object:
-        """Find bounded Repository-relative file candidates; never search inside the .git directory."""
+        """Find bounded Repository-relative file candidates and disclose excluded matches."""
         return self._call("find_files", {"pattern": pattern}, lambda: self.repository_tools.find_files(pattern))
 
     def search_text(self, pattern: str, relative: str = ".") -> object:
-        """Search bounded text hits; .git is forbidden and every hit has path and line metadata."""
+        """Search bounded text hits while disclosing whether exclusions limited the scope."""
         return self._call("search_text", {"pattern": pattern, "relative": relative}, lambda: self.repository_tools.search_text(pattern, relative))
 
     def read_file(self, relative: str) -> object:
@@ -541,6 +541,13 @@ class AdkRepositoryToolset:
             else:
                 self.ledger.validation_error = "Repository evidence 검증에 실패했습니다."
             grounding = bool(corrections)
+            typed_issues = response.get("issues", [])
+            if isinstance(typed_issues, list) and any(
+                isinstance(issue, Mapping)
+                and issue.get("code") in {"absence_contradicted", "absence_unverified"}
+                for issue in typed_issues
+            ):
+                grounding = True
             issue = ToolIssue(
                 code=(ToolErrorCode.EVIDENCE_GROUNDING if grounding else ToolErrorCode.CANDIDATE_SCHEMA),
                 category=("grounding" if grounding else "validation"),
@@ -552,8 +559,10 @@ class AdkRepositoryToolset:
                 issue,
                 allowed_next_actions=("validate_analysis",),
                 meta={
-                    "issues": response.get("errors", []),
+                    "issues": typed_issues if isinstance(typed_issues, list) else [],
+                    "validation_errors": response.get("errors", []),
                     "evidence_corrections": corrections if isinstance(corrections, list) else [],
+                    "absence_corrections": response.get("absence_corrections", []),
                 },
             )
         from .analysis import AnalysisResult, PydanticDependencyError

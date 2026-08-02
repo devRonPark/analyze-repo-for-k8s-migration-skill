@@ -127,15 +127,15 @@ class RepositoryToolsTests(unittest.TestCase):
             found = tools.find_files("**/*.txt")
             searched = tools.search_text("SECRET")
 
-            self.assertNotIn(".dryforge/worktrees/T5/hidden.txt", {item["path"] for item in tree})
-            self.assertNotIn(".dryforge", {item["path"] for item in tree})
-            self.assertNotIn(".dryforge/worktrees/T5/hidden.txt", found)
-            self.assertNotIn(".venv/lib/hidden.txt", {item["path"] for item in tree})
-            self.assertNotIn(".venv/lib/hidden.txt", found)
-            self.assertNotIn("AGENTS.md", {item["path"] for item in tree})
-            self.assertNotIn("AGENTS.md", found)
-            self.assertNotIn("README.md", {item["path"] for item in tree})
-            self.assertNotIn("README.md", found)
+            self.assertNotIn(".dryforge/worktrees/T5/hidden.txt", {item["path"] for item in tree["entries"]})
+            self.assertNotIn(".dryforge", {item["path"] for item in tree["entries"]})
+            self.assertNotIn(".dryforge/worktrees/T5/hidden.txt", found["matches"])
+            self.assertNotIn(".venv/lib/hidden.txt", {item["path"] for item in tree["entries"]})
+            self.assertNotIn(".venv/lib/hidden.txt", found["matches"])
+            self.assertNotIn("AGENTS.md", {item["path"] for item in tree["entries"]})
+            self.assertNotIn("AGENTS.md", found["matches"])
+            self.assertNotIn("README.md", {item["path"] for item in tree["entries"]})
+            self.assertNotIn("README.md", found["matches"])
             self.assertEqual(searched["hits"], [])
             with self.assertRaises(RepositoryToolError):
                 tools.read_file(".dryforge/worktrees/T5/hidden.txt")
@@ -217,6 +217,161 @@ class RepositoryToolsTests(unittest.TestCase):
             self.assertEqual(result["returned_hit_count"], 1)
             self.assertEqual(result["hit_count"], 2)
             self.assertTrue(result["truncated"])
+
+    def test_observation_tools_report_when_exclusions_limit_the_scope(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            generated = repo / "build"
+            generated.mkdir()
+            (generated / "only-generated.txt").write_text("ONLY_IN_BUILD = 1\n", encoding="utf-8")
+            (repo / "README.md").write_text("ONLY_IN_README = 1\n", encoding="utf-8")
+            tools = RepositoryTools(repo)
+
+            searched = tools.search_text("ONLY_IN_BUILD")
+            tree = tools.list_tree(".")
+            found = tools.find_files("**/*.txt")
+
+            self.assertEqual(searched["hits"], [])
+            self.assertTrue(searched["scope"]["scope_limited"])
+            self.assertGreaterEqual(searched["scope"]["excluded_match_count"], 1)
+            self.assertTrue(tree["scope"]["scope_limited"])
+            self.assertGreaterEqual(tree["scope"]["excluded_entry_count"], 1)
+            self.assertTrue(found["scope"]["scope_limited"])
+            self.assertNotIn("build/only-generated.txt", found["matches"])
+
+    def test_validate_analysis_rejects_absence_contradicted_inside_excluded_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            generated = repo / "build"
+            generated.mkdir()
+            (generated / "deployment.yaml").write_text("kind: Service\n", encoding="utf-8")
+            tools = RepositoryTools(repo)
+            candidate = {
+                "status": "partial",
+                "summary": "배포 설정 미확인",
+                "evidence": [{
+                    "id": "e1",
+                    "status": "unresolved",
+                    "absence_scope": "**/*.yaml",
+                    "absence_pattern": r"kind:\s*Service",
+                    "result": "검색한 범위에 없음",
+                }],
+                "findings": [],
+                "iterations": 1,
+                "errors": ["배포 설정을 확인하지 못함"],
+                "termination": "normal",
+            }
+
+            result = tools.validate_analysis(candidate)
+
+            self.assertFalse(result["valid"])
+            self.assertTrue(any(issue["code"] == "absence_contradicted" for issue in result["issues"]))
+            self.assertFalse(any("Service" in str(issue) for issue in result["issues"]))
+
+    def test_validate_analysis_accepts_honest_absence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = RepositoryTools(self.make_repo(Path(tmp)))
+            candidate = {
+                "status": "partial",
+                "summary": "Ingress 미확인",
+                "evidence": [{
+                    "id": "e1",
+                    "status": "unresolved",
+                    "absence_scope": "**/*.yaml",
+                    "absence_pattern": r"kind:\s*Ingress",
+                    "result": "검색한 범위에 없음",
+                }],
+                "findings": [],
+                "iterations": 1,
+                "errors": ["Ingress 설정을 확인하지 못함"],
+                "termination": "normal",
+            }
+
+            result = tools.validate_analysis(candidate)
+
+            self.assertTrue(result["valid"], result)
+            self.assertEqual(result["issues"], [])
+
+    def test_validate_analysis_reports_broken_absence_regex_as_typed_issue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = RepositoryTools(self.make_repo(Path(tmp)))
+            for pattern in ("[", "(a+)+"):
+                candidate = {
+                    "status": "partial",
+                    "summary": "설정 미확인",
+                    "evidence": [{
+                        "id": "e1",
+                        "status": "unresolved",
+                        "absence_scope": ".",
+                        "absence_pattern": pattern,
+                        "result": "검색한 범위에 없음",
+                    }],
+                    "findings": [],
+                    "iterations": 1,
+                    "errors": ["설정을 확인하지 못함"],
+                    "termination": "normal",
+                }
+
+                with self.subTest(pattern=pattern):
+                    result = tools.validate_analysis(candidate)
+
+                    self.assertFalse(result["valid"])
+                    self.assertTrue(any(issue["code"] == "absence_pattern_invalid" for issue in result["issues"]))
+
+    def test_validate_analysis_does_not_expose_instruction_content(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            secret_instruction = "instruction-only-secret-9f2a"
+            (repo / "AGENTS.md").write_text(secret_instruction + "\n", encoding="utf-8")
+            tools = RepositoryTools(repo)
+            candidate = {
+                "status": "partial",
+                "summary": "지침 미확인",
+                "evidence": [{
+                    "id": "e1",
+                    "status": "unresolved",
+                    "absence_scope": "**/*.md",
+                    "absence_pattern": secret_instruction,
+                    "result": "검색한 범위에 없음",
+                }],
+                "findings": [],
+                "iterations": 1,
+                "errors": ["지침을 확인하지 못함"],
+                "termination": "normal",
+            }
+
+            observations = [
+                tools.search_text(secret_instruction),
+                tools.list_tree("."),
+                tools.find_files("**/*.md"),
+                tools.validate_analysis(candidate),
+            ]
+
+            self.assertNotIn(secret_instruction, repr(observations))
+
+    def test_validate_analysis_does_not_accept_unverified_absence_when_budget_is_exhausted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = RepositoryTools(self.make_repo(Path(tmp)), ToolBudget(max_files=0))
+            candidate = {
+                "status": "partial",
+                "summary": "설정 미확인",
+                "evidence": [{
+                    "id": "e1",
+                    "status": "unresolved",
+                    "absence_scope": ".",
+                    "absence_pattern": "Ingress",
+                    "result": "검색한 범위에 없음",
+                }],
+                "findings": [],
+                "iterations": 1,
+                "errors": ["설정을 확인하지 못함"],
+                "termination": "normal",
+            }
+
+            result = tools.validate_analysis(candidate)
+
+            self.assertFalse(result["valid"])
+            self.assertTrue(any(issue["code"] == "absence_unverified" for issue in result["issues"]))
 
     def test_total_byte_budget_is_shared_by_file_observations(self):
         with tempfile.TemporaryDirectory() as tmp:

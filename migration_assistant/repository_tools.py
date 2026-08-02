@@ -55,6 +55,9 @@ _URL_QUERY_CREDENTIAL = re.compile(
 )
 _SECRET_KEY = re.compile(r"(?i)^(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?token|client[_-]?secret)$")
 _GENERIC_PLACEHOLDERS = {"", "n/a", "na", "unknown", "placeholder", "todo", "tbd"}
+_MAX_REGEX_PATTERN_LENGTH = 256
+_NESTED_QUANTIFIER = re.compile(r"\((?:[^()\\]|\\.)*[+*][^()]*\)[+*{]")
+_BACKREFERENCE = re.compile(r"\\(?:[1-9]|g<)")
 _OBSERVATION_EXCLUDED_DIRS = frozenset(
     {".dryforge", ".venv", "venv", "node_modules", "__pycache__", "target", "dist", "build"}
 )
@@ -178,6 +181,97 @@ class RepositoryTools:
     def _begin_observation(self) -> None:
         self.budget.consume_exploration()
 
+    @staticmethod
+    def _exclusion_category(value: str | Path) -> str | None:
+        parts = RepositoryTools._path_components(value)
+        if any(part.casefold() == ".git" for part in parts):
+            return "git_metadata"
+        if any(part.casefold() in _OBSERVATION_EXCLUDED_FILES for part in parts):
+            return "instruction_file"
+        if any(part.casefold() in _OBSERVATION_EXCLUDED_DIRS for part in parts):
+            return "generated_or_dependency_directory"
+        return None
+
+    @classmethod
+    def _scope_meta(
+        cls,
+        relative: str,
+        *,
+        excluded_entry_count: int,
+        excluded_match_count: int = 0,
+        categories: set[str] | frozenset[str] = frozenset(),
+    ) -> dict[str, object]:
+        return {
+            "requested_scope": relative,
+            "scope_limited": excluded_entry_count > 0,
+            "excluded_entry_count": excluded_entry_count,
+            "excluded_match_count": excluded_match_count,
+            "excluded_categories": sorted(categories),
+        }
+
+    @staticmethod
+    def _compile_bounded_regex(pattern: object) -> re.Pattern[str]:
+        if not isinstance(pattern, str) or not pattern or len(pattern) > _MAX_REGEX_PATTERN_LENGTH:
+            raise RepositoryToolError(
+                "검색 pattern은 비어 있지 않은 제한된 길이의 regular expression이어야 합니다.",
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="validation",
+                field_path="$.pattern",
+                retryable=True,
+                allowed_next_actions=("search_text", "validate_analysis"),
+            )
+        if _NESTED_QUANTIFIER.search(pattern) or _BACKREFERENCE.search(pattern):
+            raise RepositoryToolError(
+                "검색 pattern이 허용된 regular expression 복잡도 한계를 초과했습니다.",
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="resource",
+                field_path="$.pattern",
+                retryable=True,
+                allowed_next_actions=("search_text", "validate_analysis"),
+            )
+        try:
+            return re.compile(pattern)
+        except re.error as error:
+            raise RepositoryToolError(
+                "search pattern은 올바른 Python regular expression이어야 합니다.",
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="validation",
+                field_path="$.pattern",
+                retryable=True,
+                allowed_next_actions=("search_text", "validate_analysis"),
+            ) from error
+
+    @classmethod
+    def _scope_matches(cls, relative: str, scope: str) -> bool:
+        normalized_scope = scope.replace("\\", "/").strip()
+        if normalized_scope in {"", ".", "**", "**/*"}:
+            return True
+        normalized_path = relative.replace("\\", "/")
+        if normalized_path == normalized_scope or normalized_path.startswith(normalized_scope.rstrip("/") + "/"):
+            return True
+        return Path(normalized_path).match(normalized_scope)
+
+    @classmethod
+    def _validate_absence_scope(cls, scope: object) -> str:
+        if not isinstance(scope, str) or not scope.strip():
+            raise RepositoryToolError(
+                "absence_scope는 비어 있지 않은 Repository-relative 검색 범위여야 합니다.",
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="validation",
+                field_path="$.absence_scope",
+                retryable=True,
+            )
+        normalized = scope.replace("\\", "/").strip()
+        if Path(normalized).is_absolute() or ".." in Path(normalized).parts or cls._contains_git_component(normalized):
+            raise RepositoryToolError(
+                "absence_scope는 안전한 Repository-relative 검색 범위여야 합니다.",
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="policy",
+                field_path="$.absence_scope",
+                retryable=True,
+            )
+        return normalized
+
     def _resolve(self, relative: str | Path) -> Path:
         self._reject_observation_exclusion(relative)
         candidate = (self.repository / Path(relative)).resolve(strict=False)
@@ -227,6 +321,40 @@ class RepositoryTools:
         self.budget.consume_bytes(size)
         return path.read_bytes()
 
+    def _read_bytes_for_bounded_internal_scan(self, relative: str | Path) -> bytes:
+        """Read excluded bytes only for a private bounded check; never return them."""
+
+        candidate = (self.repository / Path(relative)).resolve(strict=False)
+        if candidate != self.repository and self.repository not in candidate.parents:
+            raise RepositoryToolError(
+                "Repository 밖의 path는 읽을 수 없습니다.",
+                code=ToolErrorCode.FORBIDDEN_PATH,
+                category="policy",
+            )
+        current = self.repository
+        for part in candidate.relative_to(self.repository).parts:
+            current = current / part
+            if current.is_symlink() or getattr(current, "is_junction", lambda: False)():
+                raise RepositoryToolError(
+                    "symlink 또는 junction escape가 차단되었습니다.",
+                    code=ToolErrorCode.FORBIDDEN_PATH,
+                    category="policy",
+                )
+        if not candidate.is_file():
+            raise RepositoryToolError(
+                "읽을 수 있는 file이 아닙니다.",
+                code=ToolErrorCode.NOT_FOUND,
+                category="observation",
+            )
+        size = candidate.stat().st_size
+        if size > self.budget.max_file_size_bytes:
+            raise BudgetExceededError("파일 크기 budget을 초과했습니다.")
+        self.budget.files_seen += 1
+        if self.budget.files_seen > self.budget.max_files:
+            raise BudgetExceededError("파일 탐색 budget을 초과했습니다.")
+        self.budget.consume_bytes(size)
+        return candidate.read_bytes()
+
     @staticmethod
     def _redact(text: str) -> str:
         return redact_sensitive_text(text)
@@ -242,7 +370,7 @@ class RepositoryTools:
             "git_repository": True,
         }
 
-    def list_tree(self, relative: str = ".", max_depth: int | None = None) -> list[dict[str, object]]:
+    def list_tree(self, relative: str = ".", max_depth: int | None = None) -> dict[str, object]:
         self._begin_observation()
         root = self._resolve(relative)
         if not root.is_dir():
@@ -256,12 +384,23 @@ class RepositoryTools:
             )
         base_depth = len(root.relative_to(self.repository).parts)
         entries: list[dict[str, object]] = []
+        excluded_entry_count = 0
+        categories: set[str] = set()
         for current, directories, files in __import__("os").walk(root, followlinks=False):
             current_path = Path(current)
             current_relative = current_path.relative_to(self.repository)
             if self._contains_observation_exclusion(current_relative):
                 continue
-            directories[:] = [directory for directory in directories if directory.casefold() != ".git"]
+            allowed_directories: list[str] = []
+            for directory in directories:
+                relative_path = (current_path / directory).relative_to(self.repository).as_posix()
+                if self._contains_observation_exclusion(relative_path):
+                    excluded_entry_count += 1
+                    if category := self._exclusion_category(relative_path):
+                        categories.add(category)
+                    continue
+                allowed_directories.append(directory)
+            directories[:] = allowed_directories
             depth = len(current_relative.parts) - base_depth
             if max_depth is not None and depth >= max_depth:
                 directories[:] = []
@@ -269,6 +408,9 @@ class RepositoryTools:
                 path = current_path / name
                 relative_path = path.relative_to(self.repository).as_posix()
                 if self._contains_observation_exclusion(relative_path):
+                    excluded_entry_count += 1
+                    if category := self._exclusion_category(relative_path):
+                        categories.add(category)
                     continue
                 if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
                     raise RepositoryToolError(
@@ -280,9 +422,16 @@ class RepositoryTools:
                 entries.append({"path": relative_path, "kind": "directory" if path.is_dir() else "file"})
                 if len(entries) > self.budget.max_files:
                     raise BudgetExceededError("파일 탐색 budget을 초과했습니다.")
-        return entries
+        return {
+            "entries": entries,
+            "scope": self._scope_meta(
+                str(relative),
+                excluded_entry_count=excluded_entry_count,
+                categories=categories,
+            ),
+        }
 
-    def find_files(self, pattern: str) -> list[str]:
+    def find_files(self, pattern: str) -> dict[str, object]:
         self._begin_observation()
         self._reject_git(pattern, field_path="$.pattern")
         if not pattern or Path(pattern).is_absolute() or ".." in Path(pattern).parts:
@@ -295,52 +444,120 @@ class RepositoryTools:
                 allowed_next_actions=("find_files", "list_tree", "validate_analysis"),
             )
         matches: list[str] = []
+        excluded_entry_count = 0
+        categories: set[str] = set()
         for path in self.repository.glob(pattern):
             relative_path = path.relative_to(self.repository).as_posix()
             if self._contains_observation_exclusion(relative_path):
+                excluded_entry_count += 1
+                if category := self._exclusion_category(relative_path):
+                    categories.add(category)
                 continue
             canonical = self._resolve(relative_path)
             if canonical.is_file():
                 matches.append(canonical.relative_to(self.repository).as_posix())
-        return sorted(matches)
+        return {
+            "matches": sorted(matches),
+            "scope": self._scope_meta(
+                pattern,
+                excluded_entry_count=excluded_entry_count,
+                categories=categories,
+            ),
+        }
 
     def search_text(self, pattern: str, relative: str = ".") -> dict[str, object]:
         self._begin_observation()
         self._reject_git(relative)
-        try:
-            matcher = re.compile(pattern)
-        except re.error as error:
-            raise RepositoryToolError(
-                "search pattern은 올바른 Python regular expression이어야 합니다.",
-                code=ToolErrorCode.INVALID_ARGUMENTS,
-                category="validation",
-                field_path="$.pattern",
-                retryable=True,
-                allowed_next_actions=("search_text", "validate_analysis"),
-            ) from error
+        matcher = self._compile_bounded_regex(pattern)
         hits: list[dict[str, object]] = []
         hit_count = 0
-        for path in self._list_tree(relative):
-            if path["kind"] != "file":
+        excluded_entry_count = 0
+        excluded_match_count = 0
+        categories: set[str] = set()
+        root = self._resolve(relative)
+        if not root.is_dir():
+            raise RepositoryToolError(
+                "검색 대상은 directory여야 합니다.",
+                code=ToolErrorCode.NOT_FOUND,
+                category="observation",
+                field_path="$.relative",
+                retryable=True,
+                allowed_next_actions=("list_tree", "find_files", "validate_analysis"),
+            )
+        for current, directories, files in __import__("os").walk(root, followlinks=False):
+            current_path = Path(current)
+            current_relative = current_path.relative_to(self.repository)
+            if self._contains_git_component(current_relative):
+                directories[:] = []
                 continue
-            data = self._read_bytes(str(path["path"]))
-            if b"\x00" in data:
-                continue
-            text = data.decode("utf-8", errors="replace")
-            for line_number, line in enumerate(text.splitlines(), 1):
-                if matcher.search(line):
-                    hit_count += 1
-                    if len(hits) < self.budget.max_search_results:
-                        hits.append(
-                            {
-                                "path": str(path["path"]),
-                                "line_start": line_number,
-                                "line_end": line_number,
-                                "text": self._redact(line),
-                                "excerpt": self._redact(line),
-                            }
-                        )
-        return {"hits": hits, "hit_count": hit_count, "returned_hit_count": len(hits), "truncated": hit_count > len(hits)}
+            current_excluded = self._contains_observation_exclusion(current_relative)
+            if current_excluded:
+                if category := self._exclusion_category(current_relative):
+                    categories.add(category)
+            allowed_directories: list[str] = []
+            for directory in directories:
+                directory_relative = (current_path / directory).relative_to(self.repository).as_posix()
+                if self._contains_observation_exclusion(directory_relative):
+                    excluded_entry_count += 1
+                    if category := self._exclusion_category(directory_relative):
+                        categories.add(category)
+                if self._contains_git_component(directory_relative):
+                    continue
+                allowed_directories.append(directory)
+            directories[:] = allowed_directories
+            for name in sorted(files):
+                path = current_path / name
+                relative_path = path.relative_to(self.repository).as_posix()
+                excluded = current_excluded or self._contains_observation_exclusion(relative_path)
+                if excluded:
+                    excluded_entry_count += 1
+                    if category := self._exclusion_category(relative_path):
+                        categories.add(category)
+                if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
+                    raise RepositoryToolError(
+                        "symlink 또는 junction escape가 차단되었습니다.",
+                        code=ToolErrorCode.FORBIDDEN_PATH,
+                        category="policy",
+                        field_path="$.relative",
+                    )
+                data = (
+                    self._read_bytes_for_bounded_internal_scan(relative_path)
+                    if excluded
+                    else self._read_bytes(relative_path)
+                )
+                if b"\x00" in data:
+                    continue
+                text = data.decode("utf-8", errors="replace")
+                file_match_count = 0
+                for line_number, line in enumerate(text.splitlines(), 1):
+                    if matcher.search(line):
+                        file_match_count += 1
+                        if not excluded and len(hits) < self.budget.max_search_results:
+                            hits.append(
+                                {
+                                    "path": relative_path,
+                                    "line_start": line_number,
+                                    "line_end": line_number,
+                                    "text": self._redact(line),
+                                    "excerpt": self._redact(line),
+                                }
+                            )
+                if excluded:
+                    excluded_match_count += file_match_count
+                else:
+                    hit_count += file_match_count
+        return {
+            "hits": hits,
+            "hit_count": hit_count,
+            "returned_hit_count": len(hits),
+            "truncated": hit_count > len(hits),
+            "scope": self._scope_meta(
+                str(relative),
+                excluded_entry_count=excluded_entry_count,
+                excluded_match_count=excluded_match_count,
+                categories=categories,
+            ),
+        }
 
     def _list_tree(self, relative: str = ".", max_depth: int | None = None) -> list[dict[str, object]]:
         root = self._resolve(relative)
@@ -493,10 +710,115 @@ class RepositoryTools:
         normalized = " ".join(value.casefold().split())
         return normalized in {"file exists", "path exists", "파일이 존재한다", "파일이 존재함", "파일 존재"}
 
+    @staticmethod
+    def _absence_issue(
+        code: str,
+        evidence_index: int,
+        message: str,
+        *,
+        field_path: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "code": code,
+            "evidence_index": evidence_index,
+            "field_path": field_path or f"$.evidence[{evidence_index}]",
+            "message": message,
+        }
+
+    def _verify_absence(self, evidence_index: int, item: Mapping[str, object]) -> tuple[list[dict[str, object]], dict[str, object] | None]:
+        scope = item.get("absence_scope")
+        pattern = item.get("absence_pattern")
+        try:
+            normalized_scope = self._validate_absence_scope(scope)
+        except RepositoryToolError:
+            return [
+                self._absence_issue(
+                    "absence_scope_invalid",
+                    evidence_index,
+                    "unresolved absence evidence의 검색 범위를 검증할 수 없습니다.",
+                    field_path=f"$.evidence[{evidence_index}].absence_scope",
+                )
+            ], None
+        try:
+            matcher = self._compile_bounded_regex(pattern)
+        except RepositoryToolError:
+            return [
+                self._absence_issue(
+                    "absence_pattern_invalid",
+                    evidence_index,
+                    "unresolved absence evidence의 검색 pattern이 유효하거나 bounded하지 않습니다.",
+                    field_path=f"$.evidence[{evidence_index}].absence_pattern",
+                )
+            ], None
+
+        try:
+            for current, directories, files in __import__("os").walk(self.repository, followlinks=False):
+                current_path = Path(current)
+                current_relative = current_path.relative_to(self.repository)
+                directories[:] = [
+                    directory
+                    for directory in directories
+                    if not self._contains_git_component(current_relative / directory)
+                ]
+                for name in sorted(files):
+                    path = current_path / name
+                    relative_path = path.relative_to(self.repository).as_posix()
+                    if self._contains_git_component(relative_path) or not self._scope_matches(relative_path, normalized_scope):
+                        continue
+                    if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
+                        raise RepositoryToolError(
+                            "symlink 또는 junction escape가 차단되었습니다.",
+                            code=ToolErrorCode.FORBIDDEN_PATH,
+                            category="policy",
+                        )
+                    data = self._read_bytes_for_bounded_internal_scan(relative_path)
+                    if b"\x00" in data:
+                        continue
+                    text = data.decode("utf-8", errors="replace")
+                    if any(matcher.search(line) for line in text.splitlines()):
+                        return [
+                            self._absence_issue(
+                                "absence_contradicted",
+                                evidence_index,
+                                "unresolved absence evidence가 Repository 관찰과 모순됩니다.",
+                            )
+                        ], {
+                            "index": evidence_index,
+                            "action": "recheck_absence_evidence",
+                            "reason": "declared absence was contradicted by the repository scan",
+                        }
+        except BudgetExceededError:
+            return [
+                self._absence_issue(
+                    "absence_unverified",
+                    evidence_index,
+                    "탐색 budget 안에서 unresolved absence evidence를 재검증하지 못했습니다.",
+                )
+            ], {
+                "index": evidence_index,
+                "action": "do_not_accept_as_verified",
+                "reason": "absence verification exceeded the exploration budget",
+            }
+        except RepositoryToolError:
+            return [
+                self._absence_issue(
+                    "absence_unverified",
+                    evidence_index,
+                    "안전한 Repository 재검증을 완료하지 못해 unresolved absence evidence를 확인할 수 없습니다.",
+                )
+            ], {
+                "index": evidence_index,
+                "action": "do_not_accept_as_verified",
+                "reason": "the absence verification scan could not safely complete",
+            }
+        return [], None
+
     def validate_analysis(self, analysis: Mapping[str, object]) -> dict[str, object]:
         self._begin_observation()
         errors: list[str] = []
+        issues: list[dict[str, object]] = []
         evidence_corrections: list[dict[str, object]] = []
+        absence_corrections: list[dict[str, object]] = []
         evidence = analysis.get("evidence") if isinstance(analysis, Mapping) else None
         findings = analysis.get("findings") if isinstance(analysis, Mapping) else None
         status = analysis.get("status") if isinstance(analysis, Mapping) else None
@@ -518,6 +840,13 @@ class RepositoryTools:
                 if item.get("status") == "unresolved":
                     if not all(self._meaningful(item.get(key)) for key in ("absence_scope", "absence_pattern", "result")):
                         errors.append("unresolved evidence에는 scope, pattern, result가 필요합니다.")
+                    else:
+                        absence_issues, correction = self._verify_absence(evidence_index, item)
+                        issues.extend(absence_issues)
+                        if correction is not None:
+                            absence_corrections.append(correction)
+                        if absence_issues:
+                            errors.append("unresolved absence evidence를 Repository와 대조하지 못했거나 모순이 발견되었습니다.")
                     continue
                 claim = item.get("claim")
                 excerpt = item.get("text") if item.get("text") is not None else item.get("excerpt")
@@ -605,7 +934,9 @@ class RepositoryTools:
                         errors.append("positive finding은 존재하는 evidence id를 하나 이상 참조해야 합니다.")
         if status == "complete" and not positive_finding:
             errors.append("complete 결과에는 valid positive Evidence를 참조하는 finding이 필요합니다.")
-        response: dict[str, object] = {"valid": not errors, "errors": errors}
+        response: dict[str, object] = {"valid": not errors, "errors": errors, "issues": issues}
         if evidence_corrections:
             response["evidence_corrections"] = evidence_corrections
+        if absence_corrections:
+            response["absence_corrections"] = absence_corrections
         return response
