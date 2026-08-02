@@ -7,12 +7,14 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
+from google.adk.models import LlmResponse
+from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from .adk_function_tool import RepositoryFunctionTool
 from .repository_tools import RepositoryToolError, RepositoryTools, redact_sensitive_value
 from .target import BudgetExceededError
-from .tool_protocol import ToolErrorCode, ToolIssue, error_envelope, success_envelope
+from .tool_protocol import RunControlLedger, ToolErrorCode, ToolIssue, error_envelope, success_envelope
 
 
 class ToolArgs(BaseModel):
@@ -146,10 +148,18 @@ class ValidationLedger:
 class AdkRepositoryToolset:
     """Expose exactly eight functions to one ADK Agent."""
 
-    def __init__(self, repository_tools: RepositoryTools, ledger: ValidationLedger, tracker: DuplicateTracker) -> None:
+    def __init__(
+        self,
+        repository_tools: RepositoryTools,
+        ledger: ValidationLedger,
+        tracker: DuplicateTracker,
+        *,
+        control: RunControlLedger | None = None,
+    ) -> None:
         self.repository_tools = repository_tools
         self.ledger = ledger
         self.tracker = tracker
+        self.control = control or RunControlLedger()
         definitions = (
             ("inspect_target", InspectTargetArgs, lambda value: self.inspect_target()),
             ("list_tree", ListTreeArgs, lambda value: self.list_tree(**value.model_dump())),
@@ -175,6 +185,95 @@ class AdkRepositoryToolset:
             )
             for name, input_model, handler in definitions
         )
+        self._tools_by_name = {tool.name: tool for tool in self._tools}
+
+    @staticmethod
+    def _canonical_tool_name(raw_name: str) -> str | None:
+        candidates: set[str] = set()
+        compact_raw = raw_name.replace("_", "")
+        suffixes = ("arg", "args", "argument", "arguments")
+        for public_name in TOOL_DESCRIPTIONS:
+            compact_public = public_name.replace("_", "")
+            if raw_name == public_name or compact_raw == compact_public:
+                candidates.add(public_name)
+                continue
+            if any(
+                raw_name == public_name + suffix
+                or compact_raw == compact_public + suffix
+                for suffix in suffixes
+            ):
+                candidates.add(public_name)
+        return next(iter(candidates)) if len(candidates) == 1 else None
+
+    @staticmethod
+    def _protocol_response(issue: ToolIssue) -> LlmResponse:
+        return LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[types.Part(text="Tool protocol validation failed.")],
+            ),
+            custom_metadata={"protocol_issue": error_envelope(issue)["error"]},
+            partial=False,
+        )
+
+    @staticmethod
+    def _issue_from_metadata(value: object) -> ToolIssue | None:
+        if not isinstance(value, Mapping):
+            return None
+        try:
+            code = ToolErrorCode(str(value.get("code")))
+        except ValueError:
+            return None
+        return ToolIssue(
+            code=code,
+            category=str(value.get("category") or "protocol"),
+            message=str(redact_sensitive_value(str(value.get("message") or "Tool protocol validation failed."))),
+            field_path=str(value["field_path"]) if value.get("field_path") is not None else None,
+            retryable=value.get("retryable") is True,
+        )
+
+    def after_model_callback(self, callback_context: object, llm_response: LlmResponse) -> LlmResponse | None:
+        """Reject malformed, unknown, or schema-invalid calls before ADK dispatch."""
+
+        metadata = llm_response.custom_metadata or {}
+        adapter_issue = self._issue_from_metadata(metadata.get("protocol_issue"))
+        if adapter_issue is not None:
+            self.control.protocol_issue = adapter_issue
+            return llm_response
+
+        content = llm_response.content
+        if content is None:
+            return None
+        canonicalized: list[dict[str, str]] = []
+        for part in content.parts or []:
+            call = part.function_call
+            if call is None:
+                continue
+            original_name = call.name or ""
+            canonical_name = self._canonical_tool_name(original_name)
+            if canonical_name is None:
+                issue = ToolIssue(
+                    code=ToolErrorCode.INVALID_TOOL_NAME,
+                    category="protocol",
+                    message="tool name is not in the registered public allowlist",
+                    field_path="$.name",
+                    retryable=True,
+                )
+                self.control.protocol_issue = issue
+                return self._protocol_response(issue)
+            tool = self._tools_by_name[canonical_name]
+            issue = tool.argument_issue(dict(call.args or {}))
+            if issue is not None:
+                self.control.protocol_issue = issue
+                return self._protocol_response(issue)
+            if canonical_name != original_name:
+                call.name = canonical_name
+                canonicalized.append({"original": original_name, "canonical": canonical_name})
+
+        self.control.protocol_issue = None
+        if canonicalized:
+            llm_response.custom_metadata = {**metadata, "canonicalized_calls": canonicalized}
+        return llm_response
 
     @staticmethod
     def _normalize_verified_candidate(

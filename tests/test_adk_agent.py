@@ -96,6 +96,7 @@ class AdkAgentTests(unittest.TestCase):
                 PUBLIC_AGENT_TOOL_NAMES,
             )
             self.assertEqual(type(agent.model), ScriptedAdkLlm)
+            self.assertIsNotNone(agent.after_model_callback)
 
     def test_agent_instruction_bounds_line_evidence_requests(self):
         with tempfile.TemporaryDirectory() as tmp:

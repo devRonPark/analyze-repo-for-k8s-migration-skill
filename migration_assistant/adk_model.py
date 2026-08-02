@@ -14,7 +14,7 @@ from .adapter import OpenAICompatibleAdapter
 from .config import Settings
 from .repository_tools import redact_sensitive_value
 from .target import SafetyBudget
-from .tool_contract import PUBLIC_AGENT_TOOL_NAMES
+from .tool_protocol import ToolErrorCode, ToolIssue, error_envelope
 
 
 class OpenAICompatibleAdkLlm(BaseLlm):
@@ -125,8 +125,8 @@ class OpenAICompatibleAdkLlm(BaseLlm):
             compacted.insert(0, note)
         return system + compacted
 
-    @staticmethod
-    def _ensure_tool_results(messages: list[dict[str, object]]) -> list[dict[str, object]]:
+    @classmethod
+    def _ensure_tool_results(cls, messages: list[dict[str, object]]) -> list[dict[str, object]]:
         """Heal interrupted ADK histories before an OpenAI-compatible request."""
         healed: list[dict[str, object]] = []
         pending: list[str] = []
@@ -137,13 +137,7 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                     {
                         "role": "tool",
                         "tool_call_id": call_id,
-                        "content": json.dumps(
-                            {
-                                "valid": False,
-                                "error": "Tool response가 누락되어 실행되지 않았습니다.",
-                            },
-                            ensure_ascii=False,
-                        ),
+                        "content": cls._missing_tool_response_payload(),
                     }
                     for call_id in pending
                 )
@@ -164,14 +158,26 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                 {
                     "role": "tool",
                     "tool_call_id": call_id,
-                    "content": json.dumps(
-                        {"valid": False, "error": "Tool response가 누락되어 실행되지 않았습니다."},
-                        ensure_ascii=False,
-                    ),
+                    "content": cls._missing_tool_response_payload(),
                 }
                 for call_id in pending
             )
         return healed
+
+    @staticmethod
+    def _missing_tool_response_payload() -> str:
+        return json.dumps(
+            error_envelope(
+                ToolIssue(
+                    code=ToolErrorCode.MALFORMED_ARGUMENTS,
+                    category="protocol",
+                    message="Tool response가 누락되어 실행 사실을 확인할 수 없습니다.",
+                    retryable=True,
+                ),
+                meta={"executed": False},
+            ),
+            ensure_ascii=False,
+        )
 
     @classmethod
     def _tools(cls, request: LlmRequest) -> list[dict[str, object]]:
@@ -275,59 +281,76 @@ class OpenAICompatibleAdkLlm(BaseLlm):
             parts.append(types.Part(text=content))
         calls = message.get("tool_calls")
         if isinstance(calls, list):
-            for call in calls:
+            for index, call in enumerate(calls):
                 if not isinstance(call, Mapping):
-                    continue
+                    return cls._protocol_failure(
+                        ToolIssue(
+                            code=ToolErrorCode.MALFORMED_ARGUMENTS,
+                            category="protocol",
+                            message="tool call must be an object",
+                            field_path=f"$.tool_calls[{index}]",
+                            retryable=True,
+                        )
+                    )
                 function = call.get("function")
                 if not isinstance(function, Mapping) or not isinstance(function.get("name"), str):
-                    continue
+                    return cls._protocol_failure(
+                        ToolIssue(
+                            code=ToolErrorCode.INVALID_TOOL_NAME,
+                            category="protocol",
+                            message="tool name must be a string",
+                            field_path=f"$.tool_calls[{index}].function.name",
+                            retryable=True,
+                        )
+                    )
                 arguments = function.get("arguments", "{}")
-                name, embedded_arguments = cls._normalize_function_call(str(function["name"]), arguments)
-                if embedded_arguments is not None and (not isinstance(arguments, str) or arguments in {"", "{}"}):
-                    arguments = embedded_arguments
                 if isinstance(arguments, str):
                     try:
                         args = json.loads(arguments)
                     except json.JSONDecodeError:
-                        args = {}
+                        return cls._protocol_failure(
+                            ToolIssue(
+                                code=ToolErrorCode.MALFORMED_ARGUMENTS,
+                                category="protocol",
+                                message="tool arguments must be valid JSON object text",
+                                field_path=f"$.tool_calls[{index}].function.arguments",
+                                retryable=True,
+                            )
+                        )
+                elif isinstance(arguments, Mapping):
+                    args = dict(arguments)
                 else:
-                    args = arguments if isinstance(arguments, dict) else {}
-                parts.append(types.Part(functionCall=types.FunctionCall(name=name, args=args, id=call.get("id"))))
+                    return cls._protocol_failure(
+                        ToolIssue(
+                            code=ToolErrorCode.MALFORMED_ARGUMENTS,
+                            category="protocol",
+                            message="tool arguments must be an object",
+                            field_path=f"$.tool_calls[{index}].function.arguments",
+                            retryable=True,
+                        )
+                    )
+                if not isinstance(args, dict):
+                    return cls._protocol_failure(
+                        ToolIssue(
+                            code=ToolErrorCode.MALFORMED_ARGUMENTS,
+                            category="protocol",
+                            message="tool arguments JSON must decode to an object",
+                            field_path=f"$.tool_calls[{index}].function.arguments",
+                            retryable=True,
+                        )
+                    )
+                parts.append(types.Part(functionCall=types.FunctionCall(
+                    name=str(function["name"]), args=args, id=call.get("id")
+                )))
         return LlmResponse(content=types.Content(role="model", parts=parts), partial=False)
 
     @staticmethod
-    def _normalize_function_call(name: str, arguments: object) -> tuple[str, dict[str, object] | None]:
-        """Recover a public tool name from a malformed provider-neutral function field."""
-        if name in PUBLIC_AGENT_TOOL_NAMES:
-            return name, None
-        for public_name in sorted(PUBLIC_AGENT_TOOL_NAMES, key=len, reverse=True):
-            compact_name = name.replace("_", "")
-            compact_public_name = public_name.replace("_", "")
-            if compact_name == compact_public_name:
-                return public_name, None
-            if name.startswith(public_name):
-                suffix = name[len(public_name):].lstrip(" _")
-            else:
-                brace = name.find("{")
-                raw_prefix = name if brace < 0 else name[:brace]
-                if raw_prefix.replace("_", "") != compact_public_name and not raw_prefix.replace("_", "").startswith(compact_public_name):
-                    continue
-                suffix = name[len(raw_prefix):].lstrip(" _")
-                prefix_tail = raw_prefix.replace("_", "")[len(compact_public_name):]
-                suffix = prefix_tail + suffix
-            if not suffix:
-                continue
-            if suffix in {":", "arg", "args", "argument", "arguments"}:
-                return public_name, None
-            if suffix.startswith("args"):
-                suffix = suffix[4:].lstrip()
-            if suffix.startswith(":"):
-                suffix = suffix[1:].lstrip()
-            if suffix.startswith("{") and suffix.endswith("}"):
-                try:
-                    decoded = json.loads(suffix)
-                except json.JSONDecodeError:
-                    return name, None
-                if isinstance(decoded, dict):
-                    return public_name, decoded
-        return name, None
+    def _protocol_failure(issue: ToolIssue) -> LlmResponse:
+        return LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[types.Part(text="Tool protocol validation failed.")],
+            ),
+            custom_metadata={"protocol_issue": error_envelope(issue)["error"]},
+            partial=False,
+        )

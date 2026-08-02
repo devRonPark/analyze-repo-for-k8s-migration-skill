@@ -77,21 +77,13 @@ class RepositoryFunctionTool(BaseTool):
     def invoke(self, args: object) -> dict[str, Any]:
         """Validate and execute synchronously; ADK delegates to this same boundary."""
 
-        try:
-            validated = self.input_model.model_validate(args)
-        except ValidationError as error:
-            first = error.errors(include_url=False)[0]
-            message = redact_sensitive_text(str(first.get("msg", "arguments are invalid")))
+        issue = self.argument_issue(args)
+        if issue is not None:
             return error_envelope(
-                ToolIssue(
-                    code=self._validation_error_code,
-                    category="validation",
-                    message=message,
-                    field_path=_field_path(first),
-                    retryable=True,
-                ),
+                issue,
                 allowed_next_actions=self._invalid_argument_actions,
             )
+        validated = self.input_model.model_validate(args)
 
         try:
             result = self._handler(validated)
@@ -132,6 +124,23 @@ class RepositoryFunctionTool(BaseTool):
         ):
             return result
         return success_envelope(result)
+
+    def argument_issue(self, args: object) -> ToolIssue | None:
+        """Return a safe issue without invoking the Tool handler."""
+
+        try:
+            self.input_model.model_validate(args)
+        except ValidationError as error:
+            first = error.errors(include_url=False)[0]
+            message = redact_sensitive_text(str(first.get("msg", "arguments are invalid")))
+            return ToolIssue(
+                code=self._validation_error_code,
+                category="validation",
+                message=message,
+                field_path=_field_path(first),
+                retryable=True,
+            )
+        return None
 
     async def run_async(self, *, args: dict[str, Any], tool_context: Any) -> dict[str, Any]:
         return self.invoke(args)

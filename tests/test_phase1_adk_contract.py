@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import tempfile
 import unittest
 import subprocess
@@ -19,7 +20,7 @@ from migration_assistant.adk_model import OpenAICompatibleAdkLlm
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from migration_assistant.config import Settings
 from migration_assistant.repository_tools import RepositoryTools, RepositoryToolError
-from migration_assistant.tool_protocol import ToolErrorCode, ToolIssue, error_envelope
+from migration_assistant.tool_protocol import RunControlLedger, ToolErrorCode, ToolIssue, error_envelope
 from migration_assistant.tool_contract import PUBLIC_AGENT_TOOL_NAMES
 
 
@@ -468,8 +469,7 @@ class Phase1ContractTests(unittest.TestCase):
             {"status": "partial", "summary": "근거 부족"},
         )
 
-    def test_malformed_function_name_suffix_is_normalized_at_adk_boundary(self):
-        self.assertEqual(OpenAICompatibleAdkLlm._normalize_function_call("read_file_args", "{}"), ("read_file", None))
+    def test_malformed_raw_arguments_are_not_replaced_with_empty_object(self):
         response = OpenAICompatibleAdkLlm._response(
             {
                 "choices": [
@@ -479,8 +479,8 @@ class Phase1ContractTests(unittest.TestCase):
                                 {
                                     "id": "call-1",
                                     "function": {
-                                        "name": 'read_fileargs{"relative":"pom.xml"}',
-                                        "arguments": "{}",
+                                        "name": "read_file",
+                                        "arguments": '{"relative":"broken',
                                     },
                                 }
                             ]
@@ -489,38 +489,53 @@ class Phase1ContractTests(unittest.TestCase):
                 ]
             }
         )
-        call = response.content.parts[0].function_call
-        self.assertEqual(call.name, "read_file")
-        self.assertEqual(call.args, {"relative": "pom.xml"})
 
-        safe_response = OpenAICompatibleAdkLlm._response(
-            {
-                "choices": [
-                    {
-                        "message": {
-                            "tool_calls": [
-                                {"function": {"name": "read_file", "arguments": '{"relative":"broken' }}
-                            ]
-                        }
-                    }
-                ]
-            }
+        self.assertEqual(response.content.parts[0].text, "Tool protocol validation failed.")
+        self.assertEqual(response.custom_metadata["protocol_issue"]["code"], "malformed_arguments")
+        self.assertFalse(any(part.function_call for part in response.content.parts))
+
+    def test_after_model_callback_blocks_unknown_name_before_adk_dispatch(self):
+        control = RunControlLedger()
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+            control=control,
         )
-        self.assertEqual(safe_response.content.parts[0].function_call.args, {})
-        self.assertEqual(
-            OpenAICompatibleAdkLlm._normalize_function_call("read_filelines", "{}"),
-            ("read_file_lines", None),
+        response = LlmResponse(content=types.Content(
+            role="model",
+            parts=[types.Part(function_call=types.FunctionCall(name="shell", args={}, id="bad"))],
+        ))
+
+        replaced = toolset.after_model_callback(None, response)
+
+        self.assertEqual(control.protocol_issue.code, ToolErrorCode.INVALID_TOOL_NAME)
+        self.assertFalse(any(part.function_call for part in replaced.content.parts))
+
+    def test_closed_alias_is_canonicalized_but_embedded_json_suffix_is_rejected(self):
+        control = RunControlLedger()
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+            control=control,
         )
-        self.assertEqual(
-            OpenAICompatibleAdkLlm._normalize_function_call("read_filearg", "{}"),
-            ("read_file", None),
-        )
-        self.assertEqual(
-            OpenAICompatibleAdkLlm._normalize_function_call(
-                'read_filelinesargs{"relative":"app.py"}', "{}"
-            ),
-            ("read_file_lines", {"relative": "app.py"}),
-        )
+        accepted = toolset.after_model_callback(None, LlmResponse(content=types.Content(
+            role="model",
+            parts=[types.Part(function_call=types.FunctionCall(
+                name="read_filearg", args={"relative": "migration_assistant/agent.py"}, id="alias",
+            ))],
+        )))
+        self.assertEqual(accepted.content.parts[0].function_call.name, "read_file")
+
+        rejected = toolset.after_model_callback(None, LlmResponse(content=types.Content(
+            role="model",
+            parts=[types.Part(function_call=types.FunctionCall(
+                name='read_fileargs{"relative":"app.py"}', args={}, id="embedded",
+            ))],
+        )))
+        self.assertEqual(control.protocol_issue.code, ToolErrorCode.INVALID_TOOL_NAME)
+        self.assertFalse(any(part.function_call for part in rejected.content.parts))
 
     def test_adk_model_consumes_the_shared_iteration_budget(self):
         model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=1))
@@ -579,7 +594,10 @@ class Phase1ContractTests(unittest.TestCase):
         )
         messages = OpenAICompatibleAdkLlm._messages(request)
         self.assertEqual(messages[1]["role"], "tool")
-        self.assertIn("누락", messages[1]["content"])
+        missing = json.loads(messages[1]["content"])
+        self.assertFalse(missing["ok"])
+        self.assertEqual(missing["error"]["code"], "malformed_arguments")
+        self.assertFalse(missing["meta"]["executed"])
 
     def test_real_adk_function_declarations_become_openai_json_schema(self):
         repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())

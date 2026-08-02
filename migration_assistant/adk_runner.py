@@ -18,6 +18,7 @@ from .analysis import AnalysisResult, PydanticDependencyError
 from .config import Settings
 from .repository_tools import RepositoryTools, redact_sensitive_text
 from .target import BudgetExceededError, SafetyBudget
+from .tool_protocol import RunControlLedger
 
 
 class AdkExecutionError(RuntimeError):
@@ -66,12 +67,14 @@ def run_adk_agent(
 ) -> AdkRun:
     ledger = ValidationLedger()
     tracker = DuplicateTracker(max_no_progress=budget.max_no_progress)
+    control = RunControlLedger()
     agent = AgentApplication(settings).build_root_agent(
         repository_tools=repository,
         ledger=ledger,
         tracker=tracker,
         budget=budget,
         model_override=model_override,
+        control=control,
     )
     run = AdkRun()
 

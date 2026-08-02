@@ -9,6 +9,7 @@ from .config import Settings
 from .repository_tools import RepositoryTools
 from .target import SafetyBudget
 from .tool_contract import PUBLIC_AGENT_TOOL_NAMES
+from .tool_protocol import RunControlLedger
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +31,7 @@ class AgentApplication:
         tracker: DuplicateTracker,
         budget: SafetyBudget,
         model_override: object | None = None,
+        control: RunControlLedger | None = None,
     ) -> object:
         """Build one Google ADK Agent with exactly the eight safe tools."""
         try:
@@ -43,7 +45,7 @@ class AgentApplication:
             from .adk_model import OpenAICompatibleAdkLlm
 
             model_override = OpenAICompatibleAdkLlm(self.settings, budget=budget)
-        toolset = AdkRepositoryToolset(repository_tools, ledger, tracker)
+        toolset = AdkRepositoryToolset(repository_tools, ledger, tracker, control=control)
 
         return Agent(
             name=self.name,
@@ -81,6 +83,7 @@ class AgentApplication:
                 "Repository 이름, 언어, 고정 파일 순서 또는 특정 provider 이름을 분석 규칙으로 사용하지 마세요."
             ),
             tools=toolset.functions(),
+            after_model_callback=toolset.after_model_callback,
         )
 
 
