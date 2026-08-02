@@ -306,13 +306,13 @@ class OpenAICompatibleAdkLlm(BaseLlm):
             if compact_name == compact_public_name:
                 return public_name, None
             if name.startswith(public_name):
-                suffix = name[len(public_name):].lstrip()
+                suffix = name[len(public_name):].lstrip(" _")
             else:
                 brace = name.find("{")
                 raw_prefix = name if brace < 0 else name[:brace]
                 if raw_prefix.replace("_", "") != compact_public_name and not raw_prefix.replace("_", "").startswith(compact_public_name):
                     continue
-                suffix = name[len(raw_prefix):].lstrip()
+                suffix = name[len(raw_prefix):].lstrip(" _")
                 prefix_tail = raw_prefix.replace("_", "")[len(compact_public_name):]
                 suffix = prefix_tail + suffix
             if not suffix:

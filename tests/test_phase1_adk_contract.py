@@ -352,6 +352,55 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertTrue(result["valid"])
         self.assertEqual(ledger.result.evidence[0].text, '"""Deterministic read-only target and output safety boundary."""')
 
+    def test_validation_repairs_missing_structural_ids_from_verified_claims(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            ledger = ValidationLedger()
+            toolset = AdkRepositoryToolset(RepositoryTools(repo), ledger, DuplicateTracker())
+            result = toolset.validate_analysis(
+                status="complete",
+                summary="검증된 결과",
+                evidence=[{
+                    "status": "confirmed",
+                    "path": "app.py",
+                    "line_start": 1,
+                    "line_end": 1,
+                    "claim": "PORT 설정이 확인됨",
+                    "text": "placeholder",
+                }],
+                findings=[{"status": "confirmed", "claim": "PORT 설정이 확인됨"}],
+                iterations=1,
+                errors=[],
+            )
+
+            self.assertTrue(result["valid"], result)
+            self.assertEqual(ledger.result.evidence[0].id, "e1")
+            self.assertEqual(ledger.result.findings[0].evidence_ids, ["e1"])
+
+    def test_validation_recovers_an_omitted_top_level_status_after_grounding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            ledger = ValidationLedger()
+            toolset = AdkRepositoryToolset(RepositoryTools(repo), ledger, DuplicateTracker())
+            result = toolset.validate_analysis(
+                status="",
+                summary="검증된 결과",
+                evidence=[{
+                    "status": "confirmed",
+                    "path": "app.py",
+                    "line_start": 1,
+                    "line_end": 1,
+                    "claim": "PORT 설정이 확인됨",
+                    "text": "PORT = 8080",
+                }],
+                findings=[{"status": "confirmed", "claim": "PORT 설정이 확인됨"}],
+                iterations=1,
+                errors=[],
+            )
+
+            self.assertTrue(result["valid"], result)
+            self.assertEqual(ledger.result.status, "complete")
+
     def test_fenced_structured_result_is_safely_extractable(self):
         self.assertEqual(
             parse_structured_final("```json\n{\"status\": \"partial\"}\n```"),
@@ -364,6 +413,7 @@ class Phase1ContractTests(unittest.TestCase):
         )
 
     def test_malformed_function_name_suffix_is_normalized_at_adk_boundary(self):
+        self.assertEqual(OpenAICompatibleAdkLlm._normalize_function_call("read_file_args", "{}"), ("read_file", None))
         response = OpenAICompatibleAdkLlm._response(
             {
                 "choices": [

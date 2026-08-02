@@ -125,30 +125,37 @@ def run_adk_agent(
             and budget.iterations < budget.max_iterations
             and (run.final_text or run.tool_calls or ledger.validation_error or ledger.tool_error)
         ):
-            # A recovery turn must observe only errors produced by that turn;
-            # otherwise the first failed tool call closes the recovery stream
-            # before the Agent can submit the already collected candidate.
-            ledger.validation_error = None
-            ledger.tool_error = None
-            ledger.budget_exhausted = None
-            recovery = types.Content(
-                role="user",
-                parts=[
-                    types.Part(
-                        text=(
-                            "이전 응답은 허용된 종료 형식이 아니었습니다. 새 분석을 시작하지 마세요. "
-                            "방금 발생한 Tool 오류를 재시도하지 말고 이미 수집한 관찰만 사용하여 전체 candidate를 validate_analysis Tool에 전달하세요. "
-                            "validate_analysis의 top-level status는 complete, partial, failed 중 하나만 사용하고 confirmed/inferred/unresolved/conflicting은 Evidence/Finding에만 사용하세요. "
-                            "validation 응답에 evidence_corrections가 있으면 해당 path, line, excerpt를 그대로 Evidence에 복사해 다시 제출하세요. "
-                            "status가 partial이면 errors에 비어 있지 않은 실제 Repository 미확인 사유를 포함하고, "
-                            "근거가 충분하면 complete를 선택하세요. "
-                            "Evidence status에 absence 같은 값은 사용할 수 없습니다. 부재 주장은 status=unresolved와 absence_scope, absence_pattern, result를 사용하고, positive Evidence는 confirmed/inferred/conflicting 중 하나와 path, line_start, line_end를 사용하세요. line evidence는 search_text hit의 확인된 line을 기준으로 최대 4줄만 사용하세요. "
-                            "유효한 candidate를 Tool로 검증하기 전에는 prose로 종료하지 마세요."
+            for recovery_attempt in range(2):
+                if (
+                    ledger.result is not None
+                    or tracker.consecutive_no_progress >= tracker.max_no_progress
+                    or budget.iterations >= budget.max_iterations
+                ):
+                    break
+                # A recovery turn must observe only errors produced by that turn;
+                # otherwise the first failed tool call closes the recovery stream
+                # before the Agent can submit the already collected candidate.
+                ledger.validation_error = None
+                ledger.tool_error = None
+                ledger.budget_exhausted = None
+                recovery = types.Content(
+                    role="user",
+                    parts=[
+                        types.Part(
+                            text=(
+                                f"이전 응답은 허용된 종료 형식이 아니었습니다. 제한된 recovery {recovery_attempt + 1}/2입니다. 새 분석을 시작하지 마세요. "
+                                "방금 발생한 Tool 오류를 재시도하지 말고 이미 수집한 관찰만 사용하여 전체 candidate를 validate_analysis Tool에 전달하세요. "
+                                "validate_analysis의 top-level status는 complete, partial, failed 중 하나만 사용하고 confirmed/inferred/unresolved/conflicting은 Evidence/Finding에만 사용하세요. "
+                                "validation 응답에 evidence_corrections가 있으면 해당 path, line, excerpt를 그대로 Evidence에 복사해 다시 제출하세요. "
+                                "status가 partial이면 errors에 비어 있지 않은 실제 Repository 미확인 사유를 포함하고, "
+                                "근거가 충분하면 complete를 선택하세요. "
+                                "Evidence status에 absence 같은 값은 사용할 수 없습니다. 부재 주장은 status=unresolved와 absence_scope, absence_pattern, result를 사용하고, positive Evidence는 confirmed/inferred/conflicting 중 하나와 path, line_start, line_end를 사용하세요. line evidence는 search_text hit의 확인된 line을 기준으로 최대 4줄만 사용하세요. "
+                                "유효한 candidate를 Tool로 검증하기 전에는 prose로 종료하지 마세요."
+                            )
                         )
-                    )
-                ],
-            )
-            await consume(runner.run_async(user_id="local-user", session_id=session.id, new_message=recovery))
+                    ],
+                )
+                await consume(runner.run_async(user_id="local-user", session_id=session.id, new_message=recovery))
 
     try:
         asyncio.run(execute())

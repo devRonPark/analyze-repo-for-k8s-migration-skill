@@ -378,7 +378,7 @@ class RepositoryTools:
             errors.append("evidence는 list여야 합니다.")
         else:
             evidence_ids: set[str] = set()
-            for item in evidence:
+            for evidence_index, item in enumerate(evidence):
                 if not isinstance(item, Mapping):
                     errors.append("evidence 항목은 mapping이어야 합니다.")
                     continue
@@ -417,12 +417,24 @@ class RepositoryTools:
                         lines = self._redact(self._read_bytes(path).decode("utf-8", errors="replace")).splitlines()
                         if end > len(lines):
                             errors.append(f"evidence line 범위가 file 범위를 벗어났습니다: {path}")
+                            if start <= len(lines):
+                                evidence_corrections.append(
+                                    {
+                                        "index": evidence_index,
+                                        "id": evidence_id,
+                                        "path": path,
+                                        "line_start": start,
+                                        "line_end": len(lines),
+                                        "excerpt": "\n".join(lines[start - 1 :]),
+                                    }
+                                )
                         else:
                             actual = "\n".join(lines[start - 1 : end])
                             if self._compact(str(excerpt)) not in self._compact(actual):
                                 errors.append(f"evidence excerpt가 실제 Repository line과 일치하지 않습니다: {path}:{start}-{end}")
                                 evidence_corrections.append(
                                     {
+                                        "index": evidence_index,
                                         "id": evidence_id,
                                         "path": path,
                                         "line_start": start,

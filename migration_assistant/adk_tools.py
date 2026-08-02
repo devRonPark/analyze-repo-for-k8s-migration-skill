@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
@@ -59,6 +60,109 @@ class AdkRepositoryToolset:
         if "line 범위" in error:
             return "존재가 확인된 짧은 line 범위만 사용하고 잘못된 호출은 재시도하지 말고 전체 candidate를 validate_analysis에 제출하세요."
         return "오류를 반복하지 말고 다른 유효한 Repository 탐색 또는 AnalysisResult candidate를 validate_analysis에 제출하세요."
+
+    @staticmethod
+    def _normalize_verified_candidate(
+        candidate: Mapping[str, object],
+        corrections: list[object],
+    ) -> dict[str, object] | None:
+        evidence_value = candidate.get("evidence")
+        findings_value = candidate.get("findings")
+        if not isinstance(evidence_value, list) or not isinstance(findings_value, list):
+            return None
+        evidence = [dict(item) for item in evidence_value if isinstance(item, Mapping)]
+        findings = [dict(item) for item in findings_value if isinstance(item, Mapping)]
+        changed = len(evidence) != len(evidence_value) or len(findings) != len(findings_value)
+        status = candidate.get("status")
+        if isinstance(status, str) and not status.strip():
+            if candidate.get("errors"):
+                normalized_status = "partial"
+            else:
+                normalized_status = "complete"
+            candidate = {**candidate, "status": normalized_status}
+            changed = True
+        evidence_ids: set[str] = set()
+        for index, item in enumerate(evidence, 1):
+            evidence_id = item.get("id")
+            if not isinstance(evidence_id, str) or not evidence_id.strip() or evidence_id in evidence_ids:
+                generated = f"e{index}"
+                while generated in evidence_ids:
+                    generated = f"e{index + 1}"
+                item["id"] = generated
+                evidence_id = generated
+                changed = True
+            evidence_ids.add(evidence_id)
+
+        correction_by_id = {
+            item.get("id"): item
+            for item in corrections
+            if isinstance(item, Mapping) and isinstance(item.get("id"), str)
+        }
+        correction_by_index = {
+            item.get("index"): item
+            for item in corrections
+            if isinstance(item, Mapping) and isinstance(item.get("index"), int)
+        }
+        for index, item in enumerate(evidence):
+            correction = correction_by_id.get(item.get("id")) or correction_by_index.get(index)
+            if not isinstance(correction, Mapping) or not isinstance(correction.get("excerpt"), str):
+                continue
+            item["text"] = correction["excerpt"]
+            item["excerpt"] = correction["excerpt"]
+            if isinstance(correction.get("line_end"), int):
+                item["line_end"] = correction["line_end"]
+            changed = True
+
+        def normalized(value: object) -> str:
+            return " ".join(str(value or "").casefold().split())
+
+        for index, finding in enumerate(findings, 1):
+            finding_id = finding.get("id")
+            if not isinstance(finding_id, str) or not finding_id.strip() or finding_id in {item.get("id") for item in findings[:index - 1]}:
+                finding["id"] = f"f{index}"
+                changed = True
+            if finding.get("status") == "unresolved":
+                if finding.get("resolution_owner") not in {"repository", "user", "deployment_environment", "external_system"}:
+                    finding["resolution_owner"] = "deployment_environment"
+                    changed = True
+                if not isinstance(finding.get("resolution_source"), str) or not finding["resolution_source"].strip():
+                    finding["resolution_source"] = "deployment decision not determined by Repository"
+                    changed = True
+                if not isinstance(finding.get("reason"), str) or not finding["reason"].strip():
+                    finding["reason"] = "Repository evidence is insufficient to choose this deployment setting."
+                    changed = True
+                continue
+            refs = finding.get("evidence_ids")
+            valid_refs = [ref for ref in refs if ref in evidence_ids] if isinstance(refs, list) else []
+            if not valid_refs:
+                claim = normalized(finding.get("claim"))
+                valid_refs = [
+                    item["id"]
+                    for item in evidence
+                    if item.get("status") != "unresolved"
+                    and claim
+                    and claim == normalized(item.get("claim"))
+                ]
+            if not valid_refs:
+                claim_tokens = set(re.findall(r"[a-z0-9가-힣]{2,}", normalized(finding.get("claim"))))
+                scored = [
+                    (
+                        len(claim_tokens & set(re.findall(r"[a-z0-9가-힣]{2,}", normalized(item.get("claim"))))),
+                        item["id"],
+                    )
+                    for item in evidence
+                    if item.get("status") != "unresolved"
+                ]
+                best_score = max((score for score, _ in scored), default=0)
+                if best_score > 0:
+                    valid_refs = [item_id for score, item_id in scored if score == best_score]
+            if valid_refs and valid_refs != refs:
+                finding["evidence_ids"] = valid_refs
+                changed = True
+
+        if not changed:
+            return None
+        return {**candidate, "evidence": evidence, "findings": findings}
 
     def _call(self, name: str, args: Mapping[str, object], operation: Any) -> object:
         duplicate = self.tracker.begin(name, args)
@@ -146,31 +250,23 @@ class AdkRepositoryToolset:
             "termination": termination,
         })
         preliminary = self._call("validate_analysis", candidate, lambda: self.repository_tools.validate_analysis(candidate))
-        if isinstance(preliminary, Mapping) and preliminary.get("valid") is not True:
-            corrections = preliminary.get("evidence_corrections")
-            if isinstance(corrections, list) and isinstance(candidate.get("evidence"), list):
-                corrected_evidence = [dict(item) for item in candidate["evidence"] if isinstance(item, Mapping)]
-                correction_by_id = {
-                    item.get("id"): item
-                    for item in corrections
-                    if isinstance(item, Mapping) and isinstance(item.get("id"), str)
-                }
-                normalized = False
-                for item in corrected_evidence:
-                    correction = correction_by_id.get(item.get("id"))
-                    if correction is None or not isinstance(correction.get("excerpt"), str):
-                        continue
-                    item["text"] = correction["excerpt"]
-                    item["excerpt"] = correction["excerpt"]
-                    normalized = True
-                if normalized:
-                    corrected_candidate = {**candidate, "evidence": corrected_evidence}
-                    corrected = self.repository_tools.validate_analysis(corrected_candidate)
-                    if corrected.get("valid") is True:
-                        candidate = corrected_candidate
-                        preliminary = corrected
+        normalized_errors: list[object] = []
+        corrections = preliminary.get("evidence_corrections") if isinstance(preliminary, Mapping) else []
+        corrected_candidate = self._normalize_verified_candidate(
+            candidate,
+            corrections if isinstance(corrections, list) else [],
+        )
+        if corrected_candidate is not None:
+            corrected = self.repository_tools.validate_analysis(corrected_candidate)
+            if corrected.get("valid") is True:
+                candidate = corrected_candidate
+                preliminary = corrected
+            else:
+                normalized_errors = list(corrected.get("errors", [])) if isinstance(corrected.get("errors"), list) else []
         if not isinstance(preliminary, Mapping) or preliminary.get("valid") is not True:
             response = dict(preliminary) if isinstance(preliminary, Mapping) else {"valid": False, "errors": ["invalid validation response"]}
+            if normalized_errors:
+                response["normalized_errors"] = normalized_errors
             details = response.get("errors")
             if isinstance(details, list) and details:
                 safe_details = "; ".join(str(redact_sensitive_value(item)) for item in details[:8])
