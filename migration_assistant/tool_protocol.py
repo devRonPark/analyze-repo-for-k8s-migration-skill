@@ -55,6 +55,7 @@ class RunControlLedger:
     retry_counts: dict[ToolErrorCode, int] = field(default_factory=dict)
     blocked_signatures: set[str] = field(default_factory=set)
     last_candidate_hash: str | None = None
+    candidate_hashes: set[str] = field(default_factory=set)
     attempted_actions: set[tuple[ToolErrorCode, str]] = field(default_factory=set)
     recovery_attempts: int = 0
     max_recovery_attempts: int = 2
@@ -77,7 +78,8 @@ class RunControlLedger:
     def candidate_repeated(self, candidate: Mapping[str, Any]) -> bool:
         canonical = json.dumps(candidate, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
         fingerprint = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-        repeated = fingerprint == self.last_candidate_hash
+        repeated = fingerprint in self.candidate_hashes
+        self.candidate_hashes.add(fingerprint)
         self.last_candidate_hash = fingerprint
         return repeated
 

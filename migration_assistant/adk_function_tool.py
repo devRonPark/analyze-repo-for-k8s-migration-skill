@@ -9,7 +9,7 @@ from google.adk.tools import BaseTool
 from google.genai import types
 from pydantic import BaseModel, ValidationError
 
-from .repository_tools import RepositoryToolError, redact_sensitive_text
+from .repository_tools import RepositoryToolError, redact_sensitive_text, redact_sensitive_value
 from .target import BudgetExceededError
 from .tool_protocol import ToolErrorCode, ToolIssue, error_envelope, success_envelope
 
@@ -125,6 +125,14 @@ class RepositoryFunctionTool(BaseTool):
             return result
         return success_envelope(result)
 
+    def normalized_args(self, args: object) -> dict[str, Any]:
+        """Return the single canonical argument shape used for call fingerprints."""
+
+        validated = self.input_model.model_validate(args)
+        normalized = validated.model_dump(mode="json")
+        redacted = redact_sensitive_value(normalized)
+        return dict(redacted) if isinstance(redacted, Mapping) else normalized
+
     def argument_issue(self, args: object) -> ToolIssue | None:
         """Return a safe issue without invoking the Tool handler."""
 
@@ -132,7 +140,15 @@ class RepositoryFunctionTool(BaseTool):
             self.input_model.model_validate(args)
         except ValidationError as error:
             first = error.errors(include_url=False)[0]
-            message = redact_sensitive_text(str(first.get("msg", "arguments are invalid")))
+            error_type = str(first.get("type", ""))
+            if error_type == "missing":
+                message = "필수 Tool 인자가 누락되었습니다."
+            elif error_type == "extra_forbidden":
+                message = "Tool schema에 없는 인자가 제공되었습니다."
+            elif error_type == "literal_error":
+                message = "Tool 인자 값이 schema 허용 범위와 다릅니다."
+            else:
+                message = "Tool 인자 값이 schema 제약을 위반했습니다."
             return ToolIssue(
                 code=self._validation_error_code,
                 category="validation",

@@ -287,7 +287,7 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                         ToolIssue(
                             code=ToolErrorCode.MALFORMED_ARGUMENTS,
                             category="protocol",
-                            message="tool call must be an object",
+                            message="Tool 호출은 object 형식이어야 합니다.",
                             field_path=f"$.tool_calls[{index}]",
                             retryable=True,
                         )
@@ -298,7 +298,7 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                         ToolIssue(
                             code=ToolErrorCode.INVALID_TOOL_NAME,
                             category="protocol",
-                            message="tool name must be a string",
+                            message="Tool 이름은 문자열이어야 합니다.",
                             field_path=f"$.tool_calls[{index}].function.name",
                             retryable=True,
                         )
@@ -312,7 +312,7 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                             ToolIssue(
                                 code=ToolErrorCode.MALFORMED_ARGUMENTS,
                                 category="protocol",
-                                message="tool arguments must be valid JSON object text",
+                                message="Tool 인자는 유효한 JSON object 문자열이어야 합니다.",
                                 field_path=f"$.tool_calls[{index}].function.arguments",
                                 retryable=True,
                             )
@@ -324,7 +324,7 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                         ToolIssue(
                             code=ToolErrorCode.MALFORMED_ARGUMENTS,
                             category="protocol",
-                            message="tool arguments must be an object",
+                            message="Tool 인자는 object 형식이어야 합니다.",
                             field_path=f"$.tool_calls[{index}].function.arguments",
                             retryable=True,
                         )
@@ -334,7 +334,7 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                         ToolIssue(
                             code=ToolErrorCode.MALFORMED_ARGUMENTS,
                             category="protocol",
-                            message="tool arguments JSON must decode to an object",
+                            message="Tool 인자 JSON은 object로 해석되어야 합니다.",
                             field_path=f"$.tool_calls[{index}].function.arguments",
                             retryable=True,
                         )
@@ -349,7 +349,7 @@ class OpenAICompatibleAdkLlm(BaseLlm):
         return LlmResponse(
             content=types.Content(
                 role="model",
-                parts=[types.Part(text="Tool protocol validation failed.")],
+                parts=[types.Part(text="Tool protocol 검증에 실패했습니다.")],
             ),
             custom_metadata={"protocol_issue": error_envelope(issue)["error"]},
             partial=False,

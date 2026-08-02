@@ -20,7 +20,7 @@ from migration_assistant.adk_model import OpenAICompatibleAdkLlm
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from migration_assistant.config import Settings
 from migration_assistant.repository_tools import RepositoryTools, RepositoryToolError
-from migration_assistant.tool_protocol import RunControlLedger, ToolErrorCode, ToolIssue, error_envelope
+from migration_assistant.tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, ToolIssue, error_envelope
 from migration_assistant.tool_contract import PUBLIC_AGENT_TOOL_NAMES
 
 
@@ -249,6 +249,40 @@ class ProtocolThenValidLlm(BaseLlm):
         )
 
 
+class UnknownToolLlm(BaseLlm):
+    model: str = "fake-unknown-tool-model"
+
+    async def generate_content_async(self, llm_request, stream: bool = False):
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[types.Part(function_call=types.FunctionCall(name="shell", args={}, id="invented"))],
+            ),
+            partial=False,
+        )
+
+
+class NoEvidencePartialFinalLlm(BaseLlm):
+    model: str = "fake-no-evidence-partial-model"
+
+    async def generate_content_async(self, llm_request, stream: bool = False):
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[types.Part(text=json.dumps({
+                    "status": "partial",
+                    "summary": "근거가 없습니다.",
+                    "evidence": [],
+                    "findings": [],
+                    "iterations": 0,
+                    "errors": ["Repository 근거가 없습니다."],
+                    "termination": "normal",
+                }, ensure_ascii=False))],
+            ),
+            partial=False,
+        )
+
+
 class Phase1ContractTests(unittest.TestCase):
     def make_repo(self, root: Path) -> Path:
         repo = root / "repo"
@@ -342,8 +376,11 @@ class Phase1ContractTests(unittest.TestCase):
     def test_validation_error_is_returned_to_agent_for_correction(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            result = analyze(self.make_repo(root), root / "output", adk_model=ValidationRetryLlm(), max_iterations=5)
-            self.assertEqual(result.status, "complete")
+            repository = RepositoryTools(self.make_repo(root), budget=SafetyBudget(max_iterations=5))
+            run = run_adk_agent(repository, Settings(), repository.budget, model_override=ValidationRetryLlm())
+
+            self.assertEqual(run.result.status, "complete")
+            self.assertEqual(run.recovery_attempts, 0)
 
     def test_protocol_error_is_not_final_text_and_gets_one_bounded_recovery(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -371,6 +408,15 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertFalse(control.candidate_repeated(candidate))
         self.assertTrue(control.candidate_repeated(candidate))
         self.assertNotIn("same", repr(control))
+
+    def test_candidate_hash_detects_non_consecutive_repeat(self):
+        control = RunControlLedger()
+        first = {"status": "partial", "summary": "A"}
+        second = {"status": "partial", "summary": "B"}
+
+        self.assertFalse(control.candidate_repeated(first))
+        self.assertFalse(control.candidate_repeated(second))
+        self.assertTrue(control.candidate_repeated(first))
 
     def test_fallback_never_promotes_observation_to_confirmed_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -580,7 +626,7 @@ class Phase1ContractTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(response.content.parts[0].text, "Tool protocol validation failed.")
+        self.assertEqual(response.content.parts[0].text, "Tool protocol 검증에 실패했습니다.")
         self.assertEqual(response.custom_metadata["protocol_issue"]["code"], "malformed_arguments")
         self.assertFalse(any(part.function_call for part in response.content.parts))
 
@@ -643,6 +689,56 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertEqual(result["error"]["code"], "invalid_arguments")
         self.assertEqual(result["error"]["allowed_next_actions"], ["inspect_target"])
 
+    def test_before_tool_callback_blocks_normalized_signature_before_execution(self):
+        control = RunControlLedger(phase=RunPhase.GROUND)
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+            control=control,
+        )
+        list_tree = next(tool for tool in toolset.functions() if tool.name == "list_tree")
+        first = toolset.list_tree(".git")
+        self.assertEqual(first["error"]["code"], "forbidden_path")
+
+        result = toolset.before_tool_callback(list_tree, {"relative": ".git"}, None)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "duplicate_call")
+
+    def test_before_tool_callback_rejects_invalid_args_and_budget_before_execution(self):
+        budget = SafetyBudget(max_explorations=0)
+        repository = RepositoryTools(Path.cwd(), budget=budget)
+        control = RunControlLedger(phase=RunPhase.GROUND)
+        toolset = AdkRepositoryToolset(repository, ValidationLedger(), DuplicateTracker(), control=control)
+        read_file = next(tool for tool in toolset.functions() if tool.name == "read_file")
+        search = next(tool for tool in toolset.functions() if tool.name == "search_text")
+
+        invalid = toolset.before_tool_callback(read_file, {}, None)
+        control.phase = RunPhase.GROUND
+        control.protocol_issue = None
+        control.next_actions = None
+        budgeted = toolset.before_tool_callback(search, {"pattern": "PORT"}, None)
+
+        self.assertEqual(invalid["error"]["code"], "invalid_arguments")
+        self.assertEqual(invalid["error"]["field_path"], "$.relative")
+        self.assertEqual(budgeted["error"]["code"], "budget_exhausted")
+        self.assertEqual(budget.explorations, 0)
+
+    def test_failed_protocol_run_reports_korean_user_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repository = RepositoryTools(self.make_repo(Path(tmp)), budget=SafetyBudget(max_iterations=5))
+            run = run_adk_agent(repository, Settings(), repository.budget, model_override=UnknownToolLlm())
+
+        self.assertEqual(run.result.status, "failed")
+        self.assertTrue(run.errors)
+        self.assertFalse(any("not in the registered public allowlist" in error for error in run.errors))
+        self.assertTrue(any(any("가" <= char <= "힣" for char in error) for error in run.errors))
+        self.assertTrue(run.protocol_issues)
+        self.assertTrue(
+            all(any("가" <= char <= "힣" for char in str(issue["message"])) for issue in run.protocol_issues)
+        )
+
     def test_on_tool_error_callback_returns_redacted_uniform_envelope(self):
         control = RunControlLedger()
         toolset = AdkRepositoryToolset(
@@ -663,6 +759,35 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result["error"]["code"], "invalid_arguments")
         self.assertNotIn("do-not-leak", repr(result))
+
+    def test_on_tool_error_callback_marks_unexpected_error_non_retryable(self):
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+        )
+        read_file = next(tool for tool in toolset.functions() if tool.name == "read_file")
+
+        result = toolset.on_tool_error_callback(read_file, {"relative": "app.py"}, None, RuntimeError("internal"))
+
+        self.assertFalse(result["error"]["retryable"])
+        self.assertEqual(result["error"]["allowed_next_actions"], ["validate_analysis"])
+
+    def test_recovery_is_bounded_and_repeated_action_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repository = RepositoryTools(self.make_repo(Path(tmp)), budget=SafetyBudget(max_iterations=10))
+            run = run_adk_agent(repository, Settings(), repository.budget, model_override=UnknownToolLlm())
+
+        self.assertEqual(run.recovery_attempts, 2)
+        self.assertTrue(any("no-progress" in error for error in run.errors))
+
+    def test_posthoc_partial_without_positive_evidence_becomes_failed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repository = RepositoryTools(self.make_repo(Path(tmp)), budget=SafetyBudget(max_iterations=5))
+            run = run_adk_agent(repository, Settings(), repository.budget, model_override=NoEvidencePartialFinalLlm())
+
+        self.assertEqual(run.result.status, "failed")
+        self.assertFalse(run.terminal)
 
     def test_adk_model_consumes_the_shared_iteration_budget(self):
         model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=1))

@@ -19,7 +19,7 @@ from .config import Settings
 from .repository_tools import RepositoryTools, redact_sensitive_text
 from .target import BudgetExceededError, SafetyBudget
 from .tool_contract import PUBLIC_AGENT_TOOL_NAMES
-from .tool_protocol import RunControlLedger, RunPhase, error_envelope
+from .tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, error_envelope
 
 
 class AdkExecutionError(RuntimeError):
@@ -34,6 +34,7 @@ class AdkRun:
     tool_calls: list[str] = field(default_factory=list)
     terminal: bool = False
     protocol_issues: list[dict[str, object]] = field(default_factory=list)
+    recovery_attempts: int = 0
 
 
 _FENCED_JSON = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL | re.IGNORECASE)
@@ -43,14 +44,14 @@ def _recovery_prompt(control: RunControlLedger, attempt: int, tool_names: tuple[
     issue = control.protocol_issue
     if issue is None:
         return (
-            f"이전 응답은 terminal Tool 결과가 아니었습니다. 제한된 recovery {attempt}/2입니다. "
+            f"이전 응답은 terminal Tool 결과가 아니었습니다. 제한된 recovery {attempt}/{control.max_recovery_attempts}입니다. "
             "새 분석을 시작하지 말고 이미 수집한 근거로 전체 candidate를 validate_analysis에 제출하세요."
         )
     actions = control.allowed_next_actions(tool_names)
     field = f" 실패 field={issue.field_path}." if issue.field_path else ""
     return (
         f"Tool protocol 오류 code={issue.code.value}, category={issue.category}.{field} "
-        f"제한된 recovery {attempt}/2입니다. 허용된 다음 Tool은 {', '.join(actions) or '없음'}입니다. "
+        f"제한된 recovery {attempt}/{control.max_recovery_attempts}입니다. 허용된 다음 Tool은 {', '.join(actions) or '없음'}입니다. "
         "오류 메시지에 없는 사실을 추정하지 말고, 동일한 실패 호출을 반복하지 마세요. "
         "candidate 오류이면 의미를 자동 생성하지 말고 전체 candidate의 보고된 field만 수정해 validate_analysis에 다시 제출하세요."
     )
@@ -125,8 +126,12 @@ def run_adk_agent(
                         )["error"]
                         if not run.protocol_issues or run.protocol_issues[-1] != issue_payload:
                             run.protocol_issues.append(issue_payload)
-                        await events.aclose()
-                        break
+                        if control.protocol_issue.code not in {
+                            ToolErrorCode.CANDIDATE_SCHEMA,
+                            ToolErrorCode.EVIDENCE_GROUNDING,
+                        }:
+                            await events.aclose()
+                            break
                     content = getattr(event, "content", None)
                     if content is not None and getattr(content, "role", None) == "model":
                         text = "\n".join(part.text for part in (content.parts or []) if getattr(part, "text", None))
@@ -159,7 +164,7 @@ def run_adk_agent(
             and budget.iterations < budget.max_iterations
             and (run.final_text or run.tool_calls or ledger.validation_error or ledger.tool_error or control.protocol_issue)
         ):
-            for recovery_attempt in range(2):
+            for recovery_attempt in range(control.max_recovery_attempts):
                 if (
                     ledger.result is not None
                     or tracker.consecutive_no_progress >= tracker.max_no_progress
@@ -188,6 +193,7 @@ def run_adk_agent(
                     if control.action_repeated(issue.code, fingerprint):
                         run.errors.append("동일 protocol 오류와 recovery action이 반복되어 no-progress로 종료했습니다.")
                         break
+        run.recovery_attempts = control.recovery_attempts
 
     try:
         asyncio.run(execute())
@@ -205,7 +211,7 @@ def run_adk_agent(
         try:
             run.result = AnalysisResult.model_validate(data)
         except Exception as error:
-            run.errors.append(f"AnalysisResult schema validation failure: {error}")
+            run.errors.append(f"AnalysisResult schema 검증에 실패했습니다: {error}")
     elif run.final_text and control.protocol_issue is None:
         candidate = parse_structured_final(run.final_text)
         if candidate is not None:
@@ -226,7 +232,7 @@ def run_adk_agent(
                     fallback["termination"] = "posthoc_fallback"
                     run.result = AnalysisResult.model_validate(fallback)
             except Exception as error:
-                run.errors.append(f"최종 structured result validation failure: {redact_sensitive_text(str(error))}")
+                run.errors.append(f"최종 structured result 검증에 실패했습니다: {redact_sensitive_text(str(error))}")
         else:
             run.errors.append("Agent 최종 응답을 structured result로 파싱하지 못했습니다.")
     if ledger.validation_error:

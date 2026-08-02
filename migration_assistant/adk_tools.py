@@ -213,7 +213,7 @@ class AdkRepositoryToolset:
         return LlmResponse(
             content=types.Content(
                 role="model",
-                parts=[types.Part(text="Tool protocol validation failed.")],
+                parts=[types.Part(text="Tool protocol 검증에 실패했습니다.")],
             ),
             custom_metadata={"protocol_issue": error_envelope(issue)["error"]},
             partial=False,
@@ -230,7 +230,7 @@ class AdkRepositoryToolset:
         return ToolIssue(
             code=code,
             category=str(value.get("category") or "protocol"),
-            message=str(redact_sensitive_value(str(value.get("message") or "Tool protocol validation failed."))),
+            message=str(redact_sensitive_value(str(value.get("message") or "Tool protocol 검증에 실패했습니다."))),
             field_path=str(value["field_path"]) if value.get("field_path") is not None else None,
             retryable=value.get("retryable") is True,
         )
@@ -261,7 +261,7 @@ class AdkRepositoryToolset:
                 issue = ToolIssue(
                     code=ToolErrorCode.INVALID_TOOL_NAME,
                     category="protocol",
-                    message="tool name is not in the registered public allowlist",
+                    message="등록된 공개 Tool allowlist에 없는 이름입니다.",
                     field_path="$.name",
                     retryable=True,
                 )
@@ -299,7 +299,22 @@ class AdkRepositoryToolset:
 
         name = str(getattr(tool, "name", ""))
         allowed = self._phase_actions()
-        signature = self.tracker.signature(name, args)
+        declared_tool = self._tools_by_name.get(name)
+        if declared_tool is None:
+            issue = ToolIssue(
+                code=ToolErrorCode.INVALID_TOOL_NAME,
+                category="protocol",
+                message="등록된 공개 Tool allowlist에 없는 이름입니다.",
+                field_path="$.name",
+                retryable=True,
+            )
+            self.control.record_issue(issue, allowed_next_actions=allowed)
+            return error_envelope(issue, allowed_next_actions=allowed)
+        argument_issue = declared_tool.argument_issue(args)
+        if argument_issue is not None:
+            self.control.record_issue(argument_issue, allowed_next_actions=(name,))
+            return error_envelope(argument_issue, allowed_next_actions=(name,))
+        signature = self.tracker.signature(name, declared_tool.normalized_args(args))
         if signature in self.control.blocked_signatures:
             issue = ToolIssue(
                 code=ToolErrorCode.DUPLICATE_CALL,
@@ -510,7 +525,7 @@ class AdkRepositoryToolset:
                 ToolIssue(
                     code=ToolErrorCode.CANDIDATE_SCHEMA,
                     category="validation",
-                    message="validate_analysis did not return a protocol envelope",
+                    message="validate_analysis가 protocol envelope을 반환하지 않았습니다.",
                     retryable=True,
                 ),
                 allowed_next_actions=("validate_analysis",),
@@ -518,13 +533,13 @@ class AdkRepositoryToolset:
         preliminary = execution.get("data")
         corrections = preliminary.get("evidence_corrections") if isinstance(preliminary, Mapping) else []
         if not isinstance(preliminary, Mapping) or preliminary.get("valid") is not True:
-            response = dict(preliminary) if isinstance(preliminary, Mapping) else {"valid": False, "errors": ["invalid validation response"]}
+            response = dict(preliminary) if isinstance(preliminary, Mapping) else {"valid": False, "errors": ["검증 응답 형식이 올바르지 않습니다."]}
             details = response.get("errors")
             if isinstance(details, list) and details:
                 safe_details = "; ".join(str(redact_sensitive_value(item)) for item in details[:8])
-                self.ledger.validation_error = f"Repository evidence validation failed: {safe_details}"
+                self.ledger.validation_error = f"Repository evidence 검증에 실패했습니다: {safe_details}"
             else:
-                self.ledger.validation_error = "Repository evidence validation failed."
+                self.ledger.validation_error = "Repository evidence 검증에 실패했습니다."
             grounding = bool(corrections)
             issue = ToolIssue(
                 code=(ToolErrorCode.EVIDENCE_GROUNDING if grounding else ToolErrorCode.CANDIDATE_SCHEMA),
