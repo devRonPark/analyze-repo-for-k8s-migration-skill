@@ -118,3 +118,15 @@ Skill distribution build, OpenCode acceptance harness, 그리고 하나의 거�
 - Codex는 구현ㆍ검증ㆍ필요한 focused commit을 담당한다. Claude Cowork는 읽기 전용
   독립 검토만 하며 제안을 자동 반영하지 않는다. 같은 파일을 동시에 수정하지 않는다.
 - 현재 요청과 무관한 레거시 정리, dependency 설치, 외부 network 접근은 하지 않는다.
+
+### 공유 Git worktree의 커밋 권한
+
+- 작업 트리가 공유 저장소의 worktree일 수 있으므로 `git rev-parse --git-dir`와
+  `git rev-parse --git-common-dir`가 작업 디렉터리 밖의 경로를 가리킬 수 있다.
+- 이 환경에서 `git add` 또는 `git commit`이 `.git/worktrees/.../index.lock` 생성
+  권한 오류로 실패하면, 변경 파일을 되돌리거나 stashㆍresetㆍ삭제하지 않는다.
+- 먼저 `git status --short`, `git diff --stat`, `git diff`로 변경 범위를 확인하고,
+  사용자가 커밋을 승인한 경우 동일한 대상에 대해 권한 승격으로 `git add`와
+  `git commit`을 재시도한다. 커밋 메시지는 변경 목적을 명확히 표현한다.
+- 권한 승격 후에도 실패하면 정확한 오류와 보존된 변경 상태를 보고하고 중단한다.
+  `.git` 메타데이터를 직접 수정하거나 worktree를 임의로 이동ㆍ재생성하지 않는다.
