@@ -78,6 +78,24 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             self.assertEqual(before, after)
             self.assertNotIn("top-secret", (output / "analysis-result.json").read_text(encoding="utf-8"))
 
+    def test_partial_planner_fallback_with_positive_observation_returns_failed_result(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = self.make_repo(root)
+            output = root / "outputs" / "partial-positive"
+
+            result = analyze(
+                repo,
+                output,
+                Planner([{"tool": "search_text", "args": {"pattern": "PORT"}, "status": "confirmed"}]),
+                max_iterations=1,
+            )
+
+            self.assertEqual(result.status, "failed")
+            self.assertEqual(result.evidence, [])
+            self.assertTrue(any("보고 가능한 Evidence" in error for error in result.errors))
+            self.assertTrue((output / "analysis-result.json").is_file())
+
     def test_analysis_result_rejects_invalid_status_with_pydantic(self):
         self.assertTrue(PYDANTIC_AVAILABLE)
         with self.assertRaises(ValueError):

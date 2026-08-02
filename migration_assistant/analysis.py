@@ -266,6 +266,9 @@ def analyze(
             if not positive:
                 result_status = AnalysisStatus.FAILED.value
                 result_errors.append("확인 가능한 line-backed Repository 근거가 없어 결과를 complete로 기록할 수 없습니다.")
+            elif result_status == AnalysisStatus.PARTIAL.value:
+                result_status = AnalysisStatus.FAILED.value
+                result_errors.append("Python planner fallback 관찰은 Agent의 structured finding을 대신할 수 없어 보고 가능한 Evidence로 승격되지 않으므로 partial로 기록할 수 없습니다.")
             result = AnalysisResult.model_validate({
                 "status": result_status,
                 "summary": "Repository 탐색이 완료되었습니다." if result_status == ExplorationStatus.COMPLETE.value else "Repository 탐색이 부분 완료되었습니다.",
