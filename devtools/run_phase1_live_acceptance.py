@@ -30,6 +30,7 @@ class AcceptanceRun:
     evidence_count: int
     positive_evidence_count: int
     protocol_error_codes: tuple[str, ...]
+    protocol_error_fields: tuple[str | None, ...] = ()
     evidence_provenance: tuple[dict[str, object], ...] = ()
     provenance_summary: Mapping[str, object] = field(default_factory=dict)
     error_type: str | None = None
@@ -51,6 +52,7 @@ class AcceptanceRun:
             "evidence_count": self.evidence_count,
             "positive_evidence_count": self.positive_evidence_count,
             "protocol_error_codes": list(self.protocol_error_codes),
+            "protocol_error_fields": list(self.protocol_error_fields),
             "evidence_provenance": [dict(item) for item in self.evidence_provenance],
             "provenance_summary": dict(self.provenance_summary),
             "unobserved_evidence_count": self.unobserved_evidence_count,
@@ -184,6 +186,20 @@ def _protocol_error_codes(metadata: Mapping[str, object]) -> tuple[str, ...]:
     return tuple(codes)
 
 
+def _protocol_error_fields(metadata: Mapping[str, object]) -> tuple[str | None, ...]:
+    """JSONPath of each protocol error, aligned with _protocol_error_codes."""
+
+    issues = metadata.get("protocol_issues", [])
+    if not isinstance(issues, list):
+        return ()
+    fields: list[str | None] = []
+    for issue in issues:
+        if isinstance(issue, Mapping) and isinstance(issue.get("code"), str):
+            path = issue.get("field_path")
+            fields.append(path if isinstance(path, str) else None)
+    return tuple(fields)
+
+
 def _evidence_provenance(metadata: Mapping[str, object]) -> tuple[dict[str, object], ...]:
     """Per-Evidence observation sources; empty sources mean an unobserved citation."""
 
@@ -296,6 +312,7 @@ def _run_once(
         evidence_count=evidence_count,
         positive_evidence_count=positive_evidence_count,
         protocol_error_codes=_protocol_error_codes(metadata),
+        protocol_error_fields=_protocol_error_fields(metadata),
         evidence_provenance=_evidence_provenance(metadata),
         provenance_summary=_provenance_summary(metadata),
         error_type=error_details.get("error_type"),  # type: ignore[arg-type]

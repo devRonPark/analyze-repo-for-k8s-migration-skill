@@ -133,6 +133,34 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
         # so the harness must not drop it.
         self.assertEqual(first["provenance_summary"]["search_zero_hit_ratio"], 1.0)
 
+    def test_summary_keeps_the_field_path_of_each_protocol_error(self):
+        repository = self.test_root / "repository"
+        output_parent = self.test_root / "outputs"
+        repository.mkdir()
+
+        def fake_analyze(repository_path, output, *, max_iterations, run_metadata):
+            del repository_path, max_iterations
+            Path(output).mkdir(parents=True)
+            run_metadata.update({
+                "terminal": False,
+                "tool_calls": ["inspect_target", "validate_analysis"],
+                "protocol_issues": [
+                    {"code": "candidate_schema", "message": "필수 Tool 인자가 누락되었습니다.", "field_path": "$.iterations"},
+                    {"code": "invalid_arguments", "message": "범위 오류", "field_path": "$.line_end"},
+                    {"code": "duplicate_call", "message": "중복", "field_path": None},
+                ],
+            })
+            return SimpleNamespace(status="failed", evidence=[])
+
+        summary = run_acceptance(repository, output_parent, runs=1, analyze_fn=fake_analyze)
+
+        # A bare error code cannot tell which argument the model got wrong,
+        # which is the only thing that makes the failure actionable.
+        self.assertEqual(
+            summary["runs"][0]["protocol_error_fields"],
+            ["$.iterations", "$.line_end", None],
+        )
+
     def test_unresolved_evidence_does_not_count_as_gate_success(self):
         repository = self.test_root / "repository"
         output_parent = self.test_root / "outputs"
