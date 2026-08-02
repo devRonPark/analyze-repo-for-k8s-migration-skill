@@ -6,7 +6,7 @@ import json
 import os
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, MutableMapping
 
 from .adapter import AdapterConfigurationError
 from .config import Settings
@@ -246,6 +246,7 @@ def analyze(
     *,
     max_iterations: int | None = None,
     adk_model: object | None = None,
+    run_metadata: MutableMapping[str, object] | None = None,
 ) -> AnalysisResult:
     require_pydantic()
     budget = SafetyBudget(max_iterations=max_iterations if max_iterations is not None else SafetyBudget().max_iterations)
@@ -298,6 +299,18 @@ def analyze(
                     raise GoogleAdkDependencyError("필수 dependency google-adk가 설치되지 않아 분석을 시작할 수 없습니다.") from error
                 raise
             run = run_adk_agent(tools, settings, budget, model_override=adk_model)
+            if run_metadata is not None:
+                run_metadata.clear()
+                run_metadata.update(
+                    {
+                        "terminal": bool(getattr(run, "terminal", False)),
+                        "tool_calls": [str(name) for name in getattr(run, "tool_calls", [])],
+                        "protocol_issues": redact_sensitive_value(
+                            list(getattr(run, "protocol_issues", []))
+                        ),
+                        "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
+                    }
+                )
             result = run.result
             if result is None:
                 raise RuntimeError("ADK Runner가 AnalysisResult를 반환하지 않았습니다.")

@@ -12,3 +12,4 @@ dist/
 .artifacts/
 .code-review-graph/
 .dryforge/
+.phase1-harness-*

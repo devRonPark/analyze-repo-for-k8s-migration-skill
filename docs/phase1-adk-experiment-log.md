@@ -298,3 +298,24 @@ evidence와 명시적 사유가 있으므로 사용자 계약의 partial 허용 
 3. tool sequence, iteration, evidence 상태 수
 4. exit code와 artifact/input Git 상태
 5. 다음 실험에서 유지할 것과 폐기할 것
+
+### Run 25 — development-only live acceptance harness 도입 (live 미실행)
+
+1. 바꾼 변수 하나와 그 가설: Runner가 관찰한 `terminal`, Secret-safe
+   `protocol_issues`, tool trajectory를 `analyze()`의 선택적 handoff로 전달하고,
+   별도 output directory 3개를 사용하는 harness를 도입했다. `complete` 형태만으로
+   terminal 수락을 추론하지 않으면 3-of-3 gate가 실제 `validate_analysis` 수락만
+   통과시킬 것이라는 가설이다.
+2. 실제 실행 명령의 비밀값 제거 버전: live harness는 아직 실행하지 않았다.
+   network 없는 fake runner 기반 `\.venv\Scripts\python.exe -m unittest
+   tests.test_phase1_live_acceptance_harness -v`만 실행했다.
+3. tool sequence, iteration, evidence 상태 수: live 실행 결과는 없어 기록할
+   sequence/iteration/evidence 상태 수가 없다. 결정론적 테스트에서는
+   `validate_analysis` trajectory와 positive evidence count 조건, zero-tool
+   `complete` 실패 조건을 검증했다.
+4. exit code와 artifact/input Git 상태: live exit code와 live artifact는 아직
+   없다. fake runner 테스트는 통과했고 input Repository를 변경하지 않았다.
+5. 다음 실험에서 유지할 것과 폐기할 것: 유지할 것은 run별 격리 output, terminal
+   사실 전달, protocol error code만의 summary redaction, 3-of-3 gate다. 폐기할
+   것은 아직 없으며, 다음 실험에서 실제 local checkout live 실행 결과를 별도로
+   기록한다.
