@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -104,9 +105,10 @@ class SummaryRendererTests(unittest.TestCase):
             path = Path(tmp) / "summary.md"
             path.write_text(report, encoding="utf-8")
             result = subprocess.run(
-                ["python3", str(ROOT / "scripts/validate_report.py"), str(path), "--mode", "summary"],
+                [sys.executable, str(ROOT / "scripts/validate_report.py"), str(path), "--mode", "summary"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -118,9 +120,10 @@ class SummaryRendererTests(unittest.TestCase):
             path = Path(tmp) / "summary.md"
             path.write_text(report, encoding="utf-8")
             result = subprocess.run(
-                ["python3", str(ROOT / "scripts/validate_report.py"), str(path), "--mode", "summary"],
+                [sys.executable, str(ROOT / "scripts/validate_report.py"), str(path), "--mode", "summary"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -129,16 +132,18 @@ class SummaryRendererTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "summary.md"
             result = subprocess.run(
-                ["python3", str(ROOT / "scripts/render_summary.py"), str(ROOT / "tests/fixtures/reports/valid-summary.json")],
+                [sys.executable, str(ROOT / "scripts/render_summary.py"), str(ROOT / "tests/fixtures/reports/valid-summary.json")],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
             report.write_text(result.stdout, encoding="utf-8")
             validation = subprocess.run(
-                ["python3", str(ROOT / "scripts/validate_report.py"), str(report), "--mode", "summary"],
+                [sys.executable, str(ROOT / "scripts/validate_report.py"), str(report), "--mode", "summary"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
         self.assertEqual(result.returncode, 0, result.stderr)

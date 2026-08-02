@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -58,7 +59,7 @@ class RepositoryDistributionTests(unittest.TestCase):
 
     def run_builder(self, output: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["python3", str(ROOT / "scripts/build_dist.py"), "--output", str(output)],
+            [sys.executable, str(ROOT / "scripts/build_dist.py"), "--output", str(output)],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -98,7 +99,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             build = self.run_builder(output)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             result = subprocess.run(
-                ["python3", str(ROOT / "scripts/validate_skill.py"), str(output)],
+                [sys.executable, str(ROOT / "scripts/validate_skill.py"), str(output)],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -237,6 +238,8 @@ class RepositoryDistributionTests(unittest.TestCase):
 
     def test_markdown_commands_do_not_use_shell_line_continuations(self):
         for path in ROOT.rglob("*.md"):
+            if ".venv" in path.parts or ".git" in path.parts:
+                continue
             for line in path.read_text(encoding="utf-8").splitlines():
                 self.assertFalse(line.rstrip().endswith("\\"), f"{path}: {line}")
 

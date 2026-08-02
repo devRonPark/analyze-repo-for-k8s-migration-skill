@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,5 +13,5 @@ class SummaryQualityTests(unittest.TestCase):
         self.assertLessEqual(len(text.splitlines()), 90)
         for name in ("backend", "frontend", "prestart", "PostgreSQL"):
             self.assertIn(name, text)
-        result = subprocess.run(["python3", str(ROOT / "scripts/validate_report.py"), str(GOLDEN), "--mode", "summary"], check=False, capture_output=True, text=True)
+        result = subprocess.run([sys.executable, str(ROOT / "scripts/validate_report.py"), str(GOLDEN), "--mode", "summary"], check=False, capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stdout)

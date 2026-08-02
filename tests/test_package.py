@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -112,7 +113,7 @@ class SkillPackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "summary.md"
             report.write_text(report_text, encoding="utf-8")
-            command = ["python3", str(ROOT / "scripts/validate_report.py"), str(report), "--mode", mode]
+            command = [sys.executable, str(ROOT / "scripts/validate_report.py"), str(report), "--mode", mode]
             if legacy:
                 command.append("--legacy")
             if repo_root is not None:
@@ -121,14 +122,16 @@ class SkillPackageTests(unittest.TestCase):
                 command,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
 
     def test_package_validator_passes(self):
         result = subprocess.run(
-            ["python3", str(ROOT / "scripts/validate_skill.py"), str(ROOT)],
+            [sys.executable, str(ROOT / "scripts/validate_skill.py"), str(ROOT)],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -433,7 +436,7 @@ class SkillPackageTests(unittest.TestCase):
     def test_executable_scenario_evaluator_passes(self):
         result = subprocess.run(
             [
-                "python3",
+                sys.executable,
                 str(ROOT / "scripts/evaluate_scenarios.py"),
                 "--cases",
                 str(ROOT / "tests/evaluation/cases.json"),
@@ -442,6 +445,7 @@ class SkillPackageTests(unittest.TestCase):
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -449,9 +453,10 @@ class SkillPackageTests(unittest.TestCase):
     def test_known_actual_output_schema_regression_fails(self):
         fixture = ROOT / "tests/fixtures/regression/invalid-actual-output.md"
         result = subprocess.run(
-            ["python3", str(ROOT / "scripts/validate_report.py"), str(fixture)],
+            [sys.executable, str(ROOT / "scripts/validate_report.py"), str(fixture)],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
         self.assertNotEqual(result.returncode, 0)

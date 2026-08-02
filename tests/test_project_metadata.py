@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -33,9 +34,10 @@ class ProjectMetadataTests(unittest.TestCase):
             metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
 
             result = subprocess.run(
-                ["python3", str(source / "scripts/build_dist.py"), "--source-root", str(source), "--output", str(output)],
+                [sys.executable, str(source / "scripts/build_dist.py"), "--source-root", str(source), "--output", str(output)],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
 

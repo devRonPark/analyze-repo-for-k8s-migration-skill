@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -13,10 +14,10 @@ class EvidenceReadinessContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "report.md"
             report.write_text(text, encoding="utf-8")
-            command = ["python3", str(ROOT / "scripts/validate_report.py"), str(report), "--mode", "summary"]
+            command = [sys.executable, str(ROOT / "scripts/validate_report.py"), str(report), "--mode", "summary"]
             if repo_root is not None:
                 command.extend(["--repo-root", str(repo_root)])
-            return subprocess.run(command, capture_output=True, text=True, check=False)
+            return subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=False)
 
     def test_fabricated_file_line_fails_with_repository_root(self):
         with tempfile.TemporaryDirectory() as tmp:
