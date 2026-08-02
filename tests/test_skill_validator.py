@@ -94,6 +94,17 @@ class SkillValidatorTests(unittest.TestCase):
 
         self.assertTrue(any("fence" in error for error in errors))
 
+    def test_ignored_development_directories_do_not_add_runtime_skills(self):
+        root = self.make_package()
+        for directory in (".dryforge/worktrees/T4", ".venv/Lib/site-packages/example"):
+            nested = root / directory
+            nested.mkdir(parents=True)
+            (nested / "SKILL.md").write_text("development-only\n", encoding="utf-8")
+
+        errors = validate_skill.validate(root)
+
+        self.assertEqual(errors, [])
+
 
 if __name__ == "__main__":
     unittest.main()
