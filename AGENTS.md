@@ -28,8 +28,20 @@ Python은 경로ㆍGitㆍsymlinkㆍread-onlyㆍfile/budgetㆍiteration 경계, P
 검증, YAML 렌더링, 정적 일관성/Secret 검사와 output 쓰기를 담당한다.
 
 Spring, FastAPI, Maven, Gradle, Go 등 언어별 고정 분석 흐름으로 Agent 판단을
-대체하지 않는다. 일반 inventory와 안전한 parsing helper는 허용하지만, 낯선
-Repository가 새 parser 없이는 분석 불가가 되는 구조는 금지한다.
+대체하지 않는다. 금지 대상은 막다른 길이다. 즉 낯선 Repository가 새 parser 없이는
+분석 불가가 되는 구조를 금지하는 것이지, 언어 지식 자체를 금지하는 것이 아니다.
+
+언어 신호는 **선언적 registry**로 유지한다. registry는 탐색 우선순위, high-signal
+검색 pattern, 실행 단계 슬롯 검증 힌트를 제공하며 실행 경로를 가르지 않는다.
+다음 다섯 불변식이 원래 금지가 지키려던 것을 대신한다.
+
+1. registry에 없는 생태계도 generic 경로로 완주하고, 부족한 값은 미확인으로 남긴다.
+2. registry는 계약 필드 값을 채우지 않는다. 모든 positive 값은 실제 파일 관측에서
+   오며 evidence 참조를 갖는다. registry는 어디를 먼저 보라는 순서와 이 배치가
+   이상하다는 힌트만 말한다.
+3. registry entry를 삭제해도 실패 없이 generic 경로로 떨어진다.
+4. registry 참조 지점은 한 모듈에 모이며 언어 분기가 로직 전반에 흩어지지 않는다.
+5. 생태계 탐지는 이름 추측이 아니라 실제 파일 관측 근거에 기반한다.
 
 ## 입력, 안전, 근거
 
