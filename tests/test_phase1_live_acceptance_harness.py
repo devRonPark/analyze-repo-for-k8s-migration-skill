@@ -89,6 +89,44 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
         self.assertEqual(summary["llm_model_source"], "env_file")
         self.assertEqual(summary["environment_variables"]["LLM_MODEL"]["source"], "env_file")
 
+    def test_summary_reports_evidence_provenance_for_measurement(self):
+        repository = self.test_root / "repository"
+        output_parent = self.test_root / "outputs"
+        repository.mkdir()
+
+        def fake_analyze(repository_path, output, *, max_iterations, run_metadata):
+            del repository_path, max_iterations
+            Path(output).mkdir(parents=True)
+            run_metadata.update({
+                "terminal": True,
+                "tool_calls": ["inspect_target", "read_file", "validate_analysis"],
+                "protocol_issues": [],
+                "evidence_provenance": [
+                    {"id": "e1", "sources": ["read_file_lines"]},
+                    {"id": "e2", "sources": []},
+                ],
+                "provenance_summary": {
+                    "observed_lines": {"read_file": 120, "read_file_lines": 4},
+                    "observed_paths": 2,
+                    "truncated": False,
+                },
+            })
+            return SimpleNamespace(
+                status="complete",
+                evidence=[SimpleNamespace(status="confirmed", path="app.py", line_start=1, line_end=1)],
+            )
+
+        summary = run_acceptance(repository, output_parent, runs=1, analyze_fn=fake_analyze)
+        first = summary["runs"][0]
+
+        self.assertEqual(
+            first["evidence_provenance"],
+            [{"id": "e1", "sources": ["read_file_lines"]}, {"id": "e2", "sources": []}],
+        )
+        self.assertEqual(first["provenance_summary"]["observed_lines"]["read_file"], 120)
+        # An Evidence with no source was cited without ever being observed.
+        self.assertEqual(first["unobserved_evidence_count"], 1)
+
     def test_unresolved_evidence_does_not_count_as_gate_success(self):
         repository = self.test_root / "repository"
         output_parent = self.test_root / "outputs"

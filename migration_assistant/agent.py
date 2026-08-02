@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from .adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from .config import Settings
+from .provenance import ObservationProvenance
 from .repository_tools import RepositoryTools
 from .target import SafetyBudget
 from .tool_contract import PUBLIC_AGENT_TOOL_NAMES
@@ -32,6 +33,7 @@ class AgentApplication:
         budget: SafetyBudget,
         model_override: object | None = None,
         control: RunControlLedger | None = None,
+        provenance: ObservationProvenance | None = None,
     ) -> object:
         """Build one Google ADK Agent with exactly the eight safe tools."""
         try:
@@ -45,7 +47,9 @@ class AgentApplication:
             from .adk_model import OpenAICompatibleAdkLlm
 
             model_override = OpenAICompatibleAdkLlm(self.settings, budget=budget)
-        toolset = AdkRepositoryToolset(repository_tools, ledger, tracker, control=control)
+        toolset = AdkRepositoryToolset(
+            repository_tools, ledger, tracker, control=control, provenance=provenance
+        )
 
         return Agent(
             name=self.name,

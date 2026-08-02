@@ -309,6 +309,12 @@ def analyze(
                             list(getattr(run, "protocol_issues", []))
                         ),
                         "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
+                        "evidence_provenance": redact_sensitive_value(
+                            list(getattr(run, "evidence_provenance", []))
+                        ),
+                        "provenance_summary": redact_sensitive_value(
+                            dict(getattr(run, "provenance_summary", {}))
+                        ),
                     }
                 )
             result = run.result

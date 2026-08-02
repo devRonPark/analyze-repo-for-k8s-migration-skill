@@ -11,6 +11,7 @@ from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from .adk_function_tool import RepositoryFunctionTool
+from .provenance import ObservationProvenance
 from .repository_tools import RepositoryToolError, RepositoryTools, redact_sensitive_value
 from .target import BudgetExceededError
 from .tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, ToolIssue, error_envelope, success_envelope
@@ -158,11 +159,13 @@ class AdkRepositoryToolset:
         tracker: DuplicateTracker,
         *,
         control: RunControlLedger | None = None,
+        provenance: ObservationProvenance | None = None,
     ) -> None:
         self.repository_tools = repository_tools
         self.ledger = ledger
         self.tracker = tracker
         self.control = control or RunControlLedger()
+        self.provenance = provenance or ObservationProvenance()
         definitions = (
             ("inspect_target", InspectTargetArgs, lambda value: self.inspect_target()),
             ("list_tree", ListTreeArgs, lambda value: self.list_tree(**value.model_dump())),
@@ -373,6 +376,36 @@ class AdkRepositoryToolset:
             allowed_next_actions=actions,
         )
 
+    def _record_provenance(self, name: str, result: object) -> None:
+        """Record observed line coordinates for measurement; never affects validation."""
+
+        if name in ("search_text", "read_file_lines"):
+            items = result.get("hits") if isinstance(result, Mapping) else result
+            if not isinstance(items, list):
+                return
+            for item in items:
+                if not isinstance(item, Mapping):
+                    continue
+                path = item.get("path")
+                start = item.get("line_start")
+                end = item.get("line_end")
+                if isinstance(path, str) and isinstance(start, int) and isinstance(end, int):
+                    self.provenance.record(name, path, start, end)
+            return
+        if name != "read_file" or not isinstance(result, Mapping) or result.get("binary"):
+            return
+        text = result.get("text")
+        path = result.get("path")
+        if not isinstance(text, str) or not isinstance(path, str):
+            return
+        lines = text.splitlines()
+        # The byte prefix can cut the final line in half, and a half line was never
+        # fully observed. Dropping it can only under-count, never over-claim.
+        if result.get("truncated") and lines:
+            lines = lines[:-1]
+        if lines:
+            self.provenance.record("read_file", path, 1, len(lines))
+
     def _call(self, name: str, args: Mapping[str, object], operation: Any) -> object:
         signature = self.tracker.signature(name, args)
         duplicate = self.tracker.begin(name, args)
@@ -403,6 +436,7 @@ class AdkRepositoryToolset:
                 self.ledger.observations.extend(redact_sensitive_value(item) for item in result if isinstance(item, Mapping) and item.get("path"))
             if len(self.ledger.observations) > 64:
                 del self.ledger.observations[:-64]
+            self._record_provenance(name, result)
             if name == "inspect_target":
                 self.control.phase = RunPhase.DISCOVER
             elif name == "validate_analysis":

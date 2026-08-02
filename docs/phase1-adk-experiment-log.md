@@ -416,6 +416,47 @@ evidence와 명시적 사유가 있으므로 사용자 계약의 partial 허용 
   configuration failure로 남긴다.
 - 모델 교체는 설정 결정이므로 이 기록 시점에는 수행하지 않았다.
 
+### Run 29 — 관측 출처 계측 도입
+
+1. 바꾼 변수 하나와 그 가설: 어느 Tool이 어느 줄을 관측했는지를 좌표로 기록하고
+   Evidence별로 귀속하는 계측을 추가했다. 설계 판단의 전제인 "근거가 실제로 어느
+   Tool에서 오는가"를 측정할 수 있게 되면, 관측 원장 설계의 기대 효과를 데이터로
+   판정할 수 있다는 가설이다. 계측은 기록 전용이며 grounding 판정 경로를 바꾸지 않는다.
+2. 실제 실행 명령의 비밀값 제거 버전: Run 26과 동일한 `--runs 3` 명령이며 모델 설정도
+   동일하다(`solar-pro3`, max_tokens 4096).
+3. tool sequence, iteration, evidence 상태 수: 세 run 모두 evidence 0건이라 Evidence별
+   귀속 데이터는 비어 있다. 관측 분포는 다음과 같다.
+
+   | run | read_file | read_file_lines | search_text | 관측 path 수 |
+   | --- | --- | --- | --- | --- |
+   | 1 | 644 lines | 10 lines | 0 lines (호출 1회) | 3 |
+   | 2 | 767 lines | 0 lines (호출 0회) | 0 lines (호출 2회) | 6 |
+   | 3 | 0 lines (호출 0회) | 4 lines | 0 lines (호출 0회) | 1 |
+
+4. exit code와 artifact/input Git 상태: 3회 모두 exit 1로 `passed=false`,
+   `successes=0/3`이었다. 입력 checkout은 무변경이다. 결정론적 테스트는 신규 11개를
+   포함해 153개 전부 통과했다.
+5. 다음 실험에서 유지할 것과 폐기할 것:
+
+   유지할 것은 계측 자체다. 이 한 번의 실행으로 이전에는 보이지 않던 두 가지가 드러났다.
+
+   - **관측이 `read_file`에 압도적으로 쏠려 있다.** 전체 관측 1,425줄 중 1,411줄이
+     whole-file read이고 좁은 관측은 14줄뿐이다. 관측 원장 설계는 좁은 관측에만 전사
+     면제를 주려 했으므로, 이 분포에서는 기대 효과가 0에 가깝다. 독립 검토가 지적했던
+     "효과를 측정할 수 없다"는 우려가 데이터로 확인됐다.
+   - **`search_text`가 세 번 호출되어 hit 0건이었다.** Tool 결함은 아니다. 같은
+     Repository에 `java.version`, `<packaging>`, `port`, `jdbc`, `8080`을 직접
+     질의하면 각각 8, 1, 32, 32, 4건이 나온다. 즉 모델이 아무것도 매치되지 않는 패턴을
+     고르고 있다. 지시문(`migration_assistant/agent.py:62`)은 "주장마다 먼저
+     search_text hit를 확보하라"고 요구하는데, 지시된 경로가 실제로는 성립하지 않는다.
+
+   폐기할 것은 "관측 원장 grounding이 다음 우선순위"라는 가정이다. 위 분포는 무엇을
+   검색해야 하는지 모르는 것이 더 앞선 원인임을 가리킨다.
+
+   해석 한계: 세 run 모두 evidence가 0건이라 이 수치는 **모델이 무엇을 열어봤는지**를
+   말할 뿐 **무엇을 인용했는지**를 말하지 않는다. n=3이다. Evidence별 귀속과
+   `unobserved_evidence_count`는 성공 run이 나와야 값을 갖는다.
+
 ## 개발 환경 변수 파일
 
 Live harness는 다음 순서로 처음 발견되는 env 파일 하나를 읽습니다: 명시적

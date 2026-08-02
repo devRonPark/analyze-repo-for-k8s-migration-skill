@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
@@ -30,8 +30,16 @@ class AcceptanceRun:
     evidence_count: int
     positive_evidence_count: int
     protocol_error_codes: tuple[str, ...]
+    evidence_provenance: tuple[dict[str, object], ...] = ()
+    provenance_summary: Mapping[str, object] = field(default_factory=dict)
     error_type: str | None = None
     error_message: str | None = None
+
+    @property
+    def unobserved_evidence_count(self) -> int:
+        """Positive Evidence cited without any observation of its lines."""
+
+        return sum(1 for item in self.evidence_provenance if not item.get("sources"))
 
     def as_summary(self) -> dict[str, object]:
         summary: dict[str, object] = {
@@ -43,6 +51,9 @@ class AcceptanceRun:
             "evidence_count": self.evidence_count,
             "positive_evidence_count": self.positive_evidence_count,
             "protocol_error_codes": list(self.protocol_error_codes),
+            "evidence_provenance": [dict(item) for item in self.evidence_provenance],
+            "provenance_summary": dict(self.provenance_summary),
+            "unobserved_evidence_count": self.unobserved_evidence_count,
         }
         if self.error_type is not None:
             summary["error_type"] = self.error_type
@@ -173,6 +184,31 @@ def _protocol_error_codes(metadata: Mapping[str, object]) -> tuple[str, ...]:
     return tuple(codes)
 
 
+def _evidence_provenance(metadata: Mapping[str, object]) -> tuple[dict[str, object], ...]:
+    """Per-Evidence observation sources; empty sources mean an unobserved citation."""
+
+    entries = metadata.get("evidence_provenance", [])
+    if not isinstance(entries, list):
+        return ()
+    attribution: list[dict[str, object]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        sources = entry.get("sources")
+        attribution.append(
+            {
+                "id": entry.get("id") if isinstance(entry.get("id"), str) else None,
+                "sources": [str(item) for item in sources] if isinstance(sources, list) else [],
+            }
+        )
+    return tuple(attribution)
+
+
+def _provenance_summary(metadata: Mapping[str, object]) -> dict[str, object]:
+    summary = metadata.get("provenance_summary", {})
+    return dict(summary) if isinstance(summary, Mapping) else {}
+
+
 def _error_summary(error: BaseException) -> dict[str, object]:
     message = redact_sensitive_text(str(error))
     try:
@@ -260,6 +296,8 @@ def _run_once(
         evidence_count=evidence_count,
         positive_evidence_count=positive_evidence_count,
         protocol_error_codes=_protocol_error_codes(metadata),
+        evidence_provenance=_evidence_provenance(metadata),
+        provenance_summary=_provenance_summary(metadata),
         error_type=error_details.get("error_type"),  # type: ignore[arg-type]
         error_message=error_details.get("error_message"),  # type: ignore[arg-type]
     )
