@@ -102,6 +102,7 @@ class MigrationAssistantFoundationTests(unittest.TestCase):
             [sys.executable, "-m", "migration_assistant", "analyze", "--help"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
 

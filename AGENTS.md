@@ -7,8 +7,6 @@
 Repository Tool로 근거를 수집하고 Kubernetes 이관 분석, 구조화된 Migration
 Plan, Kubernetes manifest 초안을 별도 output directory에 생성한다.
 
-이 저장소는 더 이상 OpenCode Agent Skill 유지보수 프로젝트가 아니다.
-
 ## 영구 아키텍처
 
 ```text
@@ -85,18 +83,19 @@ path/read-only/budget/redaction 경계를 담당한다. Renderer는
 - 사용자 메시지, 상태, 오류, 보고서 제목은 한국어로 쓴다. 경로, 명령어, 코드,
   Kubernetes resource 이름, API field, 환경변수, model ID는 원문을 유지한다.
 
-## 기존 자산과 레거시 경계
+## 저장소 구조
 
-`CONTEXT.md`의 재사용 등록부를 먼저 읽고, 기존 파일은 그 등록부에 적힌 목적에만
-참조한다. 특히 high-signal 탐색, evidence 상태와 line 근거, Secret redaction,
-Dockerfile 없음, monorepo/component 관계, 실행 단계 분리, 유효 fixture 사례는
-행동 규칙으로만 재사용한다. 기존 schema, report template, validator는 새 Plan과
-manifest 계약을 직접 표현하지 못하므로 설계 참조일 뿐 runtime 의존성이 아니다.
+| 경로 | 역할 |
+| --- | --- |
+| `migration_assistant/` | 제품 package. ADK agent, OpenAI-compatible adapter, repository tools, schema, guardrail, analysis, renderer, validator, service, CLI |
+| `devtools/` | 제품 package가 아닌 개발 전용 도구. live acceptance harness와 env 파일 로더 |
+| `tests/` | 현재 ADK 실행 경로를 검증하는 테스트 |
+| `docs/` | 실험 기록, Tool 설계 지침, superpowers plan/spec |
 
-다음은 레거시이며 새 ADK 코드가 import, invoke, 또는 의존해서는 안 된다:
-OpenCode Runtime/custom command/Agent/Skill discovery/permission/install,
-Skill distribution build, OpenCode acceptance harness, 그리고 하나의 거대한
-`SKILL.md`가 orchestration을 소유하는 구조. 즉시 삭제하지는 않는다.
+OpenCode Skill 패키지, `SKILL.md` orchestration, `runtime/`, `agents/`, Skill
+install/update/distribution, 레거시 report contract와 acceptance harness는 이
+저장소에서 제거됐다. 이들을 다시 도입하거나 새 코드가 참조하지 않는다. 제품
+package는 `devtools/`를 import하지 않는다.
 
 ## MVP 검증과 범위
 
