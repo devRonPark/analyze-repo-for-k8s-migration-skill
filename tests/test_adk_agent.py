@@ -122,6 +122,35 @@ class AdkAgentTests(unittest.TestCase):
             self.assertIn(", ".join(PUBLIC_AGENT_TOOL_NAMES), agent.instruction)
             self.assertIn("이 8개 외 Tool을 만들거나 호출하지 마세요", agent.instruction)
 
+    def test_agent_instruction_carries_the_migration_domain(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            agent = create_agent().build_root_agent(
+                repository_tools=RepositoryTools(repo, budget=SafetyBudget()),
+                ledger=ValidationLedger(),
+                tracker=DuplicateTracker(),
+                budget=SafetyBudget(),
+                model_override=ScriptedAdkLlm(),
+            )
+
+            # Without these the Agent explores without knowing what a migration
+            # analyst is looking for, which is what Run 29 measured.
+            for stage in ("의존성 설치", "애플리케이션 빌드", "image 빌드", "프로덕션 기동"):
+                self.assertIn(stage, agent.instruction)
+            for bucket in (
+                "배포 대상 후보",
+                "저장소에 정의된 런타임 의존성",
+                "외부 런타임 의존성",
+                "배포 대상 후보에서 제외한 항목",
+            ):
+                self.assertIn(bucket, agent.instruction)
+            self.assertIn("Dockerfile이 없는 것은 분석 실패가 아니라", agent.instruction)
+            self.assertIn("conflicting으로 기록", agent.instruction)
+            self.assertIn("components", agent.instruction)
+            self.assertIn("결과가 0건이면", agent.instruction)
+            # The old blanket ban removed the domain along with the hardcoding.
+            self.assertNotIn("고정 파일 순서", agent.instruction)
+
     def test_production_analyze_uses_adk_and_validates_agent_result(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
