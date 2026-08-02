@@ -118,6 +118,16 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             self.assertEqual(result.status, "failed")
             self.assertTrue(any("근거" in error for error in result.errors))
 
+    def test_complete_requires_structured_finding_linked_to_evidence(self):
+        with self.assertRaises(ValueError):
+            AnalysisResult.model_validate({
+                "status": "complete",
+                "summary": "사실 주장",
+                "evidence": [{"id": "e1", "status": "confirmed", "path": "app.py", "line_start": 1, "line_end": 1, "claim": "PORT", "text": "PORT = 8080"}],
+                "findings": [],
+                "termination": "normal",
+            })
+
     def test_analysis_does_not_consume_git_internal_files_as_repository_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

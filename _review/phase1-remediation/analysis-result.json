@@ -1,0 +1,40 @@
+{
+  "status": "partial",
+  "summary": "Repository는 Spring Boot 기반 PetClinic 웹 애플리케이션이며, k8s 디렉터리에 Kubernetes 배포용 YAML 파일이 존재합니다. 이미지 레지스트리 관련 설정(예: registry URL, imagePullSecrets 등)은 명시적으로 확인할 수 없어 외부 레지스트리 사용 여부를 결정할 근거가 부족합니다.",
+  "evidence": [
+    {
+      "status": "confirmed",
+      "path": "src/main/java/org/springframework/samples/petclinic/system/WebConfiguration.java",
+      "line_start": 53,
+      "line_end": 56,
+      "text": null,
+      "absence_scope": null,
+      "absence_pattern": null,
+      "result": "Spring MVC WebConfiguration 클래스에 InterceptorRegistry 사용 코드 확인"
+    },
+    {
+      "status": "confirmed",
+      "path": "k8s/petclinic.yml",
+      "line_start": 1,
+      "line_end": 1,
+      "text": null,
+      "absence_scope": null,
+      "absence_pattern": null,
+      "result": "Kubernetes 배포 YAML 파일 존재 확인"
+    },
+    {
+      "status": "confirmed",
+      "path": "k8s/db.yml",
+      "line_start": 1,
+      "line_end": 1,
+      "text": null,
+      "absence_scope": null,
+      "absence_pattern": null,
+      "result": "Kubernetes DB 배포 YAML 파일 존재 확인"
+    }
+  ],
+  "iterations": 6,
+  "errors": [
+    "Repository 내에 이미지 레지스트리 이름이나 Docker registry URL, imagePullSecrets, registryUsername, registryPassword 등 이미지 레지스트리 설정을 명시적으로 확인할 수 있는 파일이나 라인이 존재하지 않음. 외부 레지스트리 사용 여부를 판단할 근거가 부족함."
+  ]
+}

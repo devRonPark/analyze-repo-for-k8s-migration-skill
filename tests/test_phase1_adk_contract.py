@@ -71,6 +71,40 @@ class ValidFinalLlm(BaseLlm):
         )
 
 
+class RepositoryAwareValidFinalLlm(BaseLlm):
+    model: str = "fake-repository-aware-final-model"
+
+    async def generate_content_async(self, llm_request, stream: bool = False):
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[
+                    types.Part(
+                        text='{"status":"complete","summary":"PORT 설정이 확인되었습니다.","evidence":[{"id":"e1","status":"confirmed","path":"app.py","line_start":1,"line_end":1,"claim":"PORT 설정이 확인됨","text":"PORT = 8080"}],"findings":[{"id":"f1","status":"confirmed","claim":"PORT 설정이 확인됨","evidence_ids":["e1"]}],"iterations":0,"errors":[],"termination":"normal"}'
+                    )
+                ],
+            ),
+            partial=False,
+        )
+
+
+class FalseRepositoryAwareFinalLlm(BaseLlm):
+    model: str = "fake-false-repository-aware-final-model"
+
+    async def generate_content_async(self, llm_request, stream: bool = False):
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[
+                    types.Part(
+                        text='{"status":"complete","summary":"허위 근거","evidence":[{"id":"e1","status":"confirmed","path":"missing.py","line_start":99,"line_end":99,"claim":"PORT 설정이 확인됨","text":"PORT = 8080"}],"findings":[{"id":"f1","status":"confirmed","claim":"PORT 설정이 확인됨","evidence_ids":["e1"]}],"iterations":0,"errors":[],"termination":"normal"}'
+                    )
+                ],
+            ),
+            partial=False,
+        )
+
+
 class Phase1ContractTests(unittest.TestCase):
     def make_repo(self, root: Path) -> Path:
         repo = root / "repo"
@@ -99,11 +133,23 @@ class Phase1ContractTests(unittest.TestCase):
             self.assertEqual(result.status, "failed")
             self.assertTrue(any("파싱" in error for error in result.errors))
 
-    def test_zero_tool_valid_structured_final_can_complete(self):
+    def test_zero_tool_structured_final_without_repository_validation_cannot_complete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             result = analyze(self.make_repo(root), root / "output", adk_model=ValidFinalLlm(), max_iterations=3)
+            self.assertNotEqual(result.status, "complete")
+
+    def test_zero_tool_repository_aware_valid_candidate_can_complete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = analyze(self.make_repo(root), root / "output", adk_model=RepositoryAwareValidFinalLlm(), max_iterations=3)
             self.assertEqual(result.status, "complete")
+
+    def test_zero_tool_false_path_line_or_excerpt_cannot_complete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = analyze(self.make_repo(root), root / "output", adk_model=FalseRepositoryAwareFinalLlm(), max_iterations=3)
+            self.assertNotEqual(result.status, "complete")
 
     def test_fenced_structured_result_is_safely_extractable(self):
         self.assertEqual(

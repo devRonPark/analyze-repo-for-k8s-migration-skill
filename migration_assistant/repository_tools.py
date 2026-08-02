@@ -26,6 +26,13 @@ _SECRET_ASSIGNMENT = re.compile(
     r"(?i)(\b(?:password|passwd|secret|token|api[_-]?key|private[_-]?key)\b\s*[:=]\s*)([^\s#;,]+)"
 )
 _BEARER = re.compile(r"(?i)(\b(?:authorization\s*:\s*bearer\s+))([^\s]+)")
+_URL_AUTHORITY_CREDENTIAL = re.compile(
+    r"(?i)(\b(?:[a-z][a-z0-9+.-]*):\/\/)([^\s\/@:]+):([^\s\/@]+)@"
+)
+_URL_QUERY_CREDENTIAL = re.compile(
+    r"(?i)([?&](?:user|username|password|passwd|token|api[_-]?key)=)([^&#\s]+)"
+)
+_GENERIC_PLACEHOLDERS = {"", "n/a", "na", "unknown", "placeholder", "todo", "tbd"}
 
 
 class RepositoryTools:
@@ -46,9 +53,17 @@ class RepositoryTools:
         self.budget = budget or ToolBudget()
 
     @staticmethod
-    def _reject_git(relative: str | Path) -> None:
-        parts = Path(relative).parts
-        if ".git" in parts:
+    def _path_components(value: str | Path) -> tuple[str, ...]:
+        normalized = str(value).replace("\\", "/")
+        return tuple(part for part in normalized.split("/") if part not in {"", "."})
+
+    @classmethod
+    def _contains_git_component(cls, value: str | Path) -> bool:
+        return any(part.casefold() == ".git" for part in cls._path_components(value))
+
+    @classmethod
+    def _reject_git(cls, relative: str | Path) -> None:
+        if cls._contains_git_component(relative):
             raise RepositoryToolError(".git 내부는 Repository observation 범위가 아닙니다.")
 
     def _begin_observation(self) -> None:
@@ -59,8 +74,10 @@ class RepositoryTools:
         candidate = (self.repository / Path(relative)).resolve(strict=False)
         if candidate != self.repository and self.repository not in candidate.parents:
             raise RepositoryToolError("Repository 밖의 path는 읽을 수 없습니다.")
+        canonical_relative = candidate.relative_to(self.repository)
+        self._reject_git(canonical_relative)
         current = self.repository
-        for part in candidate.relative_to(self.repository).parts:
+        for part in canonical_relative.parts:
             current = current / part
             if current.is_symlink() or getattr(current, "is_junction", lambda: False)():
                 raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
@@ -81,8 +98,12 @@ class RepositoryTools:
 
     @staticmethod
     def _redact(text: str) -> str:
+        text = _URL_AUTHORITY_CREDENTIAL.sub(r"\1***:***@", text)
+        text = _URL_QUERY_CREDENTIAL.sub(r"\1<REDACTED>", text)
         text = _SECRET_ASSIGNMENT.sub(r"\1<REDACTED>", text)
         return _BEARER.sub(r"\1<REDACTED>", text)
+
+    redact_sensitive_text = _redact
 
     def inspect_target(self) -> dict[str, object]:
         self._begin_observation()
@@ -102,17 +123,20 @@ class RepositoryTools:
         entries: list[dict[str, object]] = []
         for current, directories, files in __import__("os").walk(root, followlinks=False):
             current_path = Path(current)
-            if ".git" in current_path.relative_to(self.repository).parts:
+            current_relative = current_path.relative_to(self.repository)
+            if self._contains_git_component(current_relative):
                 continue
-            directories[:] = [directory for directory in directories if directory != ".git"]
-            depth = len(current_path.relative_to(self.repository).parts) - base_depth
+            directories[:] = [directory for directory in directories if directory.casefold() != ".git"]
+            depth = len(current_relative.parts) - base_depth
             if max_depth is not None and depth >= max_depth:
                 directories[:] = []
             for name in sorted(directories + files):
                 path = current_path / name
+                relative_path = path.relative_to(self.repository).as_posix()
+                if self._contains_git_component(relative_path):
+                    continue
                 if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
                     raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
-                relative_path = path.relative_to(self.repository).as_posix()
                 entries.append({"path": relative_path, "kind": "directory" if path.is_dir() else "file"})
                 if len(entries) > self.budget.max_files:
                     raise BudgetExceededError("파일 탐색 budget을 초과했습니다.")
@@ -125,12 +149,13 @@ class RepositoryTools:
             raise RepositoryToolError("find pattern은 repository-relative여야 합니다.")
         matches: list[str] = []
         for path in self.repository.glob(pattern):
-            if ".git" in path.relative_to(self.repository).parts:
+            relative_path = path.relative_to(self.repository).as_posix()
+            if self._contains_git_component(relative_path):
                 continue
             if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
                 raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
             if path.is_file():
-                matches.append(path.relative_to(self.repository).as_posix())
+                matches.append(relative_path)
         return sorted(matches)
 
     def search_text(self, pattern: str, relative: str = ".") -> dict[str, object]:
@@ -171,17 +196,21 @@ class RepositoryTools:
         entries: list[dict[str, object]] = []
         for current, directories, files in __import__("os").walk(root, followlinks=False):
             current_path = Path(current)
-            if ".git" in current_path.relative_to(self.repository).parts:
+            current_relative = current_path.relative_to(self.repository)
+            if self._contains_git_component(current_relative):
                 continue
-            directories[:] = [directory for directory in directories if directory != ".git"]
-            depth = len(current_path.relative_to(self.repository).parts) - base_depth
+            directories[:] = [directory for directory in directories if directory.casefold() != ".git"]
+            depth = len(current_relative.parts) - base_depth
             if max_depth is not None and depth >= max_depth:
                 directories[:] = []
             for name in sorted(directories + files):
                 path = current_path / name
+                relative_path = path.relative_to(self.repository).as_posix()
+                if self._contains_git_component(relative_path):
+                    continue
                 if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
                     raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
-                entries.append({"path": path.relative_to(self.repository).as_posix(), "kind": "directory" if path.is_dir() else "file"})
+                entries.append({"path": relative_path, "kind": "directory" if path.is_dir() else "file"})
                 if len(entries) > self.budget.max_files:
                     raise BudgetExceededError("파일 탐색 budget을 초과했습니다.")
         return entries
@@ -247,27 +276,59 @@ class RepositoryTools:
             "status": self._redact(git("status", "--short")),
         }
 
+    @staticmethod
+    def _compact(value: str) -> str:
+        return re.sub(r"\s+", "", value)
+
+    @classmethod
+    def _meaningful(cls, value: object) -> bool:
+        if not isinstance(value, str):
+            return False
+        return value.strip().casefold() not in _GENERIC_PLACEHOLDERS
+
+    @classmethod
+    def _existence_only_claim(cls, value: str) -> bool:
+        normalized = " ".join(value.casefold().split())
+        return normalized in {"file exists", "path exists", "파일이 존재한다", "파일이 존재함", "파일 존재"}
+
     def validate_analysis(self, analysis: Mapping[str, object]) -> dict[str, object]:
         self._begin_observation()
         errors: list[str] = []
         evidence = analysis.get("evidence") if isinstance(analysis, Mapping) else None
+        findings = analysis.get("findings") if isinstance(analysis, Mapping) else None
+        status = analysis.get("status") if isinstance(analysis, Mapping) else None
+        errors_field = analysis.get("errors") if isinstance(analysis, Mapping) else None
+        if status == "complete" and errors_field:
+            errors.append("complete 결과의 errors에는 외부 선택이나 process 오류를 넣지 말고 structured unresolved decision을 사용하세요.")
         if not isinstance(evidence, list):
             errors.append("evidence는 list여야 합니다.")
         else:
+            evidence_ids: set[str] = set()
             for item in evidence:
                 if not isinstance(item, Mapping):
                     errors.append("evidence 항목은 mapping이어야 합니다.")
                     continue
+                evidence_id = item.get("id")
+                if not isinstance(evidence_id, str) or not evidence_id.strip() or evidence_id in evidence_ids:
+                    errors.append("positive evidence에는 고유한 id가 필요합니다.")
+                elif evidence_id:
+                    evidence_ids.add(evidence_id)
                 path = item.get("path")
                 start = item.get("line_start")
                 end = item.get("line_end")
                 if item.get("status") == "unresolved":
-                    if not isinstance(item.get("absence_scope"), str) or not isinstance(item.get("absence_pattern"), str) or not isinstance(item.get("result"), str):
+                    if not all(self._meaningful(item.get(key)) for key in ("absence_scope", "absence_pattern", "result")):
                         errors.append("unresolved evidence에는 scope, pattern, result가 필요합니다.")
                     continue
+                claim = item.get("claim")
+                excerpt = item.get("text")
                 if not isinstance(path, str) or not isinstance(start, int) or not isinstance(end, int):
-                    errors.append("evidence에는 path와 line 범위가 필요합니다.")
+                    errors.append("positive evidence에는 path와 line 범위가 필요합니다.")
                     continue
+                if not self._meaningful(claim) or self._existence_only_claim(str(claim)):
+                    errors.append(f"evidence claim이 비어 있거나 file existence만 주장합니다: {path}")
+                if not self._meaningful(excerpt):
+                    errors.append(f"evidence excerpt가 비어 있거나 placeholder입니다: {path}")
                 try:
                     target = self._resolve(path)
                 except RepositoryToolError as error:
@@ -279,9 +340,45 @@ class RepositoryTools:
                     errors.append(f"evidence line 범위가 올바르지 않습니다: {path}")
                 else:
                     try:
-                        lines = self._read_bytes(path).decode("utf-8", errors="replace").splitlines()
+                        lines = self._redact(self._read_bytes(path).decode("utf-8", errors="replace")).splitlines()
                         if end > len(lines):
                             errors.append(f"evidence line 범위가 file 범위를 벗어났습니다: {path}")
+                        else:
+                            actual = "\n".join(lines[start - 1 : end])
+                            if self._compact(str(excerpt)) not in self._compact(actual):
+                                errors.append(f"evidence excerpt가 실제 Repository line과 일치하지 않습니다: {path}:{start}-{end}")
                     except RepositoryToolError as error:
                         errors.append(str(error))
+        if not isinstance(findings, list):
+            errors.append("findings는 list여야 합니다.")
+        else:
+            finding_ids: set[str] = set()
+            evidence_ids = {
+                item.get("id") for item in evidence or [] if isinstance(item, Mapping) and isinstance(item.get("id"), str)
+            }
+            positive_finding = False
+            for finding in findings:
+                if not isinstance(finding, Mapping):
+                    errors.append("finding 항목은 mapping이어야 합니다.")
+                    continue
+                finding_id = finding.get("id")
+                if not isinstance(finding_id, str) or not finding_id.strip() or finding_id in finding_ids:
+                    errors.append("finding에는 고유한 id가 필요합니다.")
+                else:
+                    finding_ids.add(finding_id)
+                if not self._meaningful(finding.get("claim")):
+                    errors.append("finding claim은 비어 있을 수 없습니다.")
+                finding_status = finding.get("status")
+                refs = finding.get("evidence_ids")
+                if finding_status == "unresolved":
+                    if finding.get("resolution_owner") not in {"repository", "user", "deployment_environment", "external_system"}:
+                        errors.append("unresolved finding에는 유효한 resolution_owner가 필요합니다.")
+                    if not all(self._meaningful(finding.get(key)) for key in ("resolution_source", "reason")):
+                        errors.append("unresolved finding에는 resolution_source와 reason이 필요합니다.")
+                else:
+                    positive_finding = True
+                    if not isinstance(refs, list) or not refs or any(ref not in evidence_ids for ref in refs):
+                        errors.append("positive finding은 존재하는 evidence id를 하나 이상 참조해야 합니다.")
+        if status == "complete" and not positive_finding:
+            errors.append("complete 결과에는 valid positive Evidence를 참조하는 finding이 필요합니다.")
         return {"valid": not errors, "errors": errors}
