@@ -457,6 +457,115 @@ evidence와 명시적 사유가 있으므로 사용자 계약의 partial 허용 
    말할 뿐 **무엇을 인용했는지**를 말하지 않는다. n=3이다. Evidence별 귀속과
    `unobserved_evidence_count`는 성공 run이 나와야 값을 갖는다.
 
+### Run 30 — component 계약을 선택 필드로 노출
+
+1. 바꾼 변수 하나와 그 가설: `AnalysisResult`와 `validate_analysis` wire schema에
+   `components`를 선택 필드로 추가했다(`11d6d9d`). 강제하기 전에 모델이 계약을 스스로
+   채우는지 먼저 재면, 필수화가 실패율을 올릴 위험을 사전에 판단할 수 있다는 가설이다.
+2. 실제 실행 명령의 비밀값 제거 버전:
+
+   ```powershell
+   python -m devtools.run_phase1_live_acceptance --repository <jpetstore-6-checkout> --output-parent <output-parent> --runs 10
+   ```
+
+   모델은 `solar-pro3`, max_tokens 4096, 그 외 설정은 이전과 동일하다.
+3. tool sequence, iteration, evidence 상태 수: 10회 모두 `failed`이고 positive
+   evidence 0건이다. artifact 10개 전부 `components: []`다. 관측은 `read_file`
+   5,519줄 대 좁은 관측 91줄로 read_file 비중 98.4%다. `search_text`는 22회 호출에
+   14회가 0건(0.636)이며 검색을 한 번이라도 한 run은 4/10이다. 첫 Tool이
+   `inspect_target`인 run은 10/10이다.
+4. exit code와 artifact/input Git 상태: 10회 모두 exit 1이다. 입력 checkout은
+   무변경이다.
+5. 다음 실험에서 유지할 것과 폐기할 것: 확정된 사실은 **모델이 지시받지 않으면
+   components를 채우지 않는다**는 것이다. 따라서 계약 필수화(1b)보다 지시문 도메인
+   복원이 먼저다. 못 채우는 것을 필수로 만들면 실패율만 오른다.
+
+   방법론 오류를 기록한다. 설계 문서는 "변경 전 코드로" 기준선을 잡으라고 정했는데
+   이 측정은 계약 노출 이후에 실행했다. 따라서 이 값은 1a 이전 대비 변화를 말하지
+   못한다. 다만 `components`는 wire schema의 required가 아니므로 관측된
+   `candidate_schema` 실패의 직접 원인일 수는 없다.
+
+### Run 31 — 지시문에 이관 도메인 복원
+
+1. 바꾼 변수 하나와 그 가설: 지시문을 역할·도메인·근거·계약·종료 다섯 구획으로
+   재구성하고 이관 도메인을 신설했다(`f447de5`). 탐색 순서, 네 실행 단계 분리, 네 분류
+   버킷, 도메인 함정, 검색 0건 대응, components 채우는 법을 넣었다. Tool 규약 중복을
+   덜어내 길이 증가는 4,183 → 4,598자(+10%)에 그쳤다. 무엇을 찾아야 하는지 알려주면
+   탐색이 좁은 관측으로 옮겨가고 계약이 채워질 것이라는 가설이다.
+2. 실제 실행 명령의 비밀값 제거 버전: Run 30과 동일하다.
+3. tool sequence, iteration, evidence 상태 수: 10회 모두 `failed`, positive evidence
+   0건, `components: []` 10/10이다. 탐색 지표는 움직였다. 검색한 run 4→9,
+   0건 비율 0.636→0.514, 좁은 관측 91→230줄, read_file 비중 98.4%→95.0%다.
+   첫 Tool 준수는 10/10을 유지했다.
+4. exit code와 artifact/input Git 상태: 10회 모두 exit 1, 입력 무변경, 결정론적
+   테스트 170개 통과다.
+5. 다음 실험에서 유지할 것과 폐기할 것: 유지한다. 사전 등록한 롤백 조건(지시문 길이
+   증가에 따른 첫 Tool 준수율 하락)이 발동하지 않았다.
+
+   이 시점에 `protocol_error_fields` 계측(`f30512d`)을 넣어 실패 지점이 처음 보였다.
+   `$.line_end`가 6건으로 최다였고 `$.components[0].commands.production_startup`이
+   1건 나왔다. 후자는 모델이 계약을 채우려 시도했다는 첫 신호다.
+
+### Run 32 — line evidence 상한 4 → 10
+
+1. 바꾼 변수 하나와 그 가설: `_MAX_LINE_EVIDENCE_LINES`를 4에서 10으로 올렸다
+   (`ba7f73b`). 거부된 인자 값 계측(`20631fe`)을 넣고 진단 3회를 돌린 결과 거부된
+   `line_end`가 10, 5, 5였다. 파일 끝 초과도 순서 혼동도 아닌 정상 범위 요청이
+   상한에 걸린 것이므로, 상한을 넓히면 recovery 예산 낭비가 사라질 것이라는 가설이다.
+2. 실제 실행 명령의 비밀값 제거 버전: Run 30과 동일하다.
+3. tool sequence, iteration, evidence 상태 수: 10회 모두 `failed`, positive evidence
+   0건, `components: []` 10/10이다. `$.line_end` 거부는 6→4로 줄었을 뿐 사라지지
+   않았다. 검색 지표는 0건 비율 0.514→0.667, 검색한 run 9→5로 Run 30 수준으로
+   돌아갔다. read_file 비중은 95.0%→96.1%다.
+4. exit code와 artifact/input Git 상태: 10회 모두 exit 1, 입력 무변경, 결정론적
+   테스트 175개 통과다.
+5. 다음 실험에서 유지할 것과 폐기할 것: 상한 변경은 유지한다. 4줄이 maven property
+   블록이나 compose service 정의를 담지 못하는 것은 사실이고 어떤 지표도 악화시키지
+   않았다.
+
+   폐기할 것은 두 가지다. 첫째, **line 상한이 병목이라는 진단**이다. 상한을 2.5배로
+   늘렸는데 거부가 남았다는 것은 표본 3건에 과적합한 판단이었음을 뜻한다. 둘째,
+   **Run 31을 "검색 개선"으로 읽은 해석**이다. 같은 조건에서 재현되지 않았으므로
+   이 지표는 n=10에서도 흔들림이 크다.
+
+   이 시점의 누적 사실이 더 중요하다. 세 라운드 30회 실행에서 `complete`,
+   positive evidence, components가 모두 0이다. 실패 코드는 고칠 때마다
+   `$.line_end`→`$.relative`/`$.summary`/`$.tool_calls[0].function.arguments`로
+   자리를 옮겼을 뿐 사라지지 않았다. 특정 필드의 문제가 아니라 구조화된 tool 호출을
+   안정적으로 생성하지 못하는 것이 공통 원인으로 보인다.
+
+### Run 33 — 모델 교체 solar-pro3 → solar-pro2
+
+1. 바꾼 변수 하나와 그 가설: 코드는 `ba7f73b` 그대로 두고 `LLM_MODEL`만
+   `solar-pro3`에서 `solar-pro2`로 바꿨다. base URL, timeout, max_tokens는 동일하며
+   사용자 env 파일을 수정하지 않고 프로세스 환경변수로만 덮었다. 30회 0성공이 코드
+   문제인지 모델 문제인지 가르는 것이 목적이다.
+2. 실제 실행 명령의 비밀값 제거 버전: Run 30과 동일하며 `LLM_MODEL=solar-pro2`만
+   다르다. summary의 `llm_model_source`는 `environment`로 기록됐다.
+3. tool sequence, iteration, evidence 상태 수: `complete` 2, `partial` 3, `failed` 5다.
+   positive evidence 총 28건, components를 채운 run 5/10에 총 18개다. 평균 tool 호출은
+   12.4→36.7로 세 배다. 검색 0건 비율 0.500, 검색한 run 8/10이다. 관측은 read_file
+   3,722줄 대 좁은 관측 735줄로 비중이 96.1%→83.5%로 내려갔다. 첫 Tool 준수는
+   10/10이다.
+4. exit code와 artifact/input Git 상태: `complete` + `terminal`이 2/10이므로 gate
+   기준에는 미달이다. 입력 checkout은 무변경이다.
+5. 다음 실험에서 유지할 것과 폐기할 것: **모델이 병목이었다는 것이 확정됐다.** 동일
+   코드에서 `solar-pro3`는 30회 연속 아무 산출물도 내지 못했고 `solar-pro2`는 10회 중
+   2회 완주했다.
+
+   이 결과가 소급해서 확인해준 것이 있다. component 계약은 모델이 채울 수 있는
+   형태이고(5 run에서 18개), 도메인 지시문은 의도한 탐색 행동을 만든다(좁은 관측
+   4배). `solar-pro3`에서는 계약을 채우는 단계까지 도달하지 못해 검증이 불가능했던
+   것이다.
+
+   다만 2/10은 3-of-3 gate를 통과하지 못한다. `candidate_schema`가 10건으로 최다이며
+   실패 지점이 `$.components[0].production_startup`, `$.components[0].ports`처럼
+   component 필드로 옮겨갔다. 병목이 "아무것도 못 함"에서 "계약을 정확히 못 채움"으로
+   이동한 것이지 해소된 것이 아니다.
+
+   `solar-pro2`가 `solar-pro3`보다 나은 이유는 확인하지 않았다. tool 호출이 세 배인
+   것으로 보아 더 오래 탐색하는 특성으로 추정되나 근거는 없다.
+
 ## 개발 환경 변수 파일
 
 Live harness는 다음 순서로 처음 발견되는 env 파일 하나를 읽습니다: 명시적
