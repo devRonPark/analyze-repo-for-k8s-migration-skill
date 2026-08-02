@@ -152,12 +152,21 @@ if PYDANTIC_AVAILABLE:
                         raise ValueError("unresolved finding에는 resolution_source와 reason이 필요합니다.")
                 elif not finding.evidence_ids or any(item not in evidence_ids for item in finding.evidence_ids):
                     raise ValueError("positive finding은 Evidence ID를 참조해야 합니다.")
+            positive = [item for item in self.evidence if item.status != EvidenceStatus.UNRESOLVED.value]
+            grounded_positive = [
+                item for item in positive
+                if _meaningful(item.claim)
+                and not _existence_only_claim(item.claim or "")
+                and _meaningful(item.excerpt or item.text)
+                and bool(item.path)
+                and bool(item.line_start)
+                and bool(item.line_end)
+            ]
             if self.status == AnalysisStatus.COMPLETE.value:
                 if self.errors:
                     raise ValueError("complete 결과에는 errors를 남길 수 없습니다.")
                 if not self.findings:
                     raise ValueError("complete 결과에는 structured finding이 필요합니다.")
-                positive = [item for item in self.evidence if item.status != EvidenceStatus.UNRESOLVED.value]
                 if not positive or any(
                     not item.id or not _meaningful(item.claim) or _existence_only_claim(item.claim or "")
                     or not _meaningful(item.excerpt or item.text)
@@ -165,8 +174,11 @@ if PYDANTIC_AVAILABLE:
                     for item in positive
                 ):
                     raise ValueError("complete 결과에는 검증 가능한 line-backed Evidence가 필요합니다.")
-            if self.status == AnalysisStatus.PARTIAL.value and not self.errors:
-                raise ValueError("partial 결과에는 partial 사유가 errors에 필요합니다.")
+            if self.status == AnalysisStatus.PARTIAL.value:
+                if not self.errors:
+                    raise ValueError("partial 결과에는 partial 사유가 errors에 필요합니다.")
+                if not grounded_positive:
+                    raise ValueError("partial 결과에는 최소 하나의 positive line-backed Evidence가 필요합니다.")
             return self
 
 else:

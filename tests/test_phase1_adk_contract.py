@@ -19,6 +19,7 @@ from migration_assistant.adk_model import OpenAICompatibleAdkLlm
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from migration_assistant.config import Settings
 from migration_assistant.repository_tools import RepositoryTools, RepositoryToolError
+from migration_assistant.tool_protocol import ToolErrorCode, ToolIssue, error_envelope
 
 
 class RepeatingToolLlm(BaseLlm):
@@ -196,7 +197,45 @@ class Phase1ContractTests(unittest.TestCase):
         (repo / "app.py").write_text("PORT = 8080\n", encoding="utf-8")
         return repo
 
-    def test_duplicate_calls_are_blocked_and_no_progress_ends_partial(self):
+    def test_tool_error_envelope_is_stable_and_actionable(self):
+        issue = ToolIssue(
+            code=ToolErrorCode.INVALID_ARGUMENTS,
+            category="validation",
+            message="line_end is invalid",
+            field_path="$.line_end",
+            retryable=True,
+        )
+
+        self.assertEqual(
+            error_envelope(issue, allowed_next_actions=("read_file_lines", "validate_analysis")),
+            {
+                "ok": False,
+                "data": None,
+                "error": {
+                    "code": "invalid_arguments",
+                    "category": "validation",
+                    "message": "line_end is invalid",
+                    "field_path": "$.line_end",
+                    "retryable": True,
+                    "allowed_next_actions": ["read_file_lines", "validate_analysis"],
+                },
+                "meta": {},
+            },
+        )
+
+    def test_partial_requires_positive_line_backed_evidence(self):
+        with self.assertRaisesRegex(ValueError, "partial.*line-backed Evidence"):
+            AnalysisResult.model_validate({
+                "status": "partial",
+                "summary": "일부 분석",
+                "evidence": [],
+                "findings": [],
+                "iterations": 1,
+                "errors": ["근거 부족"],
+                "termination": "normal",
+            })
+
+    def test_duplicate_calls_without_grounded_evidence_end_failed(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             result = analyze(
@@ -205,7 +244,7 @@ class Phase1ContractTests(unittest.TestCase):
                 adk_model=RepeatingToolLlm(),
                 max_iterations=20,
             )
-            self.assertEqual(result.status, "partial")
+            self.assertEqual(result.status, "failed")
             self.assertTrue(any("no-progress" in error for error in result.errors))
             self.assertLess(result.iterations, 20)
 

@@ -39,15 +39,15 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             AnalysisResult.model_validate({"status": "complete", "summary": "ok", "evidence": []})
         with self.assertRaises(ValueError):
             AnalysisResult.model_validate({"status": "unknown", "summary": "bad", "evidence": []})
-        partial = AnalysisResult.model_validate({"status": "partial", "summary": "no evidence", "evidence": [], "errors": ["ambiguous"]})
-        self.assertEqual(partial.status, "partial")
+        with self.assertRaisesRegex(ValueError, "partial.*line-backed Evidence"):
+            AnalysisResult.model_validate({"status": "partial", "summary": "no evidence", "evidence": [], "errors": ["ambiguous"]})
 
     def test_evidence_statuses_and_line_provenance_are_preserved(self):
         result = AnalysisResult.model_validate({
             "status": "partial",
             "summary": "분석이 부분 완료되었습니다.",
             "evidence": [
-                {"status": EvidenceStatus.CONFIRMED.value, "path": "app.py", "line_start": 1, "line_end": 1, "text": "PORT = 8080"},
+                {"status": EvidenceStatus.CONFIRMED.value, "path": "app.py", "line_start": 1, "line_end": 1, "claim": "PORT 설정", "text": "PORT = 8080"},
                 {"status": EvidenceStatus.UNRESOLVED.value, "absence_scope": "**/*.java", "absence_pattern": "main", "result": "not searched"},
                 {"status": EvidenceStatus.CONFLICTING.value, "path": "app.py", "line_start": 1, "line_end": 1},
                 {"status": EvidenceStatus.INFERRED.value, "path": "app.py", "line_start": 1, "line_end": 1},

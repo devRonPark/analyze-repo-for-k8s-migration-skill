@@ -205,21 +205,12 @@ def run_adk_agent(
     if tracker.consecutive_no_progress >= tracker.max_no_progress and not any("no-progress" in error for error in run.errors):
         run.errors.append("동일 Tool 반복으로 no-progress 한도에 도달했습니다.")
     if run.result is None:
-        fatal = ledger.validation_error is not None or any(
-            "ADK 실행 오류" in error or "schema validation failure" in error
-            for error in run.errors
-        )
         try:
             evidence = []
-            incomplete = (
-                tracker.consecutive_no_progress >= tracker.max_no_progress
-                or ledger.budget_exhausted is not None
-                or ledger.tool_error is not None
-            )
             run.result = AnalysisResult.model_validate(
                 {
-                    "status": "failed" if fatal or not incomplete else "partial",
-                    "summary": "Agent가 검증 가능한 분석 결과를 제출하지 못했습니다." if fatal else "Agent 분석이 부분 완료되었습니다.",
+                    "status": "failed",
+                    "summary": "Agent가 검증 가능한 분석 결과를 제출하지 못했습니다.",
                     "evidence": evidence,
                     "findings": [],
                     "iterations": budget.iterations,
