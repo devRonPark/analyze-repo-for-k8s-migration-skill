@@ -903,7 +903,7 @@ class Phase1ContractTests(unittest.TestCase):
                 args={"relative": "app.py", "line_start": 2, "line_end": 1}, tool_context=None,
             ))
             oversized_range = asyncio.run(read_lines.run_async(
-                args={"relative": "app.py", "line_start": 1, "line_end": 5}, tool_context=None,
+                args={"relative": "app.py", "line_start": 1, "line_end": 11}, tool_context=None,
             ))
 
         self.assertFalse(invalid_start["ok"])
@@ -915,8 +915,22 @@ class Phase1ContractTests(unittest.TestCase):
 
         # A generic message leaves the model guessing and it repeats the same
         # rejected call, so the concrete constraint must survive into the envelope.
-        self.assertIn("at most four lines", oversized_range["error"]["message"])
+        self.assertIn("at most ten lines", oversized_range["error"]["message"])
         self.assertIn("greater than or equal to line_start", reversed_range["error"]["message"])
+
+    def test_a_real_config_block_fits_in_one_line_evidence_request(self):
+        repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
+        toolset = AdkRepositoryToolset(repository, ValidationLedger(), DuplicateTracker())
+        read_lines = next(tool for tool in toolset.functions() if tool.name == "read_file_lines")
+
+        # Live runs were rejected asking for five and ten line spans, which are
+        # ordinary sizes for a property block or a compose service definition.
+        accepted = asyncio.run(read_lines.run_async(
+            args={"relative": "pyproject.toml", "line_start": 1, "line_end": 10}, tool_context=None,
+        ))
+
+        self.assertTrue(accepted["ok"])
+        self.assertEqual(len(accepted["data"]), 10)
 
     def test_invalid_argument_message_keeps_constraint_and_redacts_secrets(self):
         repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())

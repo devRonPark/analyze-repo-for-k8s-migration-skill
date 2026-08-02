@@ -62,7 +62,10 @@ _OBSERVATION_EXCLUDED_DIRS = frozenset(
     {".dryforge", ".venv", "venv", "node_modules", "__pycache__", "target", "dist", "build"}
 )
 _OBSERVATION_EXCLUDED_FILES = frozenset({"agents.md", "skill.md", "context.md", "readme.md"})
-_MAX_LINE_EVIDENCE_LINES = 4
+# A property block, a compose service definition or a multi-stage Dockerfile
+# section rarely fits in four lines, and every rejected range costs one of the
+# two recovery turns. Response size is already bounded by max_tool_response_bytes.
+_MAX_LINE_EVIDENCE_LINES = 10
 
 
 def redact_sensitive_text(text: str) -> str:

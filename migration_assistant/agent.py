@@ -74,7 +74,7 @@ class AgentApplication:
                 "## 근거 규칙\n"
                 "list_tree와 inspect_target은 탐색 단서일 뿐 application 사실의 Evidence가 아닙니다. "
                 "주장마다 먼저 search_text hit를 확보하고 그 hit의 repository-relative path와 1-based line을 쓰세요. 검색어는 실제 파일에 있을 법한 설정 key, 속성 이름, 명령 문자열로 고르세요. 결과가 0건이면 같은 패턴을 반복하지 말고 더 짧고 일반적인 문자열로 바꾸세요. "
-                "read_file_lines는 확인된 짧은 범위만 최대 4줄로 요청하고, 응답의 text 또는 excerpt를 Evidence에 그대로 복사하세요. path 이름이나 placeholder를 excerpt로 넣지 마세요. "
+                "read_file_lines는 확인된 짧은 범위만 최대 10줄로 요청하고, 응답의 text 또는 excerpt를 Evidence에 그대로 복사하세요. path 이름이나 placeholder를 excerpt로 넣지 마세요. "
                 "부재 주장은 absence_scope, absence_pattern, result를 채운 unresolved Evidence로 기록하세요. "
                 "Evidence의 status는 confirmed, inferred, unresolved, conflicting 중 하나이며 absence, present, found 같은 값을 쓰지 마세요. 사실과 추정을 섞지 마세요. "
                 "validation 응답에 evidence_corrections가 있으면 그 안의 path, line, excerpt를 그대로 복사해 재검증하세요.\n"

@@ -114,7 +114,7 @@ class AdkAgentTests(unittest.TestCase):
                 model_override=ScriptedAdkLlm(),
             )
 
-            self.assertIn("최대 4줄", agent.instruction)
+            self.assertIn("최대 10줄", agent.instruction)
             self.assertIn("search_text hit", agent.instruction)
             self.assertIn("ok=true", agent.instruction)
             self.assertIn("meta.terminal=true", agent.instruction)

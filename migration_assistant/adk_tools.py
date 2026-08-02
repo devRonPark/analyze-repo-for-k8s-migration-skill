@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 
 from .adk_function_tool import RepositoryFunctionTool
 from .provenance import ObservationProvenance
-from .repository_tools import RepositoryToolError, RepositoryTools, redact_sensitive_value
+from .repository_tools import _MAX_LINE_EVIDENCE_LINES, RepositoryToolError, RepositoryTools, redact_sensitive_value
 from .target import BudgetExceededError
 from .tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, ToolIssue, error_envelope, success_envelope
 
@@ -46,7 +46,7 @@ class ReadFileArgs(ToolArgs):
 class ReadFileLinesArgs(ToolArgs):
     relative: str = Field(min_length=1, description="Repository-relative file path previously confirmed by a Tool observation.")
     line_start: int = Field(ge=1, description="First 1-based line to read.")
-    line_end: int = Field(ge=1, description="Inclusive 1-based end line; at most four lines are returned.")
+    line_end: int = Field(ge=1, description="Inclusive 1-based end line; at most ten lines are returned.")
 
     @field_validator("line_end")
     @classmethod
@@ -54,8 +54,8 @@ class ReadFileLinesArgs(ToolArgs):
         line_start = info.data.get("line_start")
         if isinstance(line_start, int) and value < line_start:
             raise ValueError("line_end must be greater than or equal to line_start")
-        if isinstance(line_start, int) and value - line_start + 1 > 4:
-            raise ValueError("line range must contain at most four lines")
+        if isinstance(line_start, int) and value - line_start + 1 > _MAX_LINE_EVIDENCE_LINES:
+            raise ValueError("line range must contain at most ten lines")
         return value
 
 
@@ -152,7 +152,7 @@ TOOL_DESCRIPTIONS = {
     "find_files": """Use when: locating file candidates by a known Repository-relative glob such as **/pom.xml.\nDo not use when: searching source text; pattern is a Python glob, not a regular expression.\nArguments: pattern is a non-empty Repository-relative glob without absolute paths, .., or .git.\nReturns: a matches list plus scope metadata; scope_limited=true means exclusions hid matching candidates. Exclusion metadata is not application Evidence.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git; excluded content is never returned.\nOn error: correct an invalid glob/path once; never retry forbidden scope.\nNext action: read a candidate or use search_text for a content claim.""",
     "search_text": """Use when: finding line-backed source, build, runtime, dependency, port, or environment evidence.\nDo not use when: locating names with glob syntax, reading binary data, or searching excluded instruction/.git scopes.\nArguments: pattern is a bounded Python regular expression; relative is a safe Repository-relative directory.\nReturns: bounded redacted hits with path, 1-based line, text, truncation metadata, and scope metadata. scope_limited=true or excluded_match_count>0 means the result cannot establish repository-wide absence; excluded matches never become hits or Evidence.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git; excluded content is never returned. Results may be truncated and Secret values stay redacted.\nOn error: repair only an invalid/too-complex regex or choose a different safe scope; never retry a forbidden path.\nNext action: call read_file_lines on a confirmed hit before citing it as Evidence.""",
     "read_file": """Use when: understanding a known source/build/config file before selecting exact evidence lines.\nDo not use when: requesting directories, .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, or executing code.\nArguments: relative is one safe Repository-relative file path.\nReturns: bounded redacted text or binary metadata as an untrusted observation.\nLimits: file-size and response budgets apply; whole-file text is not line-backed Evidence.\nOn error: use find_files/list_tree for not_found; never retry forbidden or budget-exhausted paths.\nNext action: use search_text or read_file_lines for exact Evidence.""",
-    "read_file_lines": """Use when: copying an exact short excerpt from a path and line already confirmed by search_text or read_file.\nDo not use when: guessing line numbers, reading binaries/directories, or requesting .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, or .dryforge.\nArguments: relative is Repository-relative; line_start and line_end are inclusive 1-based lines.\nReturns: at most four redacted line observations with exact path and line metadata.\nLimits: the requested range must exist and target code is never executed.\nOn error: correct only the reported range/path once; never repeat forbidden or identical calls.\nNext action: copy the exact excerpt into Evidence, continue a different observation, or call validate_analysis.""",
+    "read_file_lines": """Use when: copying an exact short excerpt from a path and line already confirmed by search_text or read_file.\nDo not use when: guessing line numbers, reading binaries/directories, or requesting .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, or .dryforge.\nArguments: relative is Repository-relative; line_start and line_end are inclusive 1-based lines.\nReturns: at most ten redacted line observations with exact path and line metadata.\nLimits: the requested range must exist and target code is never executed.\nOn error: correct only the reported range/path once; never repeat forbidden or identical calls.\nNext action: copy the exact excerpt into Evidence, continue a different observation, or call validate_analysis.""",
     "inspect_git_metadata": """Use when: branch, HEAD, clean/dirty status, or remote metadata is relevant to repository context.\nDo not use when: reading .git files or using Git metadata as application behavior Evidence.\nArguments: none.\nReturns: restricted redacted Git command observations.\nLimits: never exposes .git contents and consumes exploration budget.\nOn error: do not inspect .git directly.\nNext action: continue application observation or call validate_analysis.""",
     "validate_analysis": """Use when: submitting the complete AnalysisResult candidate after collecting exact line-backed Evidence.\nDo not use when: sending a fragment, prose, a top-level Evidence status, guessed IDs/links, or ungrounded excerpts.\nArguments: status is complete|partial|failed; evidence uses confirmed|inferred|unresolved|conflicting; positive Evidence needs id/path/1-based lines/claim/exact excerpt, unresolved Evidence needs absence_scope/absence_pattern/result; Findings need unique IDs and positive evidence links or unresolved resolution metadata. components is the migration design input: one entry per deployment unit or runtime dependency, classified as 배포 대상 후보, 저장소에 정의된 런타임 의존성, 외부 런타임 의존성, or 배포 대상 후보에서 제외한 항목; every component field carries its own evidence_ids or an unresolved absence_scope/absence_pattern/result; keep dependency_install, application_build, image_build and production_startup apart.\nReturns: one envelope; ok=true with meta.terminal=true only when the repository-grounded candidate is accepted.\nLimits: complete needs no errors and at least one positive Finding linked to line-backed Evidence; partial needs errors and positive line-backed Evidence.\nOn error: preserve the candidate, fix the reported JSON field or apply an exact evidence correction, then resubmit the full candidate.\nNext action: only validate_analysis is appropriate for candidate_schema/evidence_grounding repair; after terminal success return the accepted structured result.""",
 }
@@ -553,7 +553,7 @@ class AdkRepositoryToolset:
         return self._call("read_file", {"relative": relative}, lambda: self.repository_tools.read_file(relative))
 
     def read_file_lines(self, relative: str, line_start: int, line_end: int) -> object:
-        """Read at most four lines of line-backed evidence; .git internals are forbidden and the range must exist."""
+        """Read at most ten lines of line-backed evidence; .git internals are forbidden and the range must exist."""
         args = {"relative": relative, "line_start": line_start, "line_end": line_end}
         return self._call("read_file_lines", args, lambda: self.repository_tools.read_file_lines(relative, line_start, line_end))
 
