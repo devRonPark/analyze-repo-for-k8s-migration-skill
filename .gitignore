@@ -13,3 +13,5 @@ dist/
 .code-review-graph/
 .dryforge/
 .phase1-harness-*
+.tmp/
+.env-file-loader-*
