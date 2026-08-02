@@ -1,32 +1,11 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
 ## Unreleased
 
 ### Changed
 
-- Added an explicit read-only analyst role and repository prompt-injection boundary.
-- Simplified missing-target intake to one concrete Repository URL or Local path question.
-- Separated repository facts from inferred Kubernetes design candidates.
-- Added structured absence evidence with `검색(scope=..., pattern=..., result=없음)`.
-- Differentiated summary relationship output from detailed matrix and graph output.
-- Updated report validation and tests for the revised evidence and output contracts.
-- Replaced forced component roles and deployment-configuration inference with fact-based deployment candidates, runtime dependencies, excluded items, and separate operating-environment deployment evidence.
-- Added component-specific package-manager and command-stage inference rules.
-- Added optional repository file and line-range checks to report validation.
-- Added fixed eight-case output regression fixtures and deterministic comparison.
-- Prioritized deployment-critical discovery and separated readiness blockers from operational recommendations.
-
-## 0.1.0 - 2026-07-23
-
-### Added
-
-- Interview-first target selection for Repository URL and Local path.
-- Target Resolution Gate that prevents the skill package from becoming the analysis target.
-- Summary and detailed report modes.
-- Execution Locus and Application Phase classifications.
-- Dockerfile-independent repository discovery rules.
-- Package and report validators.
-- Qwen Code installation and update scripts.
-- GitHub Actions test workflow.
+- Current product guidance and CI now target the Google ADK Kubernetes Migration Assistant path.
+- OpenAI-compatible model configuration is centralized in the five `LLM_*` variables.
+- Local Repository safety, evidence classification, redaction, and deterministic output boundaries are documented as product contracts.
+- Development live acceptance supports explicit environment-file loading without changing the product package boundary.
+- Removed obsolete Skill packaging, external runtime integration, report-contract tooling, and their acceptance fixtures.
