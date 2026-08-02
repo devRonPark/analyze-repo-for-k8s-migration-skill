@@ -149,6 +149,11 @@ class RepositoryFunctionTool(BaseTool):
                 message = "Tool 인자 값이 schema 허용 범위와 다릅니다."
             else:
                 message = "Tool 인자 값이 schema 제약을 위반했습니다."
+            # Without the concrete constraint the model cannot tell which value to
+            # change, so it repeats the rejected call until recovery is exhausted.
+            reason = redact_sensitive_text(str(first.get("msg", ""))).strip()
+            if reason:
+                message = f"{message} {reason}"
             return ToolIssue(
                 code=self._validation_error_code,
                 category="validation",

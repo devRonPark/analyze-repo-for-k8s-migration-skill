@@ -320,6 +320,102 @@ evidence와 명시적 사유가 있으므로 사용자 계약의 partial 허용 
    것은 아직 없으며, 다음 실험에서 실제 local checkout live 실행 결과를 별도로
    기록한다.
 
+### Run 26 — jpetstore-6 live 최초 실행과 3-of-3 gate 기준선
+
+1. 바꾼 변수 하나와 그 가설: fake runner 대신 실제 live 모델로 harness를
+   실행했다. T1–T5의 typed protocol과 bounded recovery가 갖춰졌으므로 3회 연속
+   `complete` + `terminal`에 도달할 것이라는 가설이다.
+2. 실제 실행 명령의 비밀값 제거 버전:
+
+   ```powershell
+   python -m devtools.run_phase1_live_acceptance --repository <jpetstore-6-checkout> --output-parent <output-parent> --runs 1
+   python -m devtools.run_phase1_live_acceptance --repository <jpetstore-6-checkout> --output-parent <output-parent> --runs 3
+   ```
+
+   다섯 개 LLM 설정은 모두 `~/.config/kubernetes-migration-assistant/env`에서
+   로드됐다. 비밀값은 출력하지 않았다. 비-비밀 설정은 base URL
+   `https://api.upstage.ai/v1`, model `solar-pro3`, timeout 60s, max_tokens 4096이다.
+3. tool sequence, iteration, evidence 상태 수: 진단 1회는 20개 tool call이
+   `validate_analysis`로 종료했고 positive evidence 6건이었다. 이어진 gate 3회는
+   각각 11/8/14 call, iteration 13/9/17로 종료했고 evidence는 모두 0건이었다.
+   protocol error code는 run별로 `invalid_arguments`+`not_found`,
+   `malformed_arguments`+`candidate_schema`+`duplicate_call`,
+   `invalid_arguments`였다.
+4. exit code와 artifact/input Git 상태: 진단 run은 exit 0, gate 3회는 모두 exit 1로
+   `passed=false`, `successes=0/3`이었다. 입력 checkout은 commit
+   `3ebd25fd04f1b48361ab879e113ba353838ffe6a`에서 `git status` 빈 출력으로 무변경을
+   확인했다. artifact는 target 밖 run별 분리 directory에만 기록됐다.
+5. 다음 실험에서 유지할 것과 폐기할 것: 유지할 것은 run별 격리 output, terminal
+   사실 전달, 무변경 target 검증이다. 폐기할 것은 "T1–T5 완료가 곧 live 신뢰성"이라는
+   가정이다. 계측 실행에서 Agent가 `validate_analysis`에 도달하지만 excerpt가 실제
+   line과 불일치해 `evidence_grounding`으로 거부되는 것을 확인했다. 예를 들어
+   `pom.xml:13-13`은 실제로는 Apache 라이선스 헤더 줄이다. 비교 함수는 공백과 CRLF를
+   무시하므로 과엄격이 아니고, `evidence_corrections`도 모델에 전달된다. 즉 거부는
+   설계대로의 올바른 동작이고 원인은 모델의 line 번호 조작이다.
+
+### Run 27 — invalid_arguments 사유 보존
+
+1. 바꾼 변수 하나와 그 가설: Pydantic validator의 구체적 사유를 error envelope
+   message에 유지하도록 고쳤다. 이전에는 모든 제약 위반이 "Tool 인자 값이 schema
+   제약을 위반했습니다."로 덮여, 모델이 `read_file_lines`의 4줄 상한을 알 수 없어
+   같은 호출을 반복하고 bounded recovery를 소진했다. 사유를 전달하면 반복이 줄어들
+   것이라는 가설이다.
+2. 실제 실행 명령의 비밀값 제거 버전: Run 26과 동일한 `--runs 3` 명령이며 모델
+   설정도 동일하다. 코드 변경은 `migration_assistant/adk_function_tool.py`
+   한 곳이고, 먼저 RED를 확인한 뒤 구현했다.
+3. tool sequence, iteration, evidence 상태 수: run 1은 7 call로 `validate_analysis`에
+   도달해 positive evidence 4건을 남겼다. run 2는 10 call, run 3은 9 call로 evidence
+   0건이었다. protocol error code는 `candidate_schema`,
+   `duplicate_call`+`not_found`+`duplicate_call`, `invalid_arguments`였다.
+4. exit code와 artifact/input Git 상태: exit 0/1/1로 `passed=false`,
+   `successes=1/3`이었다. 입력 checkout은 여전히 무변경이다. 결정론적 테스트는
+   focused 55개와 전체 142개 모두 통과했다.
+5. 다음 실험에서 유지할 것과 폐기할 것: 유지할 것은 사유 보존 수정이다. 0/3에서
+   1/3로 올랐지만 n=3이라 개선 폭의 통계적 근거는 약하다. 폐기할 것은 "지시문 강화가
+   남은 레버"라는 가정이다. `migration_assistant/agent.py`는 이미 excerpt를
+   `read_file_lines` 응답에서 그대로 복사하고 `evidence_corrections`를 그대로
+   재제출하라고 명시하고 있으며, 모델이 이를 따르지 않는 상태다.
+
+### Run 28 — 출력 token 상한 상향
+
+1. 바꾼 변수 하나와 그 가설: `LLM_MAX_TOKENS`만 4096에서 8192로 올렸다.
+   `candidate_schema`와 `malformed_arguments`가 evidence 여러 건과 excerpt를 담은
+   `validate_analysis` 인자의 출력 절단에서 온다면 상향으로 해소될 것이라는 가설이다.
+   사용자 env 파일은 수정하지 않고 프로세스 환경변수로만 덮어썼다.
+2. 실제 실행 명령의 비밀값 제거 버전: Run 26과 동일한 `--runs 3` 명령이며
+   `LLM_MAX_TOKENS=8192`만 다르다. summary의 `llm_max_tokens_source`는
+   `environment`로 기록됐다.
+3. tool sequence, iteration, evidence 상태 수: 8/16/17 call로 종료했고 evidence는
+   모두 0건이었다. protocol error code는 `duplicate_call`+`invalid_arguments`,
+   `invalid_arguments`+`duplicate_call`, `not_found`+`invalid_arguments`였다.
+4. exit code와 artifact/input Git 상태: 3회 모두 exit 1로 `passed=false`,
+   `successes=0/3`이었다. 입력 checkout은 무변경이다.
+5. 다음 실험에서 유지할 것과 폐기할 것: 폐기할 것은 출력 절단 가설이다. 상향은
+   오히려 0/3이었다. 유지할 것은 `LLM_MAX_TOKENS=4096`이다. 성공한 run의 결과
+   artifact는 2,948 bytes와 4,309 bytes로 4096 token 상한에 근접하지 않았다.
+   함께 확인한 사실로, `LLM_MAX_TOKENS`는 요청 body의 `max_tokens`이므로 응답 1건의
+   출력 상한이지 총 컨텍스트가 아니다. 입력 쪽 한도는
+   `migration_assistant/adk_model.py`의 `_bound_messages` 기본값 160 KiB로
+   하드코딩돼 있고 env로 노출되지 않는다. 이 워크로드의 대략 3~4 bytes/token 기준으로
+   약 45~55K token에 해당하므로, 128K 컨텍스트를 실제로 활용하려면 이 bound를 토큰
+   기준으로 바꾸고 설정으로 노출하는 별도 작업이 필요하다. 다만 현재 실패 run은
+   8~17 call에서 끝나 이 한도에 닿지 않으므로 gate 실패의 원인은 아니다.
+
+### T6 현재 판정
+
+`jpetstore-6` 3-of-3 gate는 세 차례 모두 미달했다: `successes` 0/3, 1/3, 0/3.
+진단 실행을 포함한 live 10회 중 `complete` + `terminal`은 2회다. Task 6의 acceptance
+기준은 충족되지 않았다.
+
+남은 후속 작업은 다음과 같다.
+
+- 교차 저장소 회귀(`spring-petclinic`, `full-stack-fastapi-template`)는 primary
+  gate가 통과하지 않아 아직 수행하지 않았다.
+- Go holdout은 설정 자체가 없다. `GO_HOLDOUT_REPO`가 process와 user scope 모두
+  비어 있고 대상 checkout도 없다. `CONTEXT.md`에 따라 이는 skip이 아니라
+  configuration failure로 남긴다.
+- 모델 교체는 설정 결정이므로 이 기록 시점에는 수행하지 않았다.
+
 ## 개발 환경 변수 파일
 
 Live harness는 다음 순서로 처음 발견되는 env 파일 하나를 읽습니다: 명시적

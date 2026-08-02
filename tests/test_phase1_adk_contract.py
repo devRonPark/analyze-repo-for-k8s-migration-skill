@@ -913,6 +913,25 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertEqual(oversized_range["error"]["field_path"], "$.line_end")
         operation.assert_not_called()
 
+        # A generic message leaves the model guessing and it repeats the same
+        # rejected call, so the concrete constraint must survive into the envelope.
+        self.assertIn("at most four lines", oversized_range["error"]["message"])
+        self.assertIn("greater than or equal to line_start", reversed_range["error"]["message"])
+
+    def test_invalid_argument_message_keeps_constraint_and_redacts_secrets(self):
+        repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
+        toolset = AdkRepositoryToolset(repository, ValidationLedger(), DuplicateTracker())
+        search = next(tool for tool in toolset.functions() if tool.name == "search_text")
+
+        rejected = asyncio.run(search.run_async(
+            args={"pattern": "ok", "relative": ".", "unexpected": "sk-live-0123456789abcdef"},
+            tool_context=None,
+        ))
+
+        self.assertFalse(rejected["ok"])
+        self.assertEqual(rejected["error"]["code"], "invalid_arguments")
+        self.assertNotIn("sk-live-0123456789abcdef", json.dumps(rejected, ensure_ascii=False))
+
     def test_cli_maps_complete_partial_and_internal_failure(self):
         evidence = [{"id": "e1", "status": "confirmed", "path": "app.py", "line_start": 1, "line_end": 1, "claim": "PORT 설정", "text": "PORT = 8080"}]
         findings = [{"id": "f1", "status": "confirmed", "claim": "PORT 설정", "evidence_ids": ["e1"]}]
