@@ -91,6 +91,50 @@ class ValidateFindingInput(ToolArgs):
     reason: str | None = Field(default=None, description="Why repository evidence cannot resolve this Finding.")
 
 
+ComponentClassification = Literal[
+    "배포 대상 후보",
+    "저장소에 정의된 런타임 의존성",
+    "외부 런타임 의존성",
+    "배포 대상 후보에서 제외한 항목",
+]
+
+
+class ValidateFieldValueInput(ToolArgs):
+    status: EvidenceState = Field(description="Exact state of this design input.")
+    value: str | int | None = Field(default=None, description="Confirmed value; omit for unresolved.")
+    evidence_ids: list[str] = Field(default_factory=list, description="IDs of Evidence proving this value; required unless unresolved.")
+    absence_scope: str | None = Field(default=None, description="Actual repository-relative search scope; required for unresolved.")
+    absence_pattern: str | None = Field(default=None, description="Actual search pattern used; required for unresolved.")
+    result: str | None = Field(default=None, description="Observed result of the unresolved search.")
+
+
+class ValidatePortInput(ToolArgs):
+    container_port: ValidateFieldValueInput = Field(description="Port the component listens on inside the container.")
+    name: ValidateFieldValueInput | None = Field(default=None, description="Optional port name.")
+    protocol: ValidateFieldValueInput | None = Field(default=None, description="TCP or UDP when the repository states it.")
+    purpose: ValidateFieldValueInput | None = Field(default=None, description="http, management, metrics, or unknown.")
+
+
+class ValidateCommandsInput(ToolArgs):
+    dependency_install: ValidateFieldValueInput | None = Field(default=None, description="Dependency installation only; never a build or a start command.")
+    application_build: ValidateFieldValueInput | None = Field(default=None, description="Application build only; docker build is not an application build.")
+    image_build: ValidateFieldValueInput | None = Field(default=None, description="Container image build only.")
+    production_startup: ValidateFieldValueInput | None = Field(default=None, description="Production start command only; a development server is not production startup.")
+
+
+class ValidateContainerImageInput(ToolArgs):
+    reference: ValidateFieldValueInput | None = Field(default=None, description="Image reference stated by the repository; unresolved when none exists.")
+
+
+class ValidateComponentInput(ToolArgs):
+    name: ValidateFieldValueInput = Field(description="Component name grounded in repository evidence.")
+    classification: ValidateFieldValueInput = Field(description="One of the four migration buckets; only 배포 대상 후보 receives manifests.")
+    runtime: ValidateFieldValueInput | None = Field(default=None, description="Runtime the repository states.")
+    commands: ValidateCommandsInput | None = Field(default=None, description="Four execution stages kept apart.")
+    ports: list[ValidatePortInput] = Field(default_factory=list, description="Ports evidenced by the repository.")
+    container_image: ValidateContainerImageInput | None = Field(default=None, description="Container image facts.")
+
+
 class ValidateAnalysisArgs(ToolArgs):
     status: Literal["complete", "partial", "failed"] = Field(description="Top-level outcome; Evidence states are not valid here.")
     summary: str = Field(min_length=1, description="Korean evidence-grounded analysis summary.")
@@ -99,6 +143,7 @@ class ValidateAnalysisArgs(ToolArgs):
     iterations: int = Field(ge=0, description="Observed Agent iteration count.")
     errors: list[str] = Field(description="Non-empty only for partial or failed outcomes; do not put unresolved deployment choices here.")
     termination: str = Field(default="normal", description="Termination reason, normally normal.")
+    components: list[ValidateComponentInput] = Field(default_factory=list, description="Deployment units and runtime dependencies found in the repository, each field carrying its own Evidence or a scoped absence.")
 
 
 TOOL_DESCRIPTIONS = {
@@ -109,7 +154,7 @@ TOOL_DESCRIPTIONS = {
     "read_file": """Use when: understanding a known source/build/config file before selecting exact evidence lines.\nDo not use when: requesting directories, .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, or executing code.\nArguments: relative is one safe Repository-relative file path.\nReturns: bounded redacted text or binary metadata as an untrusted observation.\nLimits: file-size and response budgets apply; whole-file text is not line-backed Evidence.\nOn error: use find_files/list_tree for not_found; never retry forbidden or budget-exhausted paths.\nNext action: use search_text or read_file_lines for exact Evidence.""",
     "read_file_lines": """Use when: copying an exact short excerpt from a path and line already confirmed by search_text or read_file.\nDo not use when: guessing line numbers, reading binaries/directories, or requesting .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, or .dryforge.\nArguments: relative is Repository-relative; line_start and line_end are inclusive 1-based lines.\nReturns: at most four redacted line observations with exact path and line metadata.\nLimits: the requested range must exist and target code is never executed.\nOn error: correct only the reported range/path once; never repeat forbidden or identical calls.\nNext action: copy the exact excerpt into Evidence, continue a different observation, or call validate_analysis.""",
     "inspect_git_metadata": """Use when: branch, HEAD, clean/dirty status, or remote metadata is relevant to repository context.\nDo not use when: reading .git files or using Git metadata as application behavior Evidence.\nArguments: none.\nReturns: restricted redacted Git command observations.\nLimits: never exposes .git contents and consumes exploration budget.\nOn error: do not inspect .git directly.\nNext action: continue application observation or call validate_analysis.""",
-    "validate_analysis": """Use when: submitting the complete AnalysisResult candidate after collecting exact line-backed Evidence.\nDo not use when: sending a fragment, prose, a top-level Evidence status, guessed IDs/links, or ungrounded excerpts.\nArguments: status is complete|partial|failed; evidence uses confirmed|inferred|unresolved|conflicting; positive Evidence needs id/path/1-based lines/claim/exact excerpt, unresolved Evidence needs absence_scope/absence_pattern/result; Findings need unique IDs and positive evidence links or unresolved resolution metadata.\nReturns: one envelope; ok=true with meta.terminal=true only when the repository-grounded candidate is accepted.\nLimits: complete needs no errors and at least one positive Finding linked to line-backed Evidence; partial needs errors and positive line-backed Evidence.\nOn error: preserve the candidate, fix the reported JSON field or apply an exact evidence correction, then resubmit the full candidate.\nNext action: only validate_analysis is appropriate for candidate_schema/evidence_grounding repair; after terminal success return the accepted structured result.""",
+    "validate_analysis": """Use when: submitting the complete AnalysisResult candidate after collecting exact line-backed Evidence.\nDo not use when: sending a fragment, prose, a top-level Evidence status, guessed IDs/links, or ungrounded excerpts.\nArguments: status is complete|partial|failed; evidence uses confirmed|inferred|unresolved|conflicting; positive Evidence needs id/path/1-based lines/claim/exact excerpt, unresolved Evidence needs absence_scope/absence_pattern/result; Findings need unique IDs and positive evidence links or unresolved resolution metadata. components is the migration design input: one entry per deployment unit or runtime dependency, classified as 배포 대상 후보, 저장소에 정의된 런타임 의존성, 외부 런타임 의존성, or 배포 대상 후보에서 제외한 항목; every component field carries its own evidence_ids or an unresolved absence_scope/absence_pattern/result; keep dependency_install, application_build, image_build and production_startup apart.\nReturns: one envelope; ok=true with meta.terminal=true only when the repository-grounded candidate is accepted.\nLimits: complete needs no errors and at least one positive Finding linked to line-backed Evidence; partial needs errors and positive line-backed Evidence.\nOn error: preserve the candidate, fix the reported JSON field or apply an exact evidence correction, then resubmit the full candidate.\nNext action: only validate_analysis is appropriate for candidate_schema/evidence_grounding repair; after terminal success return the accepted structured result.""",
 }
 
 
@@ -525,6 +570,7 @@ class AdkRepositoryToolset:
         iterations: int,
         errors: list[str],
         termination: str = "normal",
+        components: list[dict] | None = None,
     ) -> dict[str, object]:
         """Validate the full candidate before termination.
 
@@ -543,6 +589,7 @@ class AdkRepositoryToolset:
             "iterations": iterations,
             "errors": errors,
             "termination": termination,
+            "components": components or [],
         })
         if self.control.candidate_repeated(candidate):
             issue = ToolIssue(

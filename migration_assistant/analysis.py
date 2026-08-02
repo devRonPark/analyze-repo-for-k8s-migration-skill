@@ -43,6 +43,19 @@ def _existence_only_claim(value: str) -> bool:
     }
 
 
+DEPLOYMENT_CANDIDATE = "배포 대상 후보"
+REPOSITORY_RUNTIME_DEPENDENCY = "저장소에 정의된 런타임 의존성"
+EXTERNAL_RUNTIME_DEPENDENCY = "외부 런타임 의존성"
+EXCLUDED_FROM_CANDIDATES = "배포 대상 후보에서 제외한 항목"
+
+COMPONENT_CLASSIFICATIONS = (
+    DEPLOYMENT_CANDIDATE,
+    REPOSITORY_RUNTIME_DEPENDENCY,
+    EXTERNAL_RUNTIME_DEPENDENCY,
+    EXCLUDED_FROM_CANDIDATES,
+)
+
+
 def _validate_evidence(data: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(data, Mapping):
         raise ValueError("evidence must be an object")
@@ -98,6 +111,116 @@ if PYDANTIC_AVAILABLE:
             return _validate_evidence(value)
 
 
+    class FieldValue(BaseModel):
+        """One migration design input carrying its own evidence or scoped absence."""
+
+        model_config = ConfigDict(extra="forbid")
+
+        status: str
+        value: str | int | None = None
+        evidence_ids: list[str] = Field(default_factory=list)
+        absence_scope: str | None = None
+        absence_pattern: str | None = None
+        result: str | None = None
+
+        @model_validator(mode="before")
+        @classmethod
+        def redact_raw(cls, value: Any) -> Any:
+            return redact_sensitive_value(value) if isinstance(value, Mapping) else value
+
+        @model_validator(mode="after")
+        def validate_grounding(self) -> "FieldValue":
+            if self.status not in {item.value for item in EvidenceStatus}:
+                raise ValueError("field status가 올바르지 않습니다.")
+            if self.status == EvidenceStatus.UNRESOLVED.value:
+                if not all(
+                    _meaningful(getattr(self, key))
+                    for key in ("absence_scope", "absence_pattern", "result")
+                ):
+                    raise ValueError("unresolved field에는 absence scope, pattern, result가 필요합니다.")
+                if self.value is not None:
+                    raise ValueError("unresolved field에는 value를 둘 수 없습니다.")
+                return self
+            if self.value is None or (isinstance(self.value, str) and not _meaningful(self.value)):
+                raise ValueError("positive field에는 value가 필요합니다.")
+            if not self.evidence_ids:
+                raise ValueError("positive field에는 최소 하나의 Evidence 참조가 필요합니다.")
+            return self
+
+
+    class PortEntry(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+
+        container_port: FieldValue
+        name: FieldValue | None = None
+        protocol: FieldValue | None = None
+        purpose: FieldValue | None = None
+
+
+    class ComponentCommands(BaseModel):
+        """Four execution stages kept apart so one can never stand in for another."""
+
+        model_config = ConfigDict(extra="forbid")
+
+        dependency_install: FieldValue | None = None
+        application_build: FieldValue | None = None
+        image_build: FieldValue | None = None
+        production_startup: FieldValue | None = None
+
+
+    class ContainerImage(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+
+        reference: FieldValue | None = None
+
+
+    class Component(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+
+        name: FieldValue
+        classification: FieldValue
+        runtime: FieldValue | None = None
+        commands: ComponentCommands | None = None
+        ports: list[PortEntry] = Field(default_factory=list)
+        container_image: ContainerImage | None = None
+
+        @model_validator(mode="after")
+        def validate_classification(self) -> "Component":
+            if (
+                self.classification.status != EvidenceStatus.UNRESOLVED.value
+                and self.classification.value not in COMPONENT_CLASSIFICATIONS
+            ):
+                raise ValueError("component classification이 올바르지 않습니다.")
+            return self
+
+        def field_values(self) -> list["FieldValue"]:
+            """Every FieldValue this component owns, for referential checks."""
+
+            values = [self.name, self.classification]
+            if self.runtime is not None:
+                values.append(self.runtime)
+            if self.commands is not None:
+                values.extend(
+                    item
+                    for item in (
+                        self.commands.dependency_install,
+                        self.commands.application_build,
+                        self.commands.image_build,
+                        self.commands.production_startup,
+                    )
+                    if item is not None
+                )
+            for port in self.ports:
+                values.extend(
+                    item
+                    for item in (port.container_port, port.name, port.protocol, port.purpose)
+                    if item is not None
+                )
+            if self.container_image is not None and self.container_image.reference is not None:
+                values.append(self.container_image.reference)
+            return values
+
+
     class Finding(BaseModel):
         model_config = ConfigDict(extra="forbid")
 
@@ -123,6 +246,7 @@ if PYDANTIC_AVAILABLE:
         summary: str
         evidence: list[Evidence] = Field(default_factory=list)
         findings: list[Finding] = Field(default_factory=list)
+        components: list[Component] = Field(default_factory=list)
         iterations: int = 0
         errors: list[str] = Field(default_factory=list)
         termination: str = "normal"
@@ -139,6 +263,13 @@ if PYDANTIC_AVAILABLE:
             evidence_ids = {item.id for item in self.evidence if item.id}
             if len(evidence_ids) != sum(item.id is not None for item in self.evidence):
                 raise ValueError("evidence id는 고유해야 합니다.")
+            for component in self.components:
+                for value in component.field_values():
+                    missing = [item for item in value.evidence_ids if item not in evidence_ids]
+                    if missing:
+                        raise ValueError(
+                            f"component field가 존재하지 않는 Evidence를 참조합니다: {', '.join(sorted(missing))}"
+                        )
             finding_ids = {item.id for item in self.findings}
             if len(finding_ids) != len(self.findings):
                 raise ValueError("finding id는 고유해야 합니다.")
