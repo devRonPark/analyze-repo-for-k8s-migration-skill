@@ -1,1 +1,0 @@
-fixture: detailed web postgres
