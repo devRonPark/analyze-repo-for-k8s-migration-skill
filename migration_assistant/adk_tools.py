@@ -7,8 +7,108 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+
+from .adk_function_tool import RepositoryFunctionTool
 from .repository_tools import RepositoryToolError, RepositoryTools, redact_sensitive_value
-from .target import BudgetExceededError, SafetyBudget
+from .target import BudgetExceededError
+from .tool_protocol import ToolErrorCode, ToolIssue, error_envelope, success_envelope
+
+
+class ToolArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class InspectTargetArgs(ToolArgs):
+    pass
+
+
+class ListTreeArgs(ToolArgs):
+    relative: str = Field(default=".", description="Repository-relative directory; absolute paths, .., .git, and excluded observation scopes are forbidden.")
+    max_depth: int | None = Field(default=None, ge=0, description="Optional non-negative traversal depth from relative.")
+
+
+class FindFilesArgs(ToolArgs):
+    pattern: str = Field(min_length=1, description="Repository-relative Python glob such as **/pom.xml; this is not a regular expression.")
+
+
+class SearchTextArgs(ToolArgs):
+    pattern: str = Field(min_length=1, description="Python regular expression matched against bounded UTF-8 text lines.")
+    relative: str = Field(default=".", description="Repository-relative directory scope; absolute paths, .., .git, and excluded observation scopes are forbidden.")
+
+
+class ReadFileArgs(ToolArgs):
+    relative: str = Field(min_length=1, description="Repository-relative file path; absolute paths, .., .git, and excluded observation scopes are forbidden.")
+
+
+class ReadFileLinesArgs(ToolArgs):
+    relative: str = Field(min_length=1, description="Repository-relative file path previously confirmed by a Tool observation.")
+    line_start: int = Field(ge=1, description="First 1-based line to read.")
+    line_end: int = Field(ge=1, description="Inclusive 1-based end line; at most four lines are returned.")
+
+    @field_validator("line_end")
+    @classmethod
+    def validate_line_end(cls, value: int, info: ValidationInfo) -> int:
+        line_start = info.data.get("line_start")
+        if isinstance(line_start, int) and value < line_start:
+            raise ValueError("line_end must be greater than or equal to line_start")
+        if isinstance(line_start, int) and value - line_start + 1 > 4:
+            raise ValueError("line range must contain at most four lines")
+        return value
+
+
+class InspectGitMetadataArgs(ToolArgs):
+    pass
+
+
+EvidenceState = Literal["confirmed", "inferred", "unresolved", "conflicting"]
+
+
+class ValidateEvidenceInput(ToolArgs):
+    id: str | None = Field(default=None, description="Unique Evidence ID used by Finding.evidence_ids.")
+    status: EvidenceState = Field(description="Exact evidence state; never use found, present, or absence.")
+    path: str | None = Field(default=None, description="Repository-relative path for positive evidence.")
+    line_start: int | None = Field(default=None, ge=1, description="First verified 1-based source line for positive evidence.")
+    line_end: int | None = Field(default=None, ge=1, description="Last verified 1-based source line for positive evidence.")
+    claim: str | None = Field(default=None, description="Specific repository fact supported by this Evidence.")
+    text: str | None = Field(default=None, description="Exact redacted repository excerpt; use either text or excerpt.")
+    excerpt: str | None = Field(default=None, description="Exact redacted repository excerpt; use either excerpt or text.")
+    absence_scope: str | None = Field(default=None, description="Actual repository-relative search scope for unresolved absence evidence.")
+    absence_pattern: str | None = Field(default=None, description="Actual search pattern used for unresolved absence evidence.")
+    result: str | None = Field(default=None, description="Observed result of the unresolved search.")
+
+
+class ValidateFindingInput(ToolArgs):
+    id: str | None = Field(default=None, description="Unique Finding ID.")
+    status: EvidenceState = Field(description="Exact finding state matching the evidence classification.")
+    claim: str = Field(min_length=1, description="Migration-relevant claim or unresolved decision.")
+    summary: str | None = Field(default=None, description="Optional concise elaboration of the claim.")
+    evidence_ids: list[str] = Field(default_factory=list, description="IDs of positive Evidence supporting this Finding.")
+    resolution_owner: Literal["repository", "user", "deployment_environment", "external_system"] | None = Field(default=None, description="Owner that can resolve an unresolved Finding.")
+    resolution_source: str | None = Field(default=None, description="Source to consult for an unresolved Finding.")
+    reason: str | None = Field(default=None, description="Why repository evidence cannot resolve this Finding.")
+
+
+class ValidateAnalysisArgs(ToolArgs):
+    status: Literal["complete", "partial", "failed"] = Field(description="Top-level outcome; Evidence states are not valid here.")
+    summary: str = Field(min_length=1, description="Korean evidence-grounded analysis summary.")
+    evidence: list[ValidateEvidenceInput] = Field(description="Complete Evidence Ledger candidate.")
+    findings: list[ValidateFindingInput] = Field(description="Complete structured Finding candidate linked to Evidence IDs.")
+    iterations: int = Field(ge=0, description="Observed Agent iteration count.")
+    errors: list[str] = Field(description="Non-empty only for partial or failed outcomes; do not put unresolved deployment choices here.")
+    termination: str = Field(default="normal", description="Termination reason, normally normal.")
+
+
+TOOL_DESCRIPTIONS = {
+    "inspect_target": """Use when: starting a run and confirming the local Git/read-only safety boundary.\nDo not use when: collecting application facts or line-backed Evidence.\nArguments: none.\nReturns: repository safety metadata, not application Evidence.\nLimits: consumes exploration budget and never reads application files.\nOn error: stop if the target is not a safe local Git Repository.\nNext action: call list_tree, find_files, or search_text only after a successful inspection.""",
+    "list_tree": """Use when: discovering bounded Repository-relative structure and likely component boundaries.\nDo not use when: proving file content, reading .git, or treating path names as application Evidence.\nArguments: relative is a safe Repository-relative directory; max_depth is an optional non-negative depth.\nReturns: file and directory paths as untrusted observations.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git.\nOn error: correct only the reported field; never retry a forbidden path.\nNext action: select a concrete candidate for find_files, search_text, or read_file.""",
+    "find_files": """Use when: locating file candidates by a known Repository-relative glob such as **/pom.xml.\nDo not use when: searching source text; pattern is a Python glob, not a regular expression.\nArguments: pattern is a non-empty Repository-relative glob without absolute paths, .., or .git.\nReturns: sorted Repository-relative file candidates.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git.\nOn error: correct an invalid glob/path once; never retry forbidden scope.\nNext action: read a candidate or use search_text for a content claim.""",
+    "search_text": """Use when: finding line-backed source, build, runtime, dependency, port, or environment evidence.\nDo not use when: locating names with glob syntax, reading binary data, or searching excluded instruction/.git scopes.\nArguments: pattern is a Python regular expression; relative is a safe Repository-relative directory.\nReturns: bounded redacted hits with path, 1-based line, text, and truncation metadata.\nLimits: excludes AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, and .git; results may be truncated and Secret values stay redacted.\nOn error: repair only an invalid regex or choose a different safe scope; never retry a forbidden path.\nNext action: call read_file_lines on a confirmed hit before citing it as Evidence.""",
+    "read_file": """Use when: understanding a known source/build/config file before selecting exact evidence lines.\nDo not use when: requesting directories, .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, or executing code.\nArguments: relative is one safe Repository-relative file path.\nReturns: bounded redacted text or binary metadata as an untrusted observation.\nLimits: file-size and response budgets apply; whole-file text is not line-backed Evidence.\nOn error: use find_files/list_tree for not_found; never retry forbidden or budget-exhausted paths.\nNext action: use search_text or read_file_lines for exact Evidence.""",
+    "read_file_lines": """Use when: copying an exact short excerpt from a path and line already confirmed by search_text or read_file.\nDo not use when: guessing line numbers, reading binaries/directories, or requesting .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, or .dryforge.\nArguments: relative is Repository-relative; line_start and line_end are inclusive 1-based lines.\nReturns: at most four redacted line observations with exact path and line metadata.\nLimits: the requested range must exist and target code is never executed.\nOn error: correct only the reported range/path once; never repeat forbidden or identical calls.\nNext action: copy the exact excerpt into Evidence, continue a different observation, or call validate_analysis.""",
+    "inspect_git_metadata": """Use when: branch, HEAD, clean/dirty status, or remote metadata is relevant to repository context.\nDo not use when: reading .git files or using Git metadata as application behavior Evidence.\nArguments: none.\nReturns: restricted redacted Git command observations.\nLimits: never exposes .git contents and consumes exploration budget.\nOn error: do not inspect .git directly.\nNext action: continue application observation or call validate_analysis.""",
+    "validate_analysis": """Use when: submitting the complete AnalysisResult candidate after collecting exact line-backed Evidence.\nDo not use when: sending a fragment, prose, a top-level Evidence status, guessed IDs/links, or ungrounded excerpts.\nArguments: status is complete|partial|failed; evidence uses confirmed|inferred|unresolved|conflicting; positive Evidence needs id/path/1-based lines/claim/exact excerpt, unresolved Evidence needs absence_scope/absence_pattern/result; Findings need unique IDs and positive evidence links or unresolved resolution metadata.\nReturns: one envelope; ok=true with meta.terminal=true only when the repository-grounded candidate is accepted.\nLimits: complete needs no errors and at least one positive Finding linked to line-backed Evidence; partial needs errors and positive line-backed Evidence.\nOn error: preserve the candidate, fix the reported JSON field or apply an exact evidence correction, then resubmit the full candidate.\nNext action: only validate_analysis is appropriate for candidate_schema/evidence_grounding repair; after terminal success return the accepted structured result.""",
+}
 
 
 @dataclass
@@ -50,16 +150,31 @@ class AdkRepositoryToolset:
         self.repository_tools = repository_tools
         self.ledger = ledger
         self.tracker = tracker
-
-    @staticmethod
-    def _recovery_action(error: str) -> str:
-        if ".git" in error:
-            return ".git 호출은 재시도하지 말고, 이미 확보한 일반 Repository 관찰만 사용해 전체 candidate를 validate_analysis에 제출하세요."
-        if "line evidence" in error:
-            return "큰 line 범위는 재시도하지 말고, search_text hit의 짧은 범위만 사용해 전체 candidate를 validate_analysis에 제출하세요."
-        if "line 범위" in error:
-            return "존재가 확인된 짧은 line 범위만 사용하고 잘못된 호출은 재시도하지 말고 전체 candidate를 validate_analysis에 제출하세요."
-        return "오류를 반복하지 말고 다른 유효한 Repository 탐색 또는 AnalysisResult candidate를 validate_analysis에 제출하세요."
+        definitions = (
+            ("inspect_target", InspectTargetArgs, lambda value: self.inspect_target()),
+            ("list_tree", ListTreeArgs, lambda value: self.list_tree(**value.model_dump())),
+            ("find_files", FindFilesArgs, lambda value: self.find_files(**value.model_dump())),
+            ("search_text", SearchTextArgs, lambda value: self.search_text(**value.model_dump())),
+            ("read_file", ReadFileArgs, lambda value: self.read_file(**value.model_dump())),
+            ("read_file_lines", ReadFileLinesArgs, lambda value: self.read_file_lines(**value.model_dump())),
+            ("inspect_git_metadata", InspectGitMetadataArgs, lambda value: self.inspect_git_metadata()),
+            ("validate_analysis", ValidateAnalysisArgs, lambda value: self.validate_analysis(**value.model_dump(mode="json"))),
+        )
+        self._tools = tuple(
+            RepositoryFunctionTool(
+                name=name,
+                description=TOOL_DESCRIPTIONS[name],
+                input_model=input_model,
+                handler=handler,
+                validation_error_code=(
+                    ToolErrorCode.CANDIDATE_SCHEMA
+                    if name == "validate_analysis"
+                    else ToolErrorCode.INVALID_ARGUMENTS
+                ),
+                invalid_argument_actions=(name,),
+            )
+            for name, input_model, handler in definitions
+        )
 
     @staticmethod
     def _normalize_verified_candidate(
@@ -167,7 +282,16 @@ class AdkRepositoryToolset:
     def _call(self, name: str, args: Mapping[str, object], operation: Any) -> object:
         duplicate = self.tracker.begin(name, args)
         if duplicate is not None:
-            return duplicate
+            return error_envelope(
+                ToolIssue(
+                    code=ToolErrorCode.DUPLICATE_CALL,
+                    category="progress",
+                    message=str(duplicate["error"]),
+                    retryable=False,
+                ),
+                allowed_next_actions=("validate_analysis",),
+                meta={"no_progress": duplicate["no_progress"]},
+            )
         try:
             result = operation()
             if name == "search_text" and isinstance(result, Mapping):
@@ -178,19 +302,38 @@ class AdkRepositoryToolset:
                 self.ledger.observations.extend(redact_sensitive_value(item) for item in result if isinstance(item, Mapping) and item.get("path"))
             if len(self.ledger.observations) > 64:
                 del self.ledger.observations[:-64]
-            return redact_sensitive_value(result)
+            return success_envelope(redact_sensitive_value(result))
         except (BudgetExceededError, RepositoryToolError, TypeError, ValueError) as error:
             safe_error = str(redact_sensitive_value(str(error)))
             if isinstance(error, BudgetExceededError):
                 self.ledger.budget_exhausted = safe_error
+                issue = ToolIssue(
+                    code=ToolErrorCode.BUDGET_EXHAUSTED,
+                    category="resource",
+                    message=safe_error,
+                    retryable=False,
+                )
+                actions = ("validate_analysis",)
+            elif isinstance(error, RepositoryToolError):
+                self.ledger.tool_error = safe_error
+                issue = ToolIssue(
+                    code=error.issue.code,
+                    category=error.issue.category,
+                    message=safe_error,
+                    field_path=error.issue.field_path,
+                    retryable=error.issue.retryable,
+                )
+                actions = error.allowed_next_actions
             else:
                 self.ledger.tool_error = safe_error
-            return {
-                "valid": False,
-                "budget_exhausted": isinstance(error, BudgetExceededError),
-                "error": safe_error,
-                "next_action": self._recovery_action(safe_error),
-            }
+                issue = ToolIssue(
+                    code=ToolErrorCode.INVALID_ARGUMENTS,
+                    category="validation",
+                    message=safe_error,
+                    retryable=True,
+                )
+                actions = (name, "validate_analysis")
+            return error_envelope(issue, allowed_next_actions=actions)
 
     def inspect_target(self) -> dict[str, object]:
         """Inspect the local Git Repository safety boundary. This is not application evidence."""
@@ -249,7 +392,18 @@ class AdkRepositoryToolset:
             "errors": errors,
             "termination": termination,
         })
-        preliminary = self._call("validate_analysis", candidate, lambda: self.repository_tools.validate_analysis(candidate))
+        execution = self._call("validate_analysis", candidate, lambda: self.repository_tools.validate_analysis(candidate))
+        if not isinstance(execution, Mapping) or execution.get("ok") is not True:
+            return dict(execution) if isinstance(execution, Mapping) else error_envelope(
+                ToolIssue(
+                    code=ToolErrorCode.CANDIDATE_SCHEMA,
+                    category="validation",
+                    message="validate_analysis did not return a protocol envelope",
+                    retryable=True,
+                ),
+                allowed_next_actions=("validate_analysis",),
+            )
+        preliminary = execution.get("data")
         normalized_errors: list[object] = []
         corrections = preliminary.get("evidence_corrections") if isinstance(preliminary, Mapping) else []
         corrected_candidate = self._normalize_verified_candidate(
@@ -273,35 +427,39 @@ class AdkRepositoryToolset:
                 self.ledger.validation_error = f"Repository evidence validation failed: {safe_details}"
             else:
                 self.ledger.validation_error = "Repository evidence validation failed."
-            response["next_action"] = "오류를 수정한 전체 AnalysisResult candidate를 다시 validate_analysis에 전달하세요."
-            return response
+            grounding = bool(corrections)
+            return error_envelope(
+                ToolIssue(
+                    code=(ToolErrorCode.EVIDENCE_GROUNDING if grounding else ToolErrorCode.CANDIDATE_SCHEMA),
+                    category=("grounding" if grounding else "validation"),
+                    message=self.ledger.validation_error,
+                    retryable=True,
+                ),
+                allowed_next_actions=("validate_analysis",),
+                meta={
+                    "issues": response.get("errors", []),
+                    "evidence_corrections": corrections if isinstance(corrections, list) else [],
+                    "normalized_errors": normalized_errors,
+                },
+            )
         from .analysis import AnalysisResult, PydanticDependencyError
 
         try:
             result = AnalysisResult.model_validate(candidate)
         except (ValueError, PydanticDependencyError) as error:
-            self.ledger.validation_error = str(error)
-            return {
-                "valid": False,
-                "errors": [str(error)],
-                "next_action": (
-                    "전체 candidate를 다시 validate_analysis에 전달하세요. "
-                    "top-level status는 complete, partial, failed 중 하나이며, "
-                    "confirmed/inferred/unresolved/conflicting은 Evidence와 Finding의 status에만 사용합니다."
+            self.ledger.validation_error = str(redact_sensitive_value(str(error)))
+            return error_envelope(
+                ToolIssue(
+                    code=ToolErrorCode.CANDIDATE_SCHEMA,
+                    category="validation",
+                    message=self.ledger.validation_error,
+                    retryable=True,
                 ),
-            }
+                allowed_next_actions=("validate_analysis",),
+            )
         self.ledger.result = result
         self.ledger.validation_error = None
-        return {"valid": True, "analysis": result.model_dump(mode="json")}
+        return success_envelope(result.model_dump(mode="json"), meta={"terminal": True})
 
     def functions(self) -> list[object]:
-        return [
-            self.inspect_target,
-            self.list_tree,
-            self.find_files,
-            self.search_text,
-            self.read_file,
-            self.read_file_lines,
-            self.inspect_git_metadata,
-            self.validate_analysis,
-        ]
+        return list(self._tools)

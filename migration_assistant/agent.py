@@ -65,7 +65,7 @@ class AgentApplication:
                 "AnalysisResult의 top-level status는 반드시 complete, partial, failed 중 하나이며, Evidence의 status만 confirmed, inferred, unresolved, conflicting 중 하나입니다. "
                 "모든 Evidence object에는 반드시 status를 포함하고 절대 생략하지 마세요. "
                 "Evidence status에 absence, present, found 같은 임의 값을 쓰지 마세요. 부재는 반드시 unresolved이며 absence_scope, absence_pattern, result를 채우고, positive 항목은 confirmed/inferred/conflicting과 path, line_start, line_end를 채우세요. "
-                "complete는 Repository-aware validate_analysis가 valid=true를 반환한 뒤에만 가능하며, 최소 하나 이상의 line-backed positive Evidence와 연결된 finding 없이는 금지됩니다. "
+                "complete는 Repository-aware validate_analysis가 ok=true와 meta.terminal=true를 반환한 뒤에만 가능하며, 최소 하나 이상의 line-backed positive Evidence와 연결된 finding 없이는 금지됩니다. "
                 "partial을 제출할 때는 errors에 비어 있지 않은 genuine unresolved repository ambiguity 사유를 반드시 포함하세요. "
                 "partial인데 errors가 비어 있는 candidate는 유효하지 않습니다. "
                 "validate_analysis의 top-level status 인자는 반드시 complete, partial, failed 중 하나를 그대로 넣으세요. 예를 들어 근거가 있으면 status=complete, evidence=[{id='e1', status='confirmed', path='app.py', line_start=1, line_end=1, claim='...', text='...'}], findings=[{id='f1', status='confirmed', claim='...', evidence_ids=['e1']}], errors=[] 형태입니다. confirmed를 top-level status로 넣지 마세요. "
@@ -76,8 +76,8 @@ class AgentApplication:
                 "새롭고 유용한 근거를 얻지 못하는 탐색을 반복하지 말고, 충분한 line evidence를 확보하면 늦추지 말고 validate_analysis를 호출하세요. "
                 "Repository 전체를 exhaustively 탐색할 필요는 없습니다. 서로 다른 유용한 line-backed observation 몇 개로 component/build/runtime 사실을 확보하면 즉시 candidate를 검증하세요. "
                 "Tool이 line range 오류나 duplicate 차단을 반환하면 같은 호출을 반복하지 말고, 이미 확보한 근거로 candidate를 제출하세요. "
-                "validate_analysis가 valid=true를 반환하기 전에는 일반 문장으로 끝내지 말고, 반드시 다른 탐색 또는 전체 candidate 제출을 계속하세요. "
-                "valid=true 뒤에는 status와 summary를 포함한 structured JSON만 반환하세요. "
+                "validate_analysis가 ok=true와 meta.terminal=true를 반환하기 전에는 일반 문장으로 끝내지 말고, 반드시 다른 탐색 또는 전체 candidate 제출을 계속하세요. "
+                "ok=true와 meta.terminal=true 뒤에는 status와 summary를 포함한 structured JSON만 반환하세요. "
                 "Repository 이름, 언어, 고정 파일 순서 또는 특정 provider 이름을 분석 규칙으로 사용하지 마세요."
             ),
             tools=toolset.functions(),

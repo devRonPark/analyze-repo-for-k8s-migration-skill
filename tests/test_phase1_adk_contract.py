@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import tempfile
 import unittest
 import subprocess
@@ -7,7 +8,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from google.adk.models import BaseLlm, LlmRequest, LlmResponse
-from google.adk.tools.function_tool import FunctionTool
 from google.genai import types
 from pydantic import PrivateAttr
 
@@ -20,6 +20,7 @@ from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker
 from migration_assistant.config import Settings
 from migration_assistant.repository_tools import RepositoryTools, RepositoryToolError
 from migration_assistant.tool_protocol import ToolErrorCode, ToolIssue, error_envelope
+from migration_assistant.tool_contract import PUBLIC_AGENT_TOOL_NAMES
 
 
 class RepeatingToolLlm(BaseLlm):
@@ -319,10 +320,23 @@ class Phase1ContractTests(unittest.TestCase):
 
         result = toolset.read_file(".git/config")
 
-        self.assertFalse(result["valid"])
-        self.assertIn(".git", result["error"])
-        self.assertIn("validate_analysis", result["next_action"])
-        self.assertIn("재시도하지", result["next_action"])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "forbidden_path")
+        self.assertIn(".git", result["error"]["message"])
+        self.assertEqual(result["error"]["allowed_next_actions"], ["validate_analysis"])
+
+    def test_forbidden_glob_reports_the_actual_argument_field(self):
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+        )
+
+        result = toolset.find_files(".git/**")
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "forbidden_path")
+        self.assertEqual(result["error"]["field_path"], "$.pattern")
 
     def test_validation_failure_preserves_repository_error_for_recovery(self):
         repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
@@ -346,7 +360,9 @@ class Phase1ContractTests(unittest.TestCase):
             errors=["missing.py를 확인하지 못함"],
         )
 
-        self.assertFalse(result["valid"])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "candidate_schema")
+        self.assertIn("missing.py", result["error"]["message"])
         self.assertIn("missing.py", ledger.validation_error or "")
 
     def test_validation_schema_error_explains_top_level_status_values(self):
@@ -362,9 +378,9 @@ class Phase1ContractTests(unittest.TestCase):
             errors=[],
         )
 
-        self.assertFalse(result["valid"])
-        self.assertIn("complete", result["next_action"])
-        self.assertIn("confirmed", result["next_action"])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "candidate_schema")
+        self.assertEqual(result["error"]["allowed_next_actions"], ["validate_analysis"])
 
     def test_validation_normalizes_a_verified_line_excerpt_before_schema_commit(self):
         repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
@@ -388,7 +404,8 @@ class Phase1ContractTests(unittest.TestCase):
             errors=[],
         )
 
-        self.assertTrue(result["valid"])
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["meta"]["terminal"])
         self.assertEqual(ledger.result.evidence[0].text, '"""Deterministic read-only target and output safety boundary."""')
 
     def test_validation_repairs_missing_structural_ids_from_verified_claims(self):
@@ -412,7 +429,7 @@ class Phase1ContractTests(unittest.TestCase):
                 errors=[],
             )
 
-            self.assertTrue(result["valid"], result)
+            self.assertTrue(result["ok"], result)
             self.assertEqual(ledger.result.evidence[0].id, "e1")
             self.assertEqual(ledger.result.findings[0].evidence_ids, ["e1"])
 
@@ -437,7 +454,7 @@ class Phase1ContractTests(unittest.TestCase):
                 errors=[],
             )
 
-            self.assertTrue(result["valid"], result)
+            self.assertTrue(result["ok"], result)
             self.assertEqual(ledger.result.status, "complete")
 
     def test_fenced_structured_result_is_safely_extractable(self):
@@ -567,15 +584,64 @@ class Phase1ContractTests(unittest.TestCase):
     def test_real_adk_function_declarations_become_openai_json_schema(self):
         repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
         toolset = AdkRepositoryToolset(repository, ValidationLedger(), DuplicateTracker())
-        declarations = [FunctionTool(function)._get_declaration() for function in toolset.functions()]
+        declarations = [tool._get_declaration() for tool in toolset.functions()]
         request = LlmRequest(config=types.GenerateContentConfig(tools=[types.Tool(function_declarations=declarations)]))
         wire_tools = OpenAICompatibleAdkLlm._tools(request)
         validate = next(item for item in wire_tools if item["function"]["name"] == "validate_analysis")
         schema = validate["function"]["parameters"]
         self.assertEqual(schema["type"], "object")
         self.assertEqual(set(schema["required"]), {"status", "summary", "evidence", "findings", "iterations", "errors"})
+        evidence_items = schema["properties"]["evidence"]["items"]
+        evidence_schema = schema["$defs"][evidence_items["$ref"].removeprefix("#/$defs/")]
+        self.assertEqual(
+            evidence_schema["properties"]["status"]["enum"],
+            ["confirmed", "inferred", "unresolved", "conflicting"],
+        )
+        self.assertFalse(evidence_schema["additionalProperties"])
         self.assertNotIn("nullable", str(wire_tools))
         self.assertNotIn("propertyOrdering", str(wire_tools))
+
+    def test_public_tool_descriptions_are_llm_readable(self):
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+        )
+        by_name = {tool.name: tool for tool in toolset.functions()}
+
+        self.assertEqual(tuple(by_name), PUBLIC_AGENT_TOOL_NAMES)
+        self.assertIn("Use when", by_name["search_text"].description)
+        self.assertIn("Do not use when", by_name["search_text"].description)
+        self.assertIn("Python regular expression", by_name["search_text"].description)
+        self.assertIn("glob", by_name["find_files"].description)
+        self.assertIn("On error", by_name["read_file_lines"].description)
+        self.assertIn("Next action", by_name["validate_analysis"].description)
+        for name in ("list_tree", "find_files", "search_text", "read_file", "read_file_lines"):
+            self.assertIn("AGENTS.md", by_name[name].description)
+            self.assertIn(".git", by_name[name].description)
+
+    def test_invalid_tool_arguments_are_rejected_before_repository_operation(self):
+        repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
+        toolset = AdkRepositoryToolset(repository, ValidationLedger(), DuplicateTracker())
+        read_lines = next(tool for tool in toolset.functions() if tool.name == "read_file_lines")
+
+        with patch.object(repository, "read_file_lines", wraps=repository.read_file_lines) as operation:
+            invalid_start = asyncio.run(read_lines.run_async(
+                args={"relative": "app.py", "line_start": 0, "line_end": 1}, tool_context=None,
+            ))
+            reversed_range = asyncio.run(read_lines.run_async(
+                args={"relative": "app.py", "line_start": 2, "line_end": 1}, tool_context=None,
+            ))
+            oversized_range = asyncio.run(read_lines.run_async(
+                args={"relative": "app.py", "line_start": 1, "line_end": 5}, tool_context=None,
+            ))
+
+        self.assertFalse(invalid_start["ok"])
+        self.assertEqual(invalid_start["error"]["code"], "invalid_arguments")
+        self.assertEqual(invalid_start["error"]["field_path"], "$.line_start")
+        self.assertEqual(reversed_range["error"]["field_path"], "$.line_end")
+        self.assertEqual(oversized_range["error"]["field_path"], "$.line_end")
+        operation.assert_not_called()
 
     def test_cli_maps_complete_partial_and_internal_failure(self):
         evidence = [{"id": "e1", "status": "confirmed", "path": "app.py", "line_start": 1, "line_end": 1, "claim": "PORT 설정", "text": "PORT = 8080"}]

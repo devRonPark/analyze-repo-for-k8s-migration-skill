@@ -188,8 +188,10 @@ def run_adk_agent(
                     errors=candidate.get("errors", []) if isinstance(candidate.get("errors", []), list) else [],
                     termination=str(candidate.get("termination", "normal")),
                 )
-                if validation.get("valid") is not True:
-                    run.errors.extend(str(item) for item in validation.get("errors", []))
+                if validation.get("ok") is not True:
+                    error = validation.get("error")
+                    if isinstance(error, dict) and error.get("message"):
+                        run.errors.append(str(error["message"]))
                 elif ledger.result is not None:
                     run.result = ledger.result
             except Exception as error:

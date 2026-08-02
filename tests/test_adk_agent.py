@@ -110,6 +110,9 @@ class AdkAgentTests(unittest.TestCase):
 
             self.assertIn("최대 4줄", agent.instruction)
             self.assertIn("search_text hit", agent.instruction)
+            self.assertIn("ok=true", agent.instruction)
+            self.assertIn("meta.terminal=true", agent.instruction)
+            self.assertNotIn("valid=true", agent.instruction)
 
     def test_production_analyze_uses_adk_and_validates_agent_result(self):
         with tempfile.TemporaryDirectory() as tmp:

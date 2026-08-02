@@ -10,6 +10,7 @@ from typing import Mapping
 
 from .target import BudgetExceededError, SafetyBudget
 from .tool_contract import PUBLIC_AGENT_TOOL_NAMES
+from .tool_protocol import ToolErrorCode, ToolIssue
 
 
 PUBLIC_TOOL_NAMES = PUBLIC_AGENT_TOOL_NAMES
@@ -17,6 +18,26 @@ PUBLIC_TOOL_NAMES = PUBLIC_AGENT_TOOL_NAMES
 
 class RepositoryToolError(ValueError):
     """Raised when a read-only repository observation cannot be completed safely."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: ToolErrorCode = ToolErrorCode.INVALID_ARGUMENTS,
+        category: str = "validation",
+        field_path: str | None = None,
+        retryable: bool = False,
+        allowed_next_actions: tuple[str, ...] = ("validate_analysis",),
+    ) -> None:
+        super().__init__(message)
+        self.issue = ToolIssue(
+            code=code,
+            category=category,
+            message=message,
+            field_path=field_path,
+            retryable=retryable,
+        )
+        self.allowed_next_actions = allowed_next_actions
 
 
 ToolBudget = SafetyBudget
@@ -108,14 +129,24 @@ class RepositoryTools:
         )
 
     @classmethod
-    def _reject_git(cls, relative: str | Path) -> None:
+    def _reject_git(cls, relative: str | Path, *, field_path: str = "$.relative") -> None:
         if cls._contains_git_component(relative):
-            raise RepositoryToolError(".git 내부는 Repository observation 범위가 아닙니다.")
+            raise RepositoryToolError(
+                ".git 내부는 Repository observation 범위가 아닙니다.",
+                code=ToolErrorCode.FORBIDDEN_PATH,
+                category="policy",
+                field_path=field_path,
+            )
 
     @classmethod
     def _reject_observation_exclusion(cls, relative: str | Path) -> None:
         if cls._contains_git_component(relative):
-            raise RepositoryToolError(".git 내부는 Repository observation 범위가 아닙니다.")
+            raise RepositoryToolError(
+                ".git 내부는 Repository observation 범위가 아닙니다.",
+                code=ToolErrorCode.FORBIDDEN_PATH,
+                category="policy",
+                field_path="$.relative",
+            )
         parts = cls._path_components(relative)
         if any(
             part.casefold() == ".dryforge"
@@ -123,11 +154,26 @@ class RepositoryTools:
             and parts[index + 1].casefold() == "worktrees"
             for index, part in enumerate(parts)
         ):
-            raise RepositoryToolError(".dryforge/worktrees 내부는 Repository observation 범위가 아닙니다.")
+            raise RepositoryToolError(
+                ".dryforge/worktrees 내부는 Repository observation 범위가 아닙니다.",
+                code=ToolErrorCode.FORBIDDEN_PATH,
+                category="policy",
+                field_path="$.relative",
+            )
         if any(part.casefold() in _OBSERVATION_EXCLUDED_FILES for part in parts):
-            raise RepositoryToolError("Repository instruction file은 observation 범위가 아닙니다.")
+            raise RepositoryToolError(
+                "Repository instruction file은 observation 범위가 아닙니다.",
+                code=ToolErrorCode.FORBIDDEN_PATH,
+                category="policy",
+                field_path="$.relative",
+            )
         if any(part.casefold() in _OBSERVATION_EXCLUDED_DIRS for part in parts):
-            raise RepositoryToolError("생성·의존성 directory는 Repository observation 범위가 아닙니다.")
+            raise RepositoryToolError(
+                "생성·의존성 directory는 Repository observation 범위가 아닙니다.",
+                code=ToolErrorCode.FORBIDDEN_PATH,
+                category="policy",
+                field_path="$.relative",
+            )
 
     def _begin_observation(self) -> None:
         self.budget.consume_exploration()
@@ -136,23 +182,45 @@ class RepositoryTools:
         self._reject_observation_exclusion(relative)
         candidate = (self.repository / Path(relative)).resolve(strict=False)
         if candidate != self.repository and self.repository not in candidate.parents:
-            raise RepositoryToolError("Repository 밖의 path는 읽을 수 없습니다.")
+            raise RepositoryToolError(
+                "Repository 밖의 path는 읽을 수 없습니다.",
+                code=ToolErrorCode.FORBIDDEN_PATH,
+                category="policy",
+                field_path="$.relative",
+            )
         canonical_relative = candidate.relative_to(self.repository)
         self._reject_observation_exclusion(canonical_relative)
         current = self.repository
         for part in canonical_relative.parts:
             current = current / part
             if current.is_symlink() or getattr(current, "is_junction", lambda: False)():
-                raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
+                raise RepositoryToolError(
+                    "symlink 또는 junction escape가 차단되었습니다.",
+                    code=ToolErrorCode.FORBIDDEN_PATH,
+                    category="policy",
+                    field_path="$.relative",
+                )
         return candidate
 
     def _read_bytes(self, relative: str | Path) -> bytes:
         path = self._resolve(relative)
         if not path.is_file():
-            raise RepositoryToolError("읽을 수 있는 file이 아닙니다.")
+            raise RepositoryToolError(
+                "읽을 수 있는 file이 아닙니다.",
+                code=ToolErrorCode.NOT_FOUND,
+                category="observation",
+                field_path="$.relative",
+                retryable=True,
+                allowed_next_actions=("find_files", "list_tree", "validate_analysis"),
+            )
         size = path.stat().st_size
         if size > self.budget.max_file_size_bytes:
-            raise RepositoryToolError("파일 크기 budget을 초과했습니다.")
+            raise RepositoryToolError(
+                "파일 크기 budget을 초과했습니다.",
+                code=ToolErrorCode.BUDGET_EXHAUSTED,
+                category="resource",
+                retryable=False,
+            )
         self.budget.files_seen += 1
         if self.budget.files_seen > self.budget.max_files:
             raise BudgetExceededError("파일 탐색 budget을 초과했습니다.")
@@ -178,7 +246,14 @@ class RepositoryTools:
         self._begin_observation()
         root = self._resolve(relative)
         if not root.is_dir():
-            raise RepositoryToolError("tree 대상은 directory여야 합니다.")
+            raise RepositoryToolError(
+                "tree 대상은 directory여야 합니다.",
+                code=ToolErrorCode.NOT_FOUND,
+                category="observation",
+                field_path="$.relative",
+                retryable=True,
+                allowed_next_actions=("list_tree", "find_files", "validate_analysis"),
+            )
         base_depth = len(root.relative_to(self.repository).parts)
         entries: list[dict[str, object]] = []
         for current, directories, files in __import__("os").walk(root, followlinks=False):
@@ -196,7 +271,12 @@ class RepositoryTools:
                 if self._contains_observation_exclusion(relative_path):
                     continue
                 if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
-                    raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
+                    raise RepositoryToolError(
+                        "symlink 또는 junction escape가 차단되었습니다.",
+                        code=ToolErrorCode.FORBIDDEN_PATH,
+                        category="policy",
+                        field_path="$.relative",
+                    )
                 entries.append({"path": relative_path, "kind": "directory" if path.is_dir() else "file"})
                 if len(entries) > self.budget.max_files:
                     raise BudgetExceededError("파일 탐색 budget을 초과했습니다.")
@@ -204,9 +284,16 @@ class RepositoryTools:
 
     def find_files(self, pattern: str) -> list[str]:
         self._begin_observation()
-        self._reject_git(pattern)
+        self._reject_git(pattern, field_path="$.pattern")
         if not pattern or Path(pattern).is_absolute() or ".." in Path(pattern).parts:
-            raise RepositoryToolError("find pattern은 repository-relative여야 합니다.")
+            raise RepositoryToolError(
+                "find pattern은 repository-relative glob이어야 합니다.",
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="validation",
+                field_path="$.pattern",
+                retryable=True,
+                allowed_next_actions=("find_files", "list_tree", "validate_analysis"),
+            )
         matches: list[str] = []
         for path in self.repository.glob(pattern):
             relative_path = path.relative_to(self.repository).as_posix()
@@ -223,7 +310,14 @@ class RepositoryTools:
         try:
             matcher = re.compile(pattern)
         except re.error as error:
-            raise RepositoryToolError("search pattern이 올바르지 않습니다.") from error
+            raise RepositoryToolError(
+                "search pattern은 올바른 Python regular expression이어야 합니다.",
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="validation",
+                field_path="$.pattern",
+                retryable=True,
+                allowed_next_actions=("search_text", "validate_analysis"),
+            ) from error
         hits: list[dict[str, object]] = []
         hit_count = 0
         for path in self._list_tree(relative):
@@ -251,7 +345,14 @@ class RepositoryTools:
     def _list_tree(self, relative: str = ".", max_depth: int | None = None) -> list[dict[str, object]]:
         root = self._resolve(relative)
         if not root.is_dir():
-            raise RepositoryToolError("tree 대상은 directory여야 합니다.")
+            raise RepositoryToolError(
+                "tree 대상은 directory여야 합니다.",
+                code=ToolErrorCode.NOT_FOUND,
+                category="observation",
+                field_path="$.relative",
+                retryable=True,
+                allowed_next_actions=("list_tree", "find_files", "validate_analysis"),
+            )
         base_depth = len(root.relative_to(self.repository).parts)
         entries: list[dict[str, object]] = []
         for current, directories, files in __import__("os").walk(root, followlinks=False):
@@ -269,7 +370,12 @@ class RepositoryTools:
                 if self._contains_observation_exclusion(relative_path):
                     continue
                 if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
-                    raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
+                    raise RepositoryToolError(
+                        "symlink 또는 junction escape가 차단되었습니다.",
+                        code=ToolErrorCode.FORBIDDEN_PATH,
+                        category="policy",
+                        field_path="$.relative",
+                    )
                 entries.append({"path": relative_path, "kind": "directory" if path.is_dir() else "file"})
                 if len(entries) > self.budget.max_files:
                     raise BudgetExceededError("파일 탐색 budget을 초과했습니다.")
@@ -297,15 +403,33 @@ class RepositoryTools:
     def read_file_lines(self, relative: str, line_start: int, line_end: int) -> list[dict[str, object]]:
         self._begin_observation()
         if line_start < 1 or line_end < line_start:
-            raise RepositoryToolError("line 범위가 올바르지 않습니다.")
+            raise RepositoryToolError(
+                "line 범위가 올바르지 않습니다.",
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="validation",
+                field_path="$.line_end",
+                retryable=True,
+                allowed_next_actions=("read_file_lines", "validate_analysis"),
+            )
         data = self._read_bytes(relative)
         path = self._resolve(relative)
         if b"\x00" in data:
-            raise RepositoryToolError("binary file에는 line 근거를 만들 수 없습니다.")
+            raise RepositoryToolError(
+                "binary file에는 line 근거를 만들 수 없습니다.",
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="validation",
+                field_path="$.relative",
+                retryable=False,
+            )
         lines = self._redact(data.decode("utf-8", errors="replace")).splitlines()
         if line_start > len(lines):
             raise RepositoryToolError(
-                f"line 범위가 file 범위를 벗어났습니다. 확인 가능한 마지막 line은 {len(lines)}입니다."
+                f"line 범위가 file 범위를 벗어났습니다. 확인 가능한 마지막 line은 {len(lines)}입니다.",
+                code=ToolErrorCode.NOT_FOUND,
+                category="observation",
+                field_path="$.line_start",
+                retryable=True,
+                allowed_next_actions=("search_text", "read_file_lines", "validate_analysis"),
             )
         effective_end = min(
             line_end,
@@ -333,7 +457,12 @@ class RepositoryTools:
                 check=False,
             )
             if result.returncode != 0:
-                raise RepositoryToolError("Git metadata를 읽을 수 없습니다.")
+                raise RepositoryToolError(
+                    "Git metadata를 읽을 수 없습니다.",
+                    code=ToolErrorCode.NOT_FOUND,
+                    category="observation",
+                    retryable=False,
+                )
             return result.stdout.strip()
 
         return {
