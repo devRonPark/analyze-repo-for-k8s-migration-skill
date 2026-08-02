@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from devtools.env_file import EnvFileLoadResult, load_environment
 from migration_assistant.analysis import analyze
 from migration_assistant.config import Settings
 from migration_assistant.repository_tools import redact_sensitive_text, redact_sensitive_value
@@ -95,7 +96,7 @@ def _commit(repository: Path) -> str | None:
     return result.stdout.strip() or None
 
 
-def _model_summary() -> dict[str, object]:
+def _model_summary(*, env_file: EnvFileLoadResult | None = None) -> dict[str, object]:
     environment_names = (
         "LLM_BASE_URL",
         "LLM_API_KEY",
@@ -104,14 +105,26 @@ def _model_summary() -> dict[str, object]:
         "LLM_MAX_TOKENS",
     )
     present = {name: name in os.environ for name in environment_names}
+    injected_keys = frozenset() if env_file is None else env_file.injected_keys
     sources = {
-        name: "environment" if present[name] else "package_default"
+        name: (
+            "env_file"
+            if name in injected_keys
+            else "environment"
+            if present[name]
+            else "package_default"
+        )
         for name in environment_names
     }
     environment_summary: dict[str, object] = {
         name: {"present": present[name], "source": sources[name]}
         for name in environment_names
     }
+    env_file_path = (
+        str(env_file.selected_path)
+        if env_file is not None and env_file.selected_path is not None
+        else None
+    )
     try:
         settings = Settings.from_environment()
         summary: dict[str, object] = {
@@ -131,6 +144,8 @@ def _model_summary() -> dict[str, object]:
             "configuration": "invalid",
             "environment_variables": environment_summary,
         }
+    if env_file is not None:
+        summary["env_file_path"] = env_file_path
     return redact_sensitive_value(summary)  # type: ignore[return-value]
 
 
@@ -256,6 +271,7 @@ def run_acceptance(
     *,
     runs: int = 3,
     analyze_fn: Callable[..., Any] = analyze,
+    env_file: EnvFileLoadResult | None = None,
 ) -> dict[str, object]:
     """Execute isolated application-boundary runs and return a JSON-safe summary."""
 
@@ -277,7 +293,7 @@ def run_acceptance(
     summary_errors: dict[str, object] = {}
     for key, builder in (
         ("commit", lambda: _commit(repository_path)),
-        ("model", _model_summary),
+        ("model", lambda: _model_summary(env_file=env_file)),
         ("budget", lambda: _budget_summary(budget)),
     ):
         try:
@@ -294,13 +310,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--output-parent", type=Path, required=True)
     parser.add_argument("--runs", type=int, default=GATE_REQUIRED_RUNS)
+    parser.add_argument("--env-file", type=Path, default=None)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        summary = run_acceptance(args.repository, args.output_parent, runs=args.runs)
+        env_file = load_environment(args.repository, explicit_path=args.env_file)
+        summary = run_acceptance(
+            args.repository,
+            args.output_parent,
+            runs=args.runs,
+            env_file=env_file,
+        )
         print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
     except Exception as error:
         summary = {
