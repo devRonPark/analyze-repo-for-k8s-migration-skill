@@ -33,7 +33,7 @@
 - Produces: `AnalysisResult` validation that requires at least one positive line-backed Evidence for both `complete` and `partial`.
 - Consumed by: Tasks 2–4.
 
-- [ ] **Step 1: Write failing protocol-envelope and partial-grounding tests**
+- [x] **Step 1: Write failing protocol-envelope and partial-grounding tests**
 
 Add tests that hand-check literal envelopes and the AnalysisResult boundary:
 
@@ -76,7 +76,7 @@ def test_partial_requires_positive_line_backed_evidence(self):
         })
 ```
 
-- [ ] **Step 2: Run the new tests and verify RED**
+- [x] **Step 2: Run the new tests and verify RED**
 
 Run:
 
@@ -86,7 +86,7 @@ Run:
 
 Expected: import failure for `tool_protocol` and the old evidence-free partial behavior.
 
-- [ ] **Step 3: Implement the minimal protocol types and partial validator**
+- [x] **Step 3: Implement the minimal protocol types and partial validator**
 
 Implement immutable issue data and one envelope shape:
 
@@ -113,7 +113,7 @@ class ToolIssue:
 
 `RunControlLedger` must own `phase`, `protocol_issue`, retry counts, blocked signatures, and `last_candidate_hash`. In `AnalysisResult.validate_status`, require non-unresolved Evidence with path, line range, claim, and excerpt for `partial` as well as `complete`.
 
-- [ ] **Step 4: Run Task 1 tests and focused schema regressions**
+- [x] **Step 4: Run Task 1 tests and focused schema regressions**
 
 Run:
 
@@ -123,7 +123,7 @@ Run:
 
 Expected: Task 1 tests pass; existing tests that intentionally encode the old evidence-free partial behavior may now fail and must be updated only when their asserted contract conflicts with the approved design.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```powershell
 git add migration_assistant/tool_protocol.py migration_assistant/analysis.py tests/test_phase1_adk_contract.py tests/test_analysis_vertical_slice.py
@@ -147,7 +147,7 @@ git commit -m "feat: add typed agent tool protocol"
 - Produces: `RepositoryFunctionTool(BaseTool)` with explicit `FunctionDeclaration`, Pydantic argument validation, and a raw handler.
 - Produces: eight Tool declarations with exact names, descriptions, and nested `ValidateAnalysisArgs` schema.
 
-- [ ] **Step 1: Write failing declaration and Tool-result tests**
+- [x] **Step 1: Write failing declaration and Tool-result tests**
 
 Add behavior tests that inspect the actual wire declaration generated through `OpenAICompatibleAdkLlm._tools` and execute a real Tool object:
 
@@ -176,13 +176,13 @@ def test_validate_analysis_wire_schema_has_typed_items(self):
 
 Add an async execution test asserting invalid arguments return `ok=false`, `code=invalid_arguments`, and no Repository operation is performed.
 
-- [ ] **Step 2: Run the declaration tests and verify RED**
+- [x] **Step 2: Run the declaration tests and verify RED**
 
 Run the named tests with `unittest -v`.
 
 Expected: current short docstrings lack the required usage sections; `validate_analysis` exposes `list[dict]` without item properties; current Tool methods do not use the uniform envelope.
 
-- [ ] **Step 3: Implement explicit input models and `RepositoryFunctionTool`**
+- [x] **Step 3: Implement explicit input models and `RepositoryFunctionTool`**
 
 Define Pydantic argument models for all eight Tools. Use `ConfigDict(extra="forbid")`, descriptive `Field` metadata, and exact nested models `ValidateEvidenceInput` and `ValidateFindingInput`. Their `status` fields must use `Literal["confirmed", "inferred", "unresolved", "conflicting"]`; `ValidateAnalysisArgs.evidence` and `.findings` must be `list[ValidateEvidenceInput]` and `list[ValidateFindingInput]`, not `list[dict]`. Reuse these types for runtime validation, then convert their `model_dump(mode="json")` values into `AnalysisResult`. `RepositoryFunctionTool._get_declaration()` must return:
 
@@ -198,7 +198,7 @@ types.FunctionDeclaration(
 
 Replace substring-based `_recovery_action()` with typed `RepositoryToolError` fields. Assign concrete codes at each raise site: excluded/path escape → `forbidden_path`, missing file/line → `not_found`, malformed regex/range → `invalid_arguments`, and budget exceptions → `budget_exhausted`.
 
-- [ ] **Step 4: Run declaration, Tool, and Agent registration tests**
+- [x] **Step 4: Run declaration, Tool, and Agent registration tests**
 
 Run:
 
@@ -208,7 +208,7 @@ Run:
 
 Expected: exactly eight Tools remain registered; wire schemas contain nested item constraints; invalid calls return one envelope shape.
 
-- [ ] **Step 5: Commit Task 2**
+- [x] **Step 5: Commit Task 2**
 
 ```powershell
 git add migration_assistant/adk_function_tool.py migration_assistant/adk_tools.py migration_assistant/repository_tools.py migration_assistant/analysis.py tests/test_phase1_adk_contract.py tests/test_adk_agent.py
@@ -230,7 +230,7 @@ git commit -m "feat: publish llm-readable repository tools"
 - Produces: adapter protocol issues in `LlmResponse.custom_metadata`.
 - Produces: `AdkRepositoryToolset.after_model_callback(callback_context, llm_response)`.
 
-- [ ] **Step 1: Write failing malformed-response and callback tests**
+- [x] **Step 1: Write failing malformed-response and callback tests**
 
 Cover three real boundary behaviors:
 
@@ -254,11 +254,11 @@ def test_closed_alias_is_canonicalized_but_embedded_json_suffix_is_rejected(self
     self.assertEqual(self.control.protocol_issue.code, ToolErrorCode.INVALID_TOOL_NAME)
 ```
 
-- [ ] **Step 2: Run the callback tests and verify RED**
+- [x] **Step 2: Run the callback tests and verify RED**
 
 Expected: malformed JSON currently becomes `{}`, unknown names pass to ADK, and embedded JSON suffixes are currently accepted.
 
-- [ ] **Step 3: Implement raw parsing and `after_model_callback`**
+- [x] **Step 3: Implement raw parsing and `after_model_callback`**
 
 Remove fuzzy/prefix normalization from `_response`. Raw JSON parse failure or non-object arguments must produce a text-only `LlmResponse` with redacted `custom_metadata.protocol_issue`. Preserve an exact raw name in otherwise valid FunctionCalls.
 
@@ -269,7 +269,7 @@ In `after_model_callback`, first consume adapter metadata, then inspect every Fu
 
 Validate args with the registered input model. On any issue, store it in `RunControlLedger` and replace the response with a text-only protocol-error response. Register this callback on `Agent(...)` so it also covers `model_override`.
 
-- [ ] **Step 4: Run callback and real Agent lifecycle tests**
+- [x] **Step 4: Run callback and real Agent lifecycle tests**
 
 Run the relevant named tests, then:
 
@@ -279,7 +279,7 @@ Run the relevant named tests, then:
 
 Expected: unknown and malformed calls never reach ADK dispatch; exact eight-tool registration remains intact.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 ```powershell
 git add migration_assistant/adk_model.py migration_assistant/agent.py migration_assistant/adk_tools.py tests/test_phase1_adk_contract.py
@@ -301,7 +301,7 @@ git commit -m "fix: gate model tool calls before dispatch"
 - Consumes: `RunControlLedger`, Tool envelopes, explicit Tool registry.
 - Produces: `before_tool_callback`, `on_tool_error_callback`, phase transitions, candidate fingerprints, and error-specific Runner recovery.
 
-- [ ] **Step 1: Reverse old semantic-repair and zero-tool tests before production edits**
+- [x] **Step 1: Reverse old semantic-repair and zero-tool tests before production edits**
 
 Change tests so they require:
 
@@ -311,23 +311,23 @@ Change tests so they require:
 - A protocol-error replacement is not stored as `run.final_text` and starts one bounded recovery turn.
 - Repeating the same candidate fingerprint ends no-progress.
 
-- [ ] **Step 2: Run reversed tests and verify RED**
+- [x] **Step 2: Run reversed tests and verify RED**
 
 Expected: old `_normalize_verified_candidate()` makes several tests fail because it authors semantics; zero-tool parsing still completes a valid candidate.
 
-- [ ] **Step 3: Remove semantic auto-repair and implement runtime callbacks**
+- [x] **Step 3: Remove semantic auto-repair and implement runtime callbacks**
 
 Delete `_normalize_verified_candidate()`. `validate_analysis` must return typed issues with JSON paths and optional exact repository corrections but leave `ledger.result` unset until the model resubmits a valid candidate.
 
 `before_tool_callback` must enforce phase, blocked signature, and remaining budget before execution. `on_tool_error_callback` must convert argument binding and unexpected Tool exceptions into the same error envelope without exposing Secrets.
 
-- [ ] **Step 4: Implement Runner state and error-specific recovery**
+- [x] **Step 4: Implement Runner state and error-specific recovery**
 
 In `consume`, check `control.protocol_issue` before writing model text to `run.final_text`; close that stream and transition to `REPAIR`. Generate recovery content from `ToolIssue.code`, field path, schema summary, and runtime-derived allowed actions. Keep two total recovery attempts and reject identical `(error_code, action fingerprint)` or candidate hash.
 
 Post-hoc JSON parsing may produce at most `partial`, only when `control.protocol_issue is None`; a result without positive line-backed Evidence becomes `failed`. Only `ledger.result` accepted through the terminal Tool may become `complete`.
 
-- [ ] **Step 5: Run all focused ADK contract tests**
+- [x] **Step 5: Run all focused ADK contract tests**
 
 Run:
 
@@ -337,7 +337,7 @@ Run:
 
 Expected: all focused tests pass and no test retains the old semantic-repair or zero-tool-complete contract.
 
-- [ ] **Step 6: Commit Task 4**
+- [x] **Step 6: Commit Task 4**
 
 ```powershell
 git add migration_assistant/adk_tools.py migration_assistant/adk_runner.py migration_assistant/agent.py tests/test_phase1_adk_contract.py tests/test_adk_agent.py
@@ -358,7 +358,7 @@ git commit -m "fix: make agent recovery typed and bounded"
 - Produces: non-secret JSON summary with commit, budget values, per-run exit/status/trajectory/evidence counts, and aggregate `passed`.
 - Extends: `AdkRun` with `terminal: bool = False` and `protocol_issues: list[dict[str, object]]`; only accepted `validate_analysis` sets `terminal=True`.
 
-- [ ] **Step 1: Write failing harness tests with a real fake runner function**
+- [x] **Step 1: Write failing harness tests with a real fake runner function**
 
 Test aggregation behavior without calling a live model:
 
@@ -376,15 +376,15 @@ def test_gate_requires_three_of_three_complete_terminal_runs(self):
 
 Test that output directories are distinct and outside the target, Secret values are absent, and a zero-tool complete-shaped response fails the gate.
 
-- [ ] **Step 2: Run harness tests and verify RED**
+- [x] **Step 2: Run harness tests and verify RED**
 
 Expected: `devtools.run_phase1_live_acceptance` does not exist.
 
-- [ ] **Step 3: Implement the minimal harness**
+- [x] **Step 3: Implement the minimal harness**
 
 The harness must call the existing `analyze()` application boundary without target mutation and capture each run in a separate output directory. Extend `AdkRun` and the application result handoff so the harness receives `terminal` and Secret-safe `protocol_issues` generated by the Runner; do not infer terminal acceptance merely from a `complete`-shaped artifact. Emit one JSON summary containing only repository-relative or output paths, commit, non-secret model settings, budget values, per-run exit/status/terminal/tool-call names/evidence counts/protocol error codes, and aggregate `passed`. It must not contain repository-name branches; the path comes only from `--repository`.
 
-- [ ] **Step 4: Run harness unit tests and focused regression suite**
+- [x] **Step 4: Run harness unit tests and focused regression suite**
 
 Run:
 
@@ -394,7 +394,7 @@ Run:
 
 Expected: all tests pass without network access.
 
-- [ ] **Step 5: Commit Task 5**
+- [x] **Step 5: Commit Task 5**
 
 ```powershell
 git add devtools/run_phase1_live_acceptance.py tests/test_phase1_live_acceptance_harness.py docs/phase1-adk-experiment-log.md
