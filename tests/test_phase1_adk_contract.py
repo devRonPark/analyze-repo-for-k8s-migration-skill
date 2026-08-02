@@ -12,13 +12,13 @@ from google.genai import types
 from pydantic import PrivateAttr
 
 from migration_assistant.adk_runner import parse_structured_final
-from migration_assistant.analysis import AnalysisResult, analyze
+from migration_assistant.analysis import AnalysisResult, analyze, render_report
 from migration_assistant.cli import main
 from migration_assistant.target import BudgetExceededError, SafetyBudget
 from migration_assistant.adk_model import OpenAICompatibleAdkLlm
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from migration_assistant.config import Settings
-from migration_assistant.repository_tools import RepositoryTools
+from migration_assistant.repository_tools import RepositoryTools, RepositoryToolError
 
 
 class RepeatingToolLlm(BaseLlm):
@@ -151,6 +151,33 @@ class Phase1ContractTests(unittest.TestCase):
             result = analyze(self.make_repo(root), root / "output", adk_model=FalseRepositoryAwareFinalLlm(), max_iterations=3)
             self.assertNotEqual(result.status, "complete")
 
+    def test_fallback_never_promotes_observation_to_confirmed_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = analyze(self.make_repo(Path(tmp)), Path(tmp) / "output", adk_model=InvalidFinalLlm(), max_iterations=3)
+            self.assertNotEqual(result.status, "complete")
+            self.assertNotIn("confirmed", {item.status for item in result.evidence})
+
+    def test_shared_redactor_covers_tool_output_history_exception_ledger_and_report(self):
+        repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
+        ledger = ValidationLedger()
+        tracker = DuplicateTracker()
+        toolset = AdkRepositoryToolset(repository, ledger, tracker)
+        output = toolset._call("synthetic", {"url": "https://u:p@example.test"}, lambda: {"url": "https://u:p@example.test", "password": "pw"})
+        self.assertNotIn("u:p", repr(output))
+        duplicate = toolset._call("synthetic-duplicate", {"password": "pw"}, lambda: {"ok": True})
+        duplicate = toolset._call("synthetic-duplicate", {"password": "pw"}, lambda: {"ok": True})
+        self.assertNotIn("pw", repr(duplicate))
+        error = toolset._call("synthetic-error", {}, lambda: (_ for _ in ()).throw(RepositoryToolError("jdbc://u:p@example.test?password=pw")))
+        self.assertNotIn("u:p", repr(error))
+        self.assertNotIn("pw", repr(ledger.tool_error))
+        messages = OpenAICompatibleAdkLlm._messages(
+            LlmRequest(contents=[types.Content(role="user", parts=[types.Part(text="jdbc://u:p@example.test?password=pw")])])
+        )
+        self.assertNotIn("u:p", repr(messages))
+        self.assertNotIn("pw", repr(messages))
+        report = render_report(AnalysisResult.model_validate({"status": "failed", "summary": "jdbc://u:p@example.test?password=pw", "errors": ["password=pw"]}))
+        self.assertNotIn("u:p", report)
+        self.assertNotIn("pw", report)
     def test_fenced_structured_result_is_safely_extractable(self):
         self.assertEqual(
             parse_structured_final("```json\n{\"status\": \"partial\"}\n```"),
@@ -283,13 +310,14 @@ class Phase1ContractTests(unittest.TestCase):
         validate = next(item for item in wire_tools if item["function"]["name"] == "validate_analysis")
         schema = validate["function"]["parameters"]
         self.assertEqual(schema["type"], "object")
-        self.assertEqual(set(schema["required"]), {"status", "summary", "evidence", "iterations", "errors"})
+        self.assertEqual(set(schema["required"]), {"status", "summary", "evidence", "findings", "iterations", "errors"})
         self.assertNotIn("nullable", str(wire_tools))
         self.assertNotIn("propertyOrdering", str(wire_tools))
 
     def test_cli_maps_complete_partial_and_internal_failure(self):
-        evidence = [{"status": "confirmed", "path": "app.py", "line_start": 1, "line_end": 1}]
-        complete = AnalysisResult.model_validate({"status": "complete", "summary": "ok", "evidence": evidence})
+        evidence = [{"id": "e1", "status": "confirmed", "path": "app.py", "line_start": 1, "line_end": 1, "claim": "PORT 설정", "text": "PORT = 8080"}]
+        findings = [{"id": "f1", "status": "confirmed", "claim": "PORT 설정", "evidence_ids": ["e1"]}]
+        complete = AnalysisResult.model_validate({"status": "complete", "summary": "ok", "evidence": evidence, "findings": findings})
         partial = AnalysisResult.model_validate({"status": "partial", "summary": "partial", "evidence": evidence, "errors": ["budget partial"]})
         with patch("migration_assistant.cli.analyze", return_value=complete):
             self.assertEqual(main(["analyze", "repo"]), 0)

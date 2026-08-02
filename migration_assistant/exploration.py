@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Mapping, Protocol
 
-from .repository_tools import PUBLIC_TOOL_NAMES, RepositoryToolError, RepositoryTools
+from .repository_tools import PUBLIC_TOOL_NAMES, RepositoryToolError, RepositoryTools, redact_sensitive_value
 
 
 class ExplorationStatus(StrEnum):
@@ -29,6 +28,8 @@ class EvidenceRecord:
     line_start: int | None = None
     line_end: int | None = None
     text: str | None = None
+    claim: str | None = None
+    excerpt: str | None = None
     absence_scope: str | None = None
     absence_pattern: str | None = None
 
@@ -45,11 +46,6 @@ class ExplorationResult:
 class Planner(Protocol):
     def next_action(self, observation: object) -> Mapping[str, object]:
         """Select the next observation action or stop."""
-
-
-_SECRET_ASSIGNMENT = re.compile(
-    r"(?i)(\b(?:password|passwd|secret|token|api[_-]?key|private[_-]?key)\b\s*[:=]\s*)([^\s#;,]+)"
-)
 
 
 class ExplorationLoop:
@@ -88,16 +84,20 @@ class ExplorationLoop:
                 if not isinstance(args, Mapping):
                     raise RepositoryToolError("tool args는 mapping이어야 합니다.")
                 observation = method(**dict(args))
-                result.observations.append(self._redact_value(observation))
-                self._record_evidence(result, observation, str(action.get("status", "confirmed")))
+                safe_observation = redact_sensitive_value(observation)
+                result.observations.append(safe_observation)
+                requested_status = action.get("status")
+                self._record_evidence(result, observation, requested_status if isinstance(requested_status, str) else None)
             except (RepositoryToolError, TypeError, ValueError) as error:
-                result.errors.append(str(error))
+                result.errors.append(str(redact_sensitive_value(str(error))))
                 return result
         result.errors.append("최대 exploration iteration에 도달했습니다.")
         return result
 
-    def _record_evidence(self, result: ExplorationResult, observation: object, status: str) -> None:
-        safe_status = status if status in {item.value for item in EvidenceStatus} else EvidenceStatus.CONFIRMED.value
+    def _record_evidence(self, result: ExplorationResult, observation: object, status: str | None) -> None:
+        if status not in {item.value for item in EvidenceStatus}:
+            return
+        safe_status = status
         if isinstance(observation, Mapping) and isinstance(observation.get("hits"), list):
             values = observation["hits"]
         else:
@@ -115,7 +115,9 @@ class ExplorationLoop:
                         path=path,
                         line_start=start,
                         line_end=end,
-                        text=self._redact_text(value.get("text")),
+                        text=redact_sensitive_value(value.get("text")) if isinstance(value.get("text"), str) else None,
+                        claim=redact_sensitive_value(value.get("claim")) if isinstance(value.get("claim"), str) else None,
+                        excerpt=redact_sensitive_value(value.get("excerpt")) if isinstance(value.get("excerpt"), str) else None,
                     )
                 )
             elif safe_status == EvidenceStatus.UNRESOLVED.value:
@@ -126,19 +128,3 @@ class ExplorationLoop:
                         absence_pattern=str(value.get("pattern", "")),
                     )
                 )
-
-    @staticmethod
-    def _redact_text(value: object) -> str | None:
-        if not isinstance(value, str):
-            return None
-        return _SECRET_ASSIGNMENT.sub(r"\1<REDACTED>", value)
-
-    @classmethod
-    def _redact_value(cls, value: Any) -> Any:
-        if isinstance(value, str):
-            return cls._redact_text(value)
-        if isinstance(value, Mapping):
-            return {key: cls._redact_value(item) for key, item in value.items()}
-        if isinstance(value, list):
-            return [cls._redact_value(item) for item in value]
-        return value

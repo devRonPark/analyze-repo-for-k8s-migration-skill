@@ -29,7 +29,7 @@ class ExplorationLoopTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tools = RepositoryTools(self.make_repo(Path(tmp)))
             planner = Planner([
-                {"tool": "search_text", "args": {"pattern": "PORT"}},
+                {"tool": "search_text", "args": {"pattern": "PORT"}, "status": "confirmed"},
                 {"stop": True},
             ])
             result = ExplorationLoop(tools, planner, max_iterations=3).run()

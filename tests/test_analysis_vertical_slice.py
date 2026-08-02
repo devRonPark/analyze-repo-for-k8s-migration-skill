@@ -39,8 +39,8 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             AnalysisResult.model_validate({"status": "complete", "summary": "ok", "evidence": []})
         with self.assertRaises(ValueError):
             AnalysisResult.model_validate({"status": "unknown", "summary": "bad", "evidence": []})
-        with self.assertRaises(ValueError):
-            AnalysisResult.model_validate({"status": "partial", "summary": "no evidence", "evidence": [], "errors": ["ambiguous"]})
+        partial = AnalysisResult.model_validate({"status": "partial", "summary": "no evidence", "evidence": [], "errors": ["ambiguous"]})
+        self.assertEqual(partial.status, "partial")
 
     def test_evidence_statuses_and_line_provenance_are_preserved(self):
         result = AnalysisResult.model_validate({
@@ -65,14 +65,14 @@ class AnalysisVerticalSliceTests(unittest.TestCase):
             output_parent.mkdir()
             output = output_parent / "analysis"
             result = analyze(repo, output, Planner([
-                {"tool": "search_text", "args": {"pattern": "PORT"}},
+                {"tool": "search_text", "args": {"pattern": "PORT"}, "status": "confirmed"},
                 {"stop": True},
             ]))
-            self.assertEqual(result.status, "complete")
+            self.assertEqual(result.status, "failed")
             self.assertTrue((output / "analysis-result.json").is_file())
             self.assertTrue((output / "analysis-report.md").is_file())
             loaded = AnalysisResult.model_validate(json.loads((output / "analysis-result.json").read_text(encoding="utf-8")))
-            self.assertEqual(loaded.status, "complete")
+            self.assertEqual(loaded.status, "failed")
             self.assertIn("분석", (output / "analysis-report.md").read_text(encoding="utf-8"))
             after = subprocess.check_output(["git", "-C", str(repo), "status", "--porcelain"], text=True)
             self.assertEqual(before, after)

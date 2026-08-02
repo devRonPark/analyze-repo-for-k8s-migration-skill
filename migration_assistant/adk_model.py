@@ -12,6 +12,7 @@ from pydantic import PrivateAttr
 
 from .adapter import OpenAICompatibleAdapter
 from .config import Settings
+from .repository_tools import redact_sensitive_value
 from .target import SafetyBudget
 from .tool_contract import PUBLIC_AGENT_TOOL_NAMES
 
@@ -48,14 +49,14 @@ class OpenAICompatibleAdkLlm(BaseLlm):
             tool_messages: list[dict[str, object]] = []
             for part in content.parts or []:
                 if part.text:
-                    text_parts.append(part.text)
+                    text_parts.append(str(redact_sensitive_value(part.text)))
                 if part.function_call:
                     call = part.function_call
                     tool_calls.append(
                         {
                             "id": call.id or f"adk-{call.name}",
                             "type": "function",
-                            "function": {"name": call.name, "arguments": json.dumps(call.args or {}, ensure_ascii=False)},
+                            "function": {"name": call.name, "arguments": json.dumps(redact_sensitive_value(call.args or {}), ensure_ascii=False)},
                         }
                     )
                 if part.function_response:
@@ -64,7 +65,7 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                         {
                             "role": "tool",
                             "tool_call_id": response.id or f"adk-{response.name}",
-                            "content": json.dumps(response.response or {}, ensure_ascii=False),
+                            "content": json.dumps(redact_sensitive_value(response.response or {}), ensure_ascii=False),
                         }
                     )
             if tool_messages:

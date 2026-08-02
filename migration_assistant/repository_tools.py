@@ -30,9 +30,36 @@ _URL_AUTHORITY_CREDENTIAL = re.compile(
     r"(?i)(\b(?:[a-z][a-z0-9+.-]*):\/\/)([^\s\/@:]+):([^\s\/@]+)@"
 )
 _URL_QUERY_CREDENTIAL = re.compile(
-    r"(?i)([?&](?:user|username|password|passwd|token|api[_-]?key)=)([^&#\s]+)"
+    r"(?i)([?&;](?:user|username|password|passwd|token|api[_-]?key|access[_-]?token|secret|client[_-]?secret)=)([^&#\s;]+)"
 )
+_SECRET_KEY = re.compile(r"(?i)^(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?token|client[_-]?secret)$")
 _GENERIC_PLACEHOLDERS = {"", "n/a", "na", "unknown", "placeholder", "todo", "tbd"}
+
+
+def redact_sensitive_text(text: str) -> str:
+    """Redact credentials without changing URL structure or safe metadata."""
+
+    text = _URL_AUTHORITY_CREDENTIAL.sub(r"\1<REDACTED>:<REDACTED>@", text)
+    text = _URL_QUERY_CREDENTIAL.sub(r"\1<REDACTED>", text)
+    text = _SECRET_ASSIGNMENT.sub(r"\1<REDACTED>", text)
+    return _BEARER.sub(r"\1<REDACTED>", text)
+
+
+def redact_sensitive_value(value: object) -> object:
+    """Recursively redact strings crossing a tool, history, or artifact boundary."""
+
+    if isinstance(value, str):
+        return redact_sensitive_text(value)
+    if isinstance(value, Mapping):
+        return {
+            key: "<REDACTED>" if isinstance(key, str) and _SECRET_KEY.fullmatch(key.strip()) else redact_sensitive_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [redact_sensitive_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(redact_sensitive_value(item) for item in value)
+    return value
 
 
 class RepositoryTools:
@@ -98,10 +125,7 @@ class RepositoryTools:
 
     @staticmethod
     def _redact(text: str) -> str:
-        text = _URL_AUTHORITY_CREDENTIAL.sub(r"\1***:***@", text)
-        text = _URL_QUERY_CREDENTIAL.sub(r"\1<REDACTED>", text)
-        text = _SECRET_ASSIGNMENT.sub(r"\1<REDACTED>", text)
-        return _BEARER.sub(r"\1<REDACTED>", text)
+        return redact_sensitive_text(text)
 
     redact_sensitive_text = _redact
 
@@ -152,10 +176,9 @@ class RepositoryTools:
             relative_path = path.relative_to(self.repository).as_posix()
             if self._contains_git_component(relative_path):
                 continue
-            if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
-                raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
-            if path.is_file():
-                matches.append(relative_path)
+            canonical = self._resolve(relative_path)
+            if canonical.is_file():
+                matches.append(canonical.relative_to(self.repository).as_posix())
         return sorted(matches)
 
     def search_text(self, pattern: str, relative: str = ".") -> dict[str, object]:
@@ -274,6 +297,13 @@ class RepositoryTools:
             "branch": self._redact(git("branch", "--show-current")),
             "head": self._redact(git("rev-parse", "HEAD")),
             "status": self._redact(git("status", "--short")),
+            "remotes": sorted(
+                {
+                    self._redact(parts[1])
+                    for line in git("remote", "-v").splitlines()
+                    if len(parts := line.split()) >= 2
+                }
+            ),
         }
 
     @staticmethod
@@ -309,10 +339,6 @@ class RepositoryTools:
                     errors.append("evidence 항목은 mapping이어야 합니다.")
                     continue
                 evidence_id = item.get("id")
-                if not isinstance(evidence_id, str) or not evidence_id.strip() or evidence_id in evidence_ids:
-                    errors.append("positive evidence에는 고유한 id가 필요합니다.")
-                elif evidence_id:
-                    evidence_ids.add(evidence_id)
                 path = item.get("path")
                 start = item.get("line_start")
                 end = item.get("line_end")
@@ -325,6 +351,10 @@ class RepositoryTools:
                 if not isinstance(path, str) or not isinstance(start, int) or not isinstance(end, int):
                     errors.append("positive evidence에는 path와 line 범위가 필요합니다.")
                     continue
+                if not isinstance(evidence_id, str) or not evidence_id.strip() or evidence_id in evidence_ids:
+                    errors.append("positive evidence에는 고유한 id가 필요합니다.")
+                elif evidence_id:
+                    evidence_ids.add(evidence_id)
                 if not self._meaningful(claim) or self._existence_only_claim(str(claim)):
                     errors.append(f"evidence claim이 비어 있거나 file existence만 주장합니다: {path}")
                 if not self._meaningful(excerpt):
@@ -349,6 +379,7 @@ class RepositoryTools:
                                 errors.append(f"evidence excerpt가 실제 Repository line과 일치하지 않습니다: {path}:{start}-{end}")
                     except RepositoryToolError as error:
                         errors.append(str(error))
+        positive_finding = False
         if not isinstance(findings, list):
             errors.append("findings는 list여야 합니다.")
         else:
@@ -356,7 +387,6 @@ class RepositoryTools:
             evidence_ids = {
                 item.get("id") for item in evidence or [] if isinstance(item, Mapping) and isinstance(item.get("id"), str)
             }
-            positive_finding = False
             for finding in findings:
                 if not isinstance(finding, Mapping):
                     errors.append("finding 항목은 mapping이어야 합니다.")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ from migration_assistant.repository_tools import (
     RepositoryToolError,
     RepositoryTools,
     ToolBudget,
+    redact_sensitive_text,
 )
 from migration_assistant.target import BudgetExceededError
 
@@ -66,7 +68,7 @@ class RepositoryToolsTests(unittest.TestCase):
             tools = RepositoryTools(self.make_repo(Path(tmp)))
             result = tools.validate_analysis({"evidence": [{"path": "missing.py", "line_start": 1, "line_end": 1}]})
             self.assertFalse(result["valid"])
-            self.assertIn("missing.py", result["errors"][0])
+            self.assertTrue(any("missing.py" in error for error in result["errors"]))
 
     def test_all_repository_file_tools_reject_git_internal_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -103,6 +105,31 @@ class RepositoryToolsTests(unittest.TestCase):
                 self.skipTest("filesystem does not permit symlink creation")
             with self.assertRaises(RepositoryToolError):
                 tools.read_file("git-alias/config")
+            with self.assertRaises(RepositoryToolError):
+                tools.find_files("git-alias/*")
+
+    def test_url_git_remote_jdbc_and_connection_credentials_are_redacted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--quiet", "-m", "fixture"], check=True)
+            subprocess.run(
+                ["git", "-C", str(repo), "remote", "add", "origin", "https://alice:remote-secret@example.test/repo.git"],
+                check=True,
+            )
+            tools = RepositoryTools(repo)
+            remote = tools.inspect_git_metadata()
+            self.assertIn("https://<REDACTED>:<REDACTED>@example.test/repo.git", remote["remotes"])
+            text = redact_sensitive_text(
+                "https://alice:pass@example.test/db?user=app&password=pw "
+                "jdbc:postgresql://dbuser:dbpass@db:5432/app?ssl=true&token=jwt "
+                "redis://cache:cachepass@cache:6379/0"
+            )
+            self.assertNotIn("alice:pass", text)
+            self.assertNotIn("dbuser:dbpass", text)
+            self.assertNotIn("cache:cachepass", text)
+            self.assertNotIn("password=pw", text)
+            self.assertNotIn("token=jwt", text)
 
     def test_validate_analysis_rechecks_actual_excerpt_and_claim(self):
         with tempfile.TemporaryDirectory() as tmp:

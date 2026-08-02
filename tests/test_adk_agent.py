@@ -35,13 +35,20 @@ class ScriptedAdkLlm(BaseLlm):
                 "status": "complete",
                 "summary": "Agent가 Repository 근거를 종합했습니다.",
                 "evidence": [
-                    {"status": "confirmed", "path": "app.py", "line_start": 1, "line_end": 1, "text": "PORT = 8080"},
-                    {"status": "inferred", "path": "app.py", "line_start": 1, "line_end": 1, "text": "PORT = 8080"},
-                    {"status": "conflicting", "path": "app.py", "line_start": 1, "line_end": 1, "text": "PORT = 8080"},
-                    {"status": "unresolved", "absence_scope": "**/*.yaml", "absence_pattern": "ingress", "result": "not searched"},
+                    {"id": "e1", "status": "confirmed", "path": "app.py", "line_start": 1, "line_end": 1, "claim": "PORT 설정", "text": "PORT = 8080"},
+                    {"id": "e2", "status": "inferred", "path": "app.py", "line_start": 1, "line_end": 1, "claim": "PORT 설정 추정", "text": "PORT = 8080"},
+                    {"id": "e3", "status": "conflicting", "path": "app.py", "line_start": 1, "line_end": 1, "claim": "PORT 설정 상충", "text": "PORT = 8080"},
+                    {"id": "e4", "status": "unresolved", "absence_scope": "**/*.yaml", "absence_pattern": "ingress", "result": "not searched"},
+                ],
+                "findings": [
+                    {"id": "f1", "status": "confirmed", "claim": "PORT 설정", "evidence_ids": ["e1"]},
+                    {"id": "f2", "status": "inferred", "claim": "PORT 설정 추정", "evidence_ids": ["e2"]},
+                    {"id": "f3", "status": "conflicting", "claim": "PORT 설정 상충", "evidence_ids": ["e3"]},
+                    {"id": "f4", "status": "unresolved", "claim": "Ingress는 미확인", "evidence_ids": ["e4"], "resolution_owner": "repository", "resolution_source": "검색 범위", "reason": "not searched"},
                 ],
                 "iterations": 2,
                 "errors": [],
+                "termination": "normal",
             }
         else:
             yield LlmResponse(

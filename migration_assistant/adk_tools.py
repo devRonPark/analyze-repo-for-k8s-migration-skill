@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
-from .repository_tools import RepositoryToolError, RepositoryTools
+from .repository_tools import RepositoryToolError, RepositoryTools, redact_sensitive_value
 from .target import BudgetExceededError, SafetyBudget
 
 
@@ -22,7 +22,7 @@ class DuplicateTracker:
             self.consecutive_no_progress += 1
             return {
                 "tool_name": tool_name,
-                "normalized_args": dict(args),
+                "normalized_args": redact_sensitive_value(dict(args)),
                 "valid": False,
                 "duplicate": True,
                 "no_progress": self.consecutive_no_progress,
@@ -59,25 +59,22 @@ class AdkRepositoryToolset:
             if name == "search_text" and isinstance(result, Mapping):
                 hits = result.get("hits")
                 if isinstance(hits, list):
-                    self.ledger.observations.extend(
-                        item for item in hits if isinstance(item, Mapping) and item.get("path")
-                    )
+                    self.ledger.observations.extend(redact_sensitive_value(item) for item in hits if isinstance(item, Mapping) and item.get("path"))
             elif name == "read_file_lines" and isinstance(result, list):
-                self.ledger.observations.extend(
-                    item for item in result if isinstance(item, Mapping) and item.get("path")
-                )
+                self.ledger.observations.extend(redact_sensitive_value(item) for item in result if isinstance(item, Mapping) and item.get("path"))
             if len(self.ledger.observations) > 64:
                 del self.ledger.observations[:-64]
-            return result
+            return redact_sensitive_value(result)
         except (BudgetExceededError, RepositoryToolError, TypeError, ValueError) as error:
+            safe_error = str(redact_sensitive_value(str(error)))
             if isinstance(error, BudgetExceededError):
-                self.ledger.budget_exhausted = str(error)
+                self.ledger.budget_exhausted = safe_error
             else:
-                self.ledger.tool_error = str(error)
+                self.ledger.tool_error = safe_error
             return {
                 "valid": False,
                 "budget_exhausted": isinstance(error, BudgetExceededError),
-                "error": str(error),
+                "error": safe_error,
                 "next_action": "오류를 반복하지 말고 다른 유효한 Repository 탐색 또는 AnalysisResult 제출을 선택하세요.",
             }
 
@@ -115,25 +112,29 @@ class AdkRepositoryToolset:
         status: str,
         summary: str,
         evidence: list[dict],
+        findings: list[dict],
         iterations: int,
         errors: list[str],
+        termination: str = "normal",
     ) -> dict[str, object]:
         """Validate the full candidate before termination.
 
-        Pass the complete candidate as these five required fields. Each evidence item
+        Pass the complete candidate with these required fields. Each evidence item
         must contain status; positive items require repository-relative path,
         line_start and line_end. Unresolved items require absence_scope,
         absence_pattern and result. Extra fields are rejected by Pydantic. A
         partial candidate must include a non-empty errors list describing the
         genuine unresolved repository ambiguity; an empty list is invalid.
         """
-        candidate = {
+        candidate = redact_sensitive_value({
             "status": status,
             "summary": summary,
             "evidence": evidence,
+            "findings": findings,
             "iterations": iterations,
             "errors": errors,
-        }
+            "termination": termination,
+        })
         preliminary = self._call("validate_analysis", candidate, lambda: self.repository_tools.validate_analysis(candidate))
         if not isinstance(preliminary, Mapping) or preliminary.get("valid") is not True:
             self.ledger.validation_error = "Repository evidence validation failed."
@@ -147,15 +148,6 @@ class AdkRepositoryToolset:
         except (ValueError, PydanticDependencyError) as error:
             self.ledger.validation_error = str(error)
             return {"valid": False, "errors": [str(error)]}
-        if result.status == "complete":
-            positive = [item for item in result.evidence if item.path and item.line_start and item.line_end]
-            if not result.evidence or not positive:
-                self.ledger.validation_error = "complete 결과에는 line-backed evidence가 필요합니다."
-                return {
-                    "valid": False,
-                    "errors": [self.ledger.validation_error],
-                    "next_action": "line-backed positive evidence를 추가한 전체 candidate를 다시 제출하세요.",
-                }
         self.ledger.result = result
         self.ledger.validation_error = None
         return {"valid": True, "analysis": result.model_dump(mode="json")}

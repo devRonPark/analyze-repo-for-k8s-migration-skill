@@ -16,7 +16,7 @@ from .adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from .agent import AgentApplication
 from .analysis import AnalysisResult, PydanticDependencyError
 from .config import Settings
-from .repository_tools import RepositoryTools
+from .repository_tools import RepositoryTools, redact_sensitive_text
 from .target import BudgetExceededError, SafetyBudget
 
 
@@ -99,7 +99,7 @@ def run_adk_agent(
                     if content is not None and getattr(content, "role", None) == "model":
                         text = "\n".join(part.text for part in (content.parts or []) if getattr(part, "text", None))
                         if text:
-                            run.final_text = text
+                            run.final_text = redact_sensitive_text(text)
                     if ledger.result is not None:
                         await events.aclose()
                         break
@@ -140,7 +140,7 @@ def run_adk_agent(
     except (BudgetExceededError, PydanticDependencyError) as error:
         run.errors.append(str(error))
     except Exception as error:
-        message = str(error)
+        message = redact_sensitive_text(str(error))
         if settings.llm_api_key:
             message = message.replace(settings.llm_api_key, "<REDACTED>")
         run.errors.append(f"ADK 실행 오류: {type(error).__name__}: {message[:500]}")
@@ -156,13 +156,22 @@ def run_adk_agent(
         candidate = parse_structured_final(run.final_text)
         if candidate is not None:
             try:
-                result = AnalysisResult.model_validate(candidate)
-                if result.status == "complete" and run.tool_calls:
-                    run.errors.append("validate_analysis Tool 성공 없이 complete로 종료할 수 없습니다.")
-                else:
-                    run.result = result
+                toolset = AdkRepositoryToolset(repository, ledger, tracker)
+                validation = toolset.validate_analysis(
+                    status=str(candidate.get("status", "")),
+                    summary=str(candidate.get("summary", "")),
+                    evidence=candidate.get("evidence", []) if isinstance(candidate.get("evidence", []), list) else [],
+                    findings=candidate.get("findings", []) if isinstance(candidate.get("findings", []), list) else [],
+                    iterations=int(candidate.get("iterations", budget.iterations)),
+                    errors=candidate.get("errors", []) if isinstance(candidate.get("errors", []), list) else [],
+                    termination=str(candidate.get("termination", "normal")),
+                )
+                if validation.get("valid") is not True:
+                    run.errors.extend(str(item) for item in validation.get("errors", []))
+                elif ledger.result is not None:
+                    run.result = ledger.result
             except Exception as error:
-                run.errors.append(f"최종 structured result validation failure: {error}")
+                run.errors.append(f"최종 structured result validation failure: {redact_sensitive_text(str(error))}")
         else:
             run.errors.append("Agent 최종 응답을 structured result로 파싱하지 못했습니다.")
     if ledger.validation_error:
@@ -180,37 +189,22 @@ def run_adk_agent(
         )
         try:
             evidence = []
-            seen: set[tuple[object, object, object]] = set()
-            for item in ledger.observations:
-                key = (item.get("path"), item.get("line_start"), item.get("line_end"))
-                if key in seen:
-                    continue
-                seen.add(key)
-                evidence.append(
-                    {
-                        "status": "confirmed",
-                        "path": item.get("path"),
-                        "line_start": item.get("line_start"),
-                        "line_end": item.get("line_end"),
-                        "text": item.get("text"),
-                    }
-                )
+            incomplete = (
+                tracker.consecutive_no_progress >= tracker.max_no_progress
+                or ledger.budget_exhausted is not None
+                or ledger.tool_error is not None
+            )
             run.result = AnalysisResult.model_validate(
                 {
-                    "status": "failed" if fatal or not evidence else "partial",
+                    "status": "failed" if fatal or not incomplete else "partial",
                     "summary": "Agent가 검증 가능한 분석 결과를 제출하지 못했습니다." if fatal else "Agent 분석이 부분 완료되었습니다.",
                     "evidence": evidence,
+                    "findings": [],
                     "iterations": budget.iterations,
                     "errors": run.errors or ["Agent 실행이 완료되지 않았습니다."],
+                    "termination": "fallback",
                 }
             )
         except Exception as error:
             raise AdkExecutionError(str(error)) from error
-    elif ledger.result is None and run.errors and run.result.status == "complete" and any(
-        not error.startswith("Repository Tool 오류:") for error in run.errors
-    ):
-        data = run.result.model_dump(mode="json")
-        data["status"] = "partial"
-        data["errors"] = [*data.get("errors", []), *run.errors]
-        run.result = AnalysisResult.model_validate(data)
     return run
