@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
 from .repository_tools import RepositoryToolError, RepositoryTools, redact_sensitive_value
 from .target import BudgetExceededError, SafetyBudget
@@ -50,6 +50,16 @@ class AdkRepositoryToolset:
         self.ledger = ledger
         self.tracker = tracker
 
+    @staticmethod
+    def _recovery_action(error: str) -> str:
+        if ".git" in error:
+            return ".git 호출은 재시도하지 말고, 이미 확보한 일반 Repository 관찰만 사용해 전체 candidate를 validate_analysis에 제출하세요."
+        if "line evidence" in error:
+            return "큰 line 범위는 재시도하지 말고, search_text hit의 짧은 범위만 사용해 전체 candidate를 validate_analysis에 제출하세요."
+        if "line 범위" in error:
+            return "존재가 확인된 짧은 line 범위만 사용하고 잘못된 호출은 재시도하지 말고 전체 candidate를 validate_analysis에 제출하세요."
+        return "오류를 반복하지 말고 다른 유효한 Repository 탐색 또는 AnalysisResult candidate를 validate_analysis에 제출하세요."
+
     def _call(self, name: str, args: Mapping[str, object], operation: Any) -> object:
         duplicate = self.tracker.begin(name, args)
         if duplicate is not None:
@@ -75,7 +85,7 @@ class AdkRepositoryToolset:
                 "valid": False,
                 "budget_exhausted": isinstance(error, BudgetExceededError),
                 "error": safe_error,
-                "next_action": "오류를 반복하지 말고 다른 유효한 Repository 탐색 또는 AnalysisResult 제출을 선택하세요.",
+                "next_action": self._recovery_action(safe_error),
             }
 
     def inspect_target(self) -> dict[str, object]:
@@ -99,7 +109,7 @@ class AdkRepositoryToolset:
         return self._call("read_file", {"relative": relative}, lambda: self.repository_tools.read_file(relative))
 
     def read_file_lines(self, relative: str, line_start: int, line_end: int) -> object:
-        """Read line-backed evidence; .git internals are forbidden and the range must exist."""
+        """Read at most four lines of line-backed evidence; .git internals are forbidden and the range must exist."""
         args = {"relative": relative, "line_start": line_start, "line_end": line_end}
         return self._call("read_file_lines", args, lambda: self.repository_tools.read_file_lines(relative, line_start, line_end))
 
@@ -109,7 +119,7 @@ class AdkRepositoryToolset:
 
     def validate_analysis(
         self,
-        status: str,
+        status: Literal["complete", "partial", "failed"],
         summary: str,
         evidence: list[dict],
         findings: list[dict],
@@ -136,9 +146,37 @@ class AdkRepositoryToolset:
             "termination": termination,
         })
         preliminary = self._call("validate_analysis", candidate, lambda: self.repository_tools.validate_analysis(candidate))
+        if isinstance(preliminary, Mapping) and preliminary.get("valid") is not True:
+            corrections = preliminary.get("evidence_corrections")
+            if isinstance(corrections, list) and isinstance(candidate.get("evidence"), list):
+                corrected_evidence = [dict(item) for item in candidate["evidence"] if isinstance(item, Mapping)]
+                correction_by_id = {
+                    item.get("id"): item
+                    for item in corrections
+                    if isinstance(item, Mapping) and isinstance(item.get("id"), str)
+                }
+                normalized = False
+                for item in corrected_evidence:
+                    correction = correction_by_id.get(item.get("id"))
+                    if correction is None or not isinstance(correction.get("excerpt"), str):
+                        continue
+                    item["text"] = correction["excerpt"]
+                    item["excerpt"] = correction["excerpt"]
+                    normalized = True
+                if normalized:
+                    corrected_candidate = {**candidate, "evidence": corrected_evidence}
+                    corrected = self.repository_tools.validate_analysis(corrected_candidate)
+                    if corrected.get("valid") is True:
+                        candidate = corrected_candidate
+                        preliminary = corrected
         if not isinstance(preliminary, Mapping) or preliminary.get("valid") is not True:
-            self.ledger.validation_error = "Repository evidence validation failed."
             response = dict(preliminary) if isinstance(preliminary, Mapping) else {"valid": False, "errors": ["invalid validation response"]}
+            details = response.get("errors")
+            if isinstance(details, list) and details:
+                safe_details = "; ".join(str(redact_sensitive_value(item)) for item in details[:8])
+                self.ledger.validation_error = f"Repository evidence validation failed: {safe_details}"
+            else:
+                self.ledger.validation_error = "Repository evidence validation failed."
             response["next_action"] = "오류를 수정한 전체 AnalysisResult candidate를 다시 validate_analysis에 전달하세요."
             return response
         from .analysis import AnalysisResult, PydanticDependencyError
@@ -147,7 +185,15 @@ class AdkRepositoryToolset:
             result = AnalysisResult.model_validate(candidate)
         except (ValueError, PydanticDependencyError) as error:
             self.ledger.validation_error = str(error)
-            return {"valid": False, "errors": [str(error)]}
+            return {
+                "valid": False,
+                "errors": [str(error)],
+                "next_action": (
+                    "전체 candidate를 다시 validate_analysis에 전달하세요. "
+                    "top-level status는 complete, partial, failed 중 하나이며, "
+                    "confirmed/inferred/unresolved/conflicting은 Evidence와 Finding의 status에만 사용합니다."
+                ),
+            }
         self.ledger.result = result
         self.ledger.validation_error = None
         return {"valid": True, "analysis": result.model_dump(mode="json")}

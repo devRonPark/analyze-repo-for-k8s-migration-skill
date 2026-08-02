@@ -97,6 +97,20 @@ class AdkAgentTests(unittest.TestCase):
             )
             self.assertEqual(type(agent.model), ScriptedAdkLlm)
 
+    def test_agent_instruction_bounds_line_evidence_requests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            agent = create_agent().build_root_agent(
+                repository_tools=RepositoryTools(repo, budget=SafetyBudget()),
+                ledger=ValidationLedger(),
+                tracker=DuplicateTracker(),
+                budget=SafetyBudget(),
+                model_override=ScriptedAdkLlm(),
+            )
+
+            self.assertIn("최대 4줄", agent.instruction)
+            self.assertIn("search_text hit", agent.instruction)
+
     def test_production_analyze_uses_adk_and_validates_agent_result(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

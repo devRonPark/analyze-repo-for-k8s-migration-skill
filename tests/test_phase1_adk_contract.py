@@ -105,6 +105,89 @@ class FalseRepositoryAwareFinalLlm(BaseLlm):
         )
 
 
+class RecoveryValidationLlm(BaseLlm):
+    model: str = "fake-recovery-validation-model"
+    _calls: int = PrivateAttr(0)
+
+    async def generate_content_async(self, llm_request, stream: bool = False):
+        self._calls += 1
+        if self._calls == 1:
+            part = types.Part(
+                function_call=types.FunctionCall(
+                    name="read_file",
+                    args={"relative": "."},
+                    id="bad-read",
+                )
+            )
+        else:
+            part = types.Part(
+                function_call=types.FunctionCall(
+                    name="validate_analysis",
+                    args={
+                        "status": "complete",
+                        "summary": "PORT 설정이 확인되었습니다.",
+                        "evidence": [{
+                            "id": "e1",
+                            "status": "confirmed",
+                            "path": "app.py",
+                            "line_start": 1,
+                            "line_end": 1,
+                            "claim": "PORT 설정이 확인됨",
+                            "text": "PORT = 8080",
+                        }],
+                        "findings": [{
+                            "id": "f1",
+                            "status": "confirmed",
+                            "claim": "PORT 설정이 확인됨",
+                            "evidence_ids": ["e1"],
+                        }],
+                        "iterations": 1,
+                        "errors": [],
+                        "termination": "normal",
+                    },
+                    id="valid-submit",
+                )
+            )
+        yield LlmResponse(content=types.Content(role="model", parts=[part]), partial=False)
+
+
+class ValidationRetryLlm(BaseLlm):
+    model: str = "fake-validation-retry-model"
+    _calls: int = PrivateAttr(0)
+
+    async def generate_content_async(self, llm_request, stream: bool = False):
+        self._calls += 1
+        evidence = {
+            "status": "confirmed",
+            "path": "app.py",
+            "line_start": 1,
+            "line_end": 1,
+            "claim": "PORT 설정이 확인됨",
+            "text": "PORT = 8080",
+        }
+        if self._calls > 1:
+            evidence["id"] = "e1"
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[types.Part(function_call=types.FunctionCall(
+                    name="validate_analysis",
+                    args={
+                        "status": "complete",
+                        "summary": "PORT 설정이 확인되었습니다.",
+                        "evidence": [evidence],
+                        "findings": [{"id": "f1", "status": "confirmed", "claim": "PORT 설정이 확인됨", "evidence_ids": ["e1"]}],
+                        "iterations": 1,
+                        "errors": [],
+                        "termination": "normal",
+                    },
+                    id=f"validation-{self._calls}",
+                ))],
+            ),
+            partial=False,
+        )
+
+
 class Phase1ContractTests(unittest.TestCase):
     def make_repo(self, root: Path) -> Path:
         repo = root / "repo"
@@ -151,6 +234,18 @@ class Phase1ContractTests(unittest.TestCase):
             result = analyze(self.make_repo(root), root / "output", adk_model=FalseRepositoryAwareFinalLlm(), max_iterations=3)
             self.assertNotEqual(result.status, "complete")
 
+    def test_tool_error_recovery_can_submit_a_valid_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = analyze(self.make_repo(root), root / "output", adk_model=RecoveryValidationLlm(), max_iterations=5)
+            self.assertEqual(result.status, "complete")
+
+    def test_validation_error_is_returned_to_agent_for_correction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = analyze(self.make_repo(root), root / "output", adk_model=ValidationRetryLlm(), max_iterations=5)
+            self.assertEqual(result.status, "complete")
+
     def test_fallback_never_promotes_observation_to_confirmed_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = analyze(self.make_repo(Path(tmp)), Path(tmp) / "output", adk_model=InvalidFinalLlm(), max_iterations=3)
@@ -178,6 +273,85 @@ class Phase1ContractTests(unittest.TestCase):
         report = render_report(AnalysisResult.model_validate({"status": "failed", "summary": "jdbc://u:p@example.test?password=pw", "errors": ["password=pw"]}))
         self.assertNotIn("u:p", report)
         self.assertNotIn("pw", report)
+
+    def test_repository_tool_error_gives_a_specific_safe_recovery_action(self):
+        repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
+        toolset = AdkRepositoryToolset(repository, ValidationLedger(), DuplicateTracker())
+
+        result = toolset.read_file(".git/config")
+
+        self.assertFalse(result["valid"])
+        self.assertIn(".git", result["error"])
+        self.assertIn("validate_analysis", result["next_action"])
+        self.assertIn("재시도하지", result["next_action"])
+
+    def test_validation_failure_preserves_repository_error_for_recovery(self):
+        repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
+        ledger = ValidationLedger()
+        toolset = AdkRepositoryToolset(repository, ledger, DuplicateTracker())
+
+        result = toolset.validate_analysis(
+            status="partial",
+            summary="근거 부족",
+            evidence=[{
+                "id": "e1",
+                "status": "confirmed",
+                "path": "missing.py",
+                "line_start": 1,
+                "line_end": 1,
+                "claim": "설정이 확인됨",
+                "text": "PORT = 8080",
+            }],
+            findings=[],
+            iterations=1,
+            errors=["missing.py를 확인하지 못함"],
+        )
+
+        self.assertFalse(result["valid"])
+        self.assertIn("missing.py", ledger.validation_error or "")
+
+    def test_validation_schema_error_explains_top_level_status_values(self):
+        repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
+        toolset = AdkRepositoryToolset(repository, ValidationLedger(), DuplicateTracker())
+
+        result = toolset.validate_analysis(
+            status="confirmed",
+            summary="잘못된 top-level status",
+            evidence=[],
+            findings=[],
+            iterations=1,
+            errors=[],
+        )
+
+        self.assertFalse(result["valid"])
+        self.assertIn("complete", result["next_action"])
+        self.assertIn("confirmed", result["next_action"])
+
+    def test_validation_normalizes_a_verified_line_excerpt_before_schema_commit(self):
+        repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
+        ledger = ValidationLedger()
+        toolset = AdkRepositoryToolset(repository, ledger, DuplicateTracker())
+
+        result = toolset.validate_analysis(
+            status="complete",
+            summary="검증된 결과",
+            evidence=[{
+                "id": "e1",
+                "status": "confirmed",
+                "path": "migration_assistant/target.py",
+                "line_start": 1,
+                "line_end": 1,
+                "claim": "target 경계가 확인됨",
+                "text": "잘못된 복사본",
+            }],
+            findings=[{"id": "f1", "status": "confirmed", "claim": "target 경계가 확인됨", "evidence_ids": ["e1"]}],
+            iterations=1,
+            errors=[],
+        )
+
+        self.assertTrue(result["valid"])
+        self.assertEqual(ledger.result.evidence[0].text, '"""Deterministic read-only target and output safety boundary."""')
+
     def test_fenced_structured_result_is_safely_extractable(self):
         self.assertEqual(
             parse_structured_final("```json\n{\"status\": \"partial\"}\n```"),

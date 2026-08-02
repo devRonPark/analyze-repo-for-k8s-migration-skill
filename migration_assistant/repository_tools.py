@@ -34,6 +34,11 @@ _URL_QUERY_CREDENTIAL = re.compile(
 )
 _SECRET_KEY = re.compile(r"(?i)^(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?token|client[_-]?secret)$")
 _GENERIC_PLACEHOLDERS = {"", "n/a", "na", "unknown", "placeholder", "todo", "tbd"}
+_OBSERVATION_EXCLUDED_DIRS = frozenset(
+    {".dryforge", ".venv", "venv", "node_modules", "__pycache__", "target", "dist", "build"}
+)
+_OBSERVATION_EXCLUDED_FILES = frozenset({"agents.md", "skill.md", "context.md"})
+_MAX_LINE_EVIDENCE_LINES = 4
 
 
 def redact_sensitive_text(text: str) -> str:
@@ -89,20 +94,51 @@ class RepositoryTools:
         return any(part.casefold() == ".git" for part in cls._path_components(value))
 
     @classmethod
+    def _contains_observation_exclusion(cls, value: str | Path) -> bool:
+        parts = cls._path_components(value)
+        return cls._contains_git_component(value) or any(
+            part.casefold() in _OBSERVATION_EXCLUDED_FILES
+            or part.casefold() in _OBSERVATION_EXCLUDED_DIRS
+            or (
+                part.casefold() == ".dryforge"
+                and index + 1 < len(parts)
+                and parts[index + 1].casefold() == "worktrees"
+            )
+            for index, part in enumerate(parts)
+        )
+
+    @classmethod
     def _reject_git(cls, relative: str | Path) -> None:
         if cls._contains_git_component(relative):
             raise RepositoryToolError(".git 내부는 Repository observation 범위가 아닙니다.")
+
+    @classmethod
+    def _reject_observation_exclusion(cls, relative: str | Path) -> None:
+        if cls._contains_git_component(relative):
+            raise RepositoryToolError(".git 내부는 Repository observation 범위가 아닙니다.")
+        parts = cls._path_components(relative)
+        if any(
+            part.casefold() == ".dryforge"
+            and index + 1 < len(parts)
+            and parts[index + 1].casefold() == "worktrees"
+            for index, part in enumerate(parts)
+        ):
+            raise RepositoryToolError(".dryforge/worktrees 내부는 Repository observation 범위가 아닙니다.")
+        if any(part.casefold() in _OBSERVATION_EXCLUDED_FILES for part in parts):
+            raise RepositoryToolError("Repository instruction file은 observation 범위가 아닙니다.")
+        if any(part.casefold() in _OBSERVATION_EXCLUDED_DIRS for part in parts):
+            raise RepositoryToolError("생성·의존성 directory는 Repository observation 범위가 아닙니다.")
 
     def _begin_observation(self) -> None:
         self.budget.consume_exploration()
 
     def _resolve(self, relative: str | Path) -> Path:
-        self._reject_git(relative)
+        self._reject_observation_exclusion(relative)
         candidate = (self.repository / Path(relative)).resolve(strict=False)
         if candidate != self.repository and self.repository not in candidate.parents:
             raise RepositoryToolError("Repository 밖의 path는 읽을 수 없습니다.")
         canonical_relative = candidate.relative_to(self.repository)
-        self._reject_git(canonical_relative)
+        self._reject_observation_exclusion(canonical_relative)
         current = self.repository
         for part in canonical_relative.parts:
             current = current / part
@@ -148,7 +184,7 @@ class RepositoryTools:
         for current, directories, files in __import__("os").walk(root, followlinks=False):
             current_path = Path(current)
             current_relative = current_path.relative_to(self.repository)
-            if self._contains_git_component(current_relative):
+            if self._contains_observation_exclusion(current_relative):
                 continue
             directories[:] = [directory for directory in directories if directory.casefold() != ".git"]
             depth = len(current_relative.parts) - base_depth
@@ -157,7 +193,7 @@ class RepositoryTools:
             for name in sorted(directories + files):
                 path = current_path / name
                 relative_path = path.relative_to(self.repository).as_posix()
-                if self._contains_git_component(relative_path):
+                if self._contains_observation_exclusion(relative_path):
                     continue
                 if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
                     raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
@@ -174,7 +210,7 @@ class RepositoryTools:
         matches: list[str] = []
         for path in self.repository.glob(pattern):
             relative_path = path.relative_to(self.repository).as_posix()
-            if self._contains_git_component(relative_path):
+            if self._contains_observation_exclusion(relative_path):
                 continue
             canonical = self._resolve(relative_path)
             if canonical.is_file():
@@ -207,6 +243,7 @@ class RepositoryTools:
                                 "line_start": line_number,
                                 "line_end": line_number,
                                 "text": self._redact(line),
+                                "excerpt": self._redact(line),
                             }
                         )
         return {"hits": hits, "hit_count": hit_count, "returned_hit_count": len(hits), "truncated": hit_count > len(hits)}
@@ -220,7 +257,7 @@ class RepositoryTools:
         for current, directories, files in __import__("os").walk(root, followlinks=False):
             current_path = Path(current)
             current_relative = current_path.relative_to(self.repository)
-            if self._contains_git_component(current_relative):
+            if self._contains_observation_exclusion(current_relative):
                 continue
             directories[:] = [directory for directory in directories if directory.casefold() != ".git"]
             depth = len(current_relative.parts) - base_depth
@@ -229,7 +266,7 @@ class RepositoryTools:
             for name in sorted(directories + files):
                 path = current_path / name
                 relative_path = path.relative_to(self.repository).as_posix()
-                if self._contains_git_component(relative_path):
+                if self._contains_observation_exclusion(relative_path):
                     continue
                 if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
                     raise RepositoryToolError("symlink 또는 junction escape가 차단되었습니다.")
@@ -261,23 +298,29 @@ class RepositoryTools:
         self._begin_observation()
         if line_start < 1 or line_end < line_start:
             raise RepositoryToolError("line 범위가 올바르지 않습니다.")
-        if line_end - line_start + 1 > self.budget.max_search_results:
-            raise BudgetExceededError("line evidence 응답 크기 budget을 초과했습니다.")
         data = self._read_bytes(relative)
         path = self._resolve(relative)
         if b"\x00" in data:
             raise RepositoryToolError("binary file에는 line 근거를 만들 수 없습니다.")
         lines = self._redact(data.decode("utf-8", errors="replace")).splitlines()
-        if line_end > len(lines):
-            raise RepositoryToolError("line 범위가 file 범위를 벗어났습니다.")
+        if line_start > len(lines):
+            raise RepositoryToolError(
+                f"line 범위가 file 범위를 벗어났습니다. 확인 가능한 마지막 line은 {len(lines)}입니다."
+            )
+        effective_end = min(
+            line_end,
+            line_start + min(self.budget.max_search_results, _MAX_LINE_EVIDENCE_LINES) - 1,
+            len(lines),
+        )
         return [
             {
                 "path": path.relative_to(self.repository).as_posix(),
                 "line_start": number,
                 "line_end": number,
                 "text": lines[number - 1],
+                "excerpt": lines[number - 1],
             }
-            for number in range(line_start, line_end + 1)
+            for number in range(line_start, effective_end + 1)
         ]
 
     def inspect_git_metadata(self) -> dict[str, object]:
@@ -324,6 +367,7 @@ class RepositoryTools:
     def validate_analysis(self, analysis: Mapping[str, object]) -> dict[str, object]:
         self._begin_observation()
         errors: list[str] = []
+        evidence_corrections: list[dict[str, object]] = []
         evidence = analysis.get("evidence") if isinstance(analysis, Mapping) else None
         findings = analysis.get("findings") if isinstance(analysis, Mapping) else None
         status = analysis.get("status") if isinstance(analysis, Mapping) else None
@@ -347,7 +391,7 @@ class RepositoryTools:
                         errors.append("unresolved evidence에는 scope, pattern, result가 필요합니다.")
                     continue
                 claim = item.get("claim")
-                excerpt = item.get("text")
+                excerpt = item.get("text") if item.get("text") is not None else item.get("excerpt")
                 if not isinstance(path, str) or not isinstance(start, int) or not isinstance(end, int):
                     errors.append("positive evidence에는 path와 line 범위가 필요합니다.")
                     continue
@@ -377,6 +421,15 @@ class RepositoryTools:
                             actual = "\n".join(lines[start - 1 : end])
                             if self._compact(str(excerpt)) not in self._compact(actual):
                                 errors.append(f"evidence excerpt가 실제 Repository line과 일치하지 않습니다: {path}:{start}-{end}")
+                                evidence_corrections.append(
+                                    {
+                                        "id": evidence_id,
+                                        "path": path,
+                                        "line_start": start,
+                                        "line_end": end,
+                                        "excerpt": actual,
+                                    }
+                                )
                     except RepositoryToolError as error:
                         errors.append(str(error))
         positive_finding = False
@@ -411,4 +464,7 @@ class RepositoryTools:
                         errors.append("positive finding은 존재하는 evidence id를 하나 이상 참조해야 합니다.")
         if status == "complete" and not positive_finding:
             errors.append("complete 결과에는 valid positive Evidence를 참조하는 finding이 필요합니다.")
-        return {"valid": not errors, "errors": errors}
+        response: dict[str, object] = {"valid": not errors, "errors": errors}
+        if evidence_corrections:
+            response["evidence_corrections"] = evidence_corrections
+        return response

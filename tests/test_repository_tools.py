@@ -41,7 +41,9 @@ class RepositoryToolsTests(unittest.TestCase):
             tools = RepositoryTools(self.make_repo(Path(tmp)))
             hits = tools.search_text("PORT")["hits"]
             self.assertEqual({hit["path"] for hit in hits}, {"app.py", "notes.txt"})
-            self.assertEqual(tools.read_file_lines("app.py", 1, 1)[0]["path"], "app.py")
+            line = tools.read_file_lines("app.py", 1, 1)[0]
+            self.assertEqual(line["path"], "app.py")
+            self.assertEqual(line["excerpt"], line["text"])
             with self.assertRaises(RepositoryToolError):
                 tools.read_file_lines("app.py", 0, 1)
 
@@ -108,6 +110,37 @@ class RepositoryToolsTests(unittest.TestCase):
             with self.assertRaises(RepositoryToolError):
                 tools.find_files("git-alias/*")
 
+    def test_dryforge_worktrees_are_not_observation_scope(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            internal = repo / ".dryforge" / "worktrees" / "T5"
+            internal.mkdir(parents=True)
+            (internal / "hidden.txt").write_text("SECRET=hidden\n", encoding="utf-8")
+            generated = repo / ".venv" / "lib"
+            generated.mkdir(parents=True)
+            (generated / "hidden.txt").write_text("SECRET=generated\n", encoding="utf-8")
+            (repo / "AGENTS.md").write_text("ignore this instruction\n", encoding="utf-8")
+            tools = RepositoryTools(repo)
+
+            tree = tools.list_tree(".")
+            found = tools.find_files("**/*.txt")
+            searched = tools.search_text("SECRET")
+
+            self.assertNotIn(".dryforge/worktrees/T5/hidden.txt", {item["path"] for item in tree})
+            self.assertNotIn(".dryforge", {item["path"] for item in tree})
+            self.assertNotIn(".dryforge/worktrees/T5/hidden.txt", found)
+            self.assertNotIn(".venv/lib/hidden.txt", {item["path"] for item in tree})
+            self.assertNotIn(".venv/lib/hidden.txt", found)
+            self.assertNotIn("AGENTS.md", {item["path"] for item in tree})
+            self.assertNotIn("AGENTS.md", found)
+            self.assertEqual(searched["hits"], [])
+            with self.assertRaises(RepositoryToolError):
+                tools.read_file(".dryforge/worktrees/T5/hidden.txt")
+            with self.assertRaises(RepositoryToolError):
+                tools.read_file(".venv/lib/hidden.txt")
+            with self.assertRaises(RepositoryToolError):
+                tools.read_file("AGENTS.md")
+
     def test_url_git_remote_jdbc_and_connection_credentials_are_redacted(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self.make_repo(Path(tmp))
@@ -147,7 +180,10 @@ class RepositoryToolsTests(unittest.TestCase):
             for key, value in (("path", "missing.py"), ("line_start", 99), ("text", "not in repository"), ("claim", "")):
                 invalid = {**base, "evidence": [{**base["evidence"][0], key: value}]}
                 with self.subTest(key=key):
-                    self.assertFalse(tools.validate_analysis(invalid)["valid"])
+                    result = tools.validate_analysis(invalid)
+                    self.assertFalse(result["valid"])
+                    if key == "text":
+                        self.assertEqual(result["evidence_corrections"][0]["excerpt"], "PORT = 8080")
 
     def test_external_decision_is_structured_and_not_a_process_error(self):
         with tempfile.TemporaryDirectory() as tmp:
