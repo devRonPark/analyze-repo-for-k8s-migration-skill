@@ -1,0 +1,17 @@
+# Project-scoped code-review-graph integration.
+# The global entry is disabled so this repository is the only enabled scope.
+[mcp_servers.code-review-graph]
+command = 'C:/Users/박병찬/AppData/Roaming/uv/tools/code-review-graph/Scripts/code-review-graph.exe'
+args = ["serve", "--repo", "C:/Users/박병찬/Desktop/analyze-repo-for-k8s-migration-adk"]
+cwd = 'C:/Users/박병찬/Desktop/analyze-repo-for-k8s-migration-adk'
+env = { PYTHONUTF8 = "1" }
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+
+[[hooks.PostToolUse]]
+matcher = "Write|Edit|Bash"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "python .codex/code_review_graph_hook.py"
+timeout = 2

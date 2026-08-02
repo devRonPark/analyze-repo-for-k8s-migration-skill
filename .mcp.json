@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "C:\\Users\\박병찬\\AppData\\Roaming\\uv\\tools\\code-review-graph\\Scripts\\code-review-graph.exe",
+      "args": [
+        "serve",
+        "--repo",
+        "C:\\Users\\박병찬\\Desktop\\analyze-repo-for-k8s-migration-adk"
+      ],
+      "cwd": "C:\\Users\\박병찬\\Desktop\\analyze-repo-for-k8s-migration-adk",
+      "env": {
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}
