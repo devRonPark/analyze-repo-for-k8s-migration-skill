@@ -81,12 +81,19 @@ class TargetSafetyGate:
         if not root.is_dir():
             raise TargetSafetyError("입력 경로는 directory여야 합니다.")
         result = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"],
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
-        if result.returncode != 0 or result.stdout.strip().lower() != "true":
+        git_root = (
+            Path(result.stdout.strip()).expanduser().resolve(strict=False)
+            if result.returncode == 0 and result.stdout.strip()
+            else None
+        )
+        if result.returncode != 0 or git_root != root:
             raise TargetSafetyError("입력 경로가 유효한 Git repository가 아닙니다.")
 
         canonical_output = None
