@@ -1,9 +1,10 @@
-"""Measurement-only record of which Tool observed which repository line.
+"""Measurement-only record of how a run observed the repository.
 
 This module never participates in Evidence validation. It exists so a run can be
-measured after the fact: which observation Tool supported each Evidence, and how
-often the Agent cited lines it never opened. Recording must therefore be cheap,
-bounded, and free of repository content.
+measured after the fact: which observation Tool supported each Evidence, how
+often the Agent cited lines it never opened, and whether its searches found
+anything. Recording must therefore be cheap, bounded, and free of repository
+content or model-authored text.
 """
 
 from __future__ import annotations
@@ -24,8 +25,23 @@ class ObservationProvenance:
 
     max_lines: int = DEFAULT_MAX_LINES
     truncated: bool = False
+    search_calls: int = 0
+    search_zero_hit_calls: int = 0
     _lines_by_path: dict[str, dict[str, set[int]]] = field(default_factory=dict)
     _recorded: int = 0
+
+    def record_search(self, hits: int) -> None:
+        """Record one completed search and whether it found anything.
+
+        Only successful calls are recorded. A rejected pattern is a protocol
+        error, not evidence that the repository lacks the term.
+        """
+
+        if hits < 0:
+            return
+        self.search_calls += 1
+        if hits == 0:
+            self.search_zero_hit_calls += 1
 
     def record(self, tool: str, path: str, line_start: int, line_end: int) -> None:
         """Record an inclusive 1-based observed range, ignoring invalid input."""
@@ -72,6 +88,13 @@ class ObservationProvenance:
             "observed_lines": {tool: count for tool, count in observed_lines.items() if count},
             "observed_paths": len(self._lines_by_path),
             "truncated": self.truncated,
+            "search_calls": self.search_calls,
+            "search_zero_hit_calls": self.search_zero_hit_calls,
+            # None, not 0.0: a run that never searched is not a run that
+            # searched perfectly.
+            "search_zero_hit_ratio": (
+                self.search_zero_hit_calls / self.search_calls if self.search_calls else None
+            ),
         }
 
 

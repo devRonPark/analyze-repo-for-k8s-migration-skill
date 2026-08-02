@@ -109,6 +109,9 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
                     "observed_lines": {"read_file": 120, "read_file_lines": 4},
                     "observed_paths": 2,
                     "truncated": False,
+                    "search_calls": 3,
+                    "search_zero_hit_calls": 3,
+                    "search_zero_hit_ratio": 1.0,
                 },
             })
             return SimpleNamespace(
@@ -126,6 +129,9 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
         self.assertEqual(first["provenance_summary"]["observed_lines"]["read_file"], 120)
         # An Evidence with no source was cited without ever being observed.
         self.assertEqual(first["unobserved_evidence_count"], 1)
+        # Search effectiveness is the rollback signal for the registry patterns,
+        # so the harness must not drop it.
+        self.assertEqual(first["provenance_summary"]["search_zero_hit_ratio"], 1.0)
 
     def test_unresolved_evidence_does_not_count_as_gate_success(self):
         repository = self.test_root / "repository"

@@ -108,6 +108,57 @@ class ToolsetProvenanceRecordingTests(unittest.TestCase):
             self.assertNotIn("TOKEN", payload)
 
 
+class SearchEffectivenessTests(unittest.TestCase):
+    def test_summary_reports_zero_hit_ratio(self):
+        provenance = ObservationProvenance()
+        provenance.record_search(8)
+        provenance.record_search(0)
+        provenance.record_search(0)
+
+        summary = provenance.summary()
+
+        self.assertEqual(summary["search_calls"], 3)
+        self.assertEqual(summary["search_zero_hit_calls"], 2)
+
+    def test_no_search_call_reports_no_ratio_instead_of_zero(self):
+        summary = ObservationProvenance().summary()
+
+        self.assertEqual(summary["search_calls"], 0)
+        self.assertEqual(summary["search_zero_hit_calls"], 0)
+        # A run that never searched must not look like a run that searched perfectly.
+        self.assertIsNone(summary["search_zero_hit_ratio"])
+
+    def test_toolset_records_hit_counts_without_the_pattern(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret = "sk-live-0123456789abcdef"
+            (root / "app.py").write_text(f'PORT = 8080\nTOKEN = "{secret}"\n', encoding="utf-8")
+            toolset = ToolsetProvenanceRecordingTests().make_toolset(root)
+
+            toolset.search_text("PORT", ".")
+            toolset.search_text("NOTHING_MATCHES_THIS", ".")
+
+            summary = toolset.provenance.summary()
+            self.assertEqual(summary["search_calls"], 2)
+            self.assertEqual(summary["search_zero_hit_calls"], 1)
+            self.assertEqual(summary["search_zero_hit_ratio"], 0.5)
+            payload = json.dumps(summary, ensure_ascii=False)
+            self.assertNotIn("NOTHING_MATCHES_THIS", payload)
+            self.assertNotIn(secret, payload)
+
+    def test_failed_search_is_not_counted_as_a_zero_hit_call(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "app.py").write_text("PORT = 8080\n", encoding="utf-8")
+            toolset = ToolsetProvenanceRecordingTests().make_toolset(root)
+
+            # An invalid regex is a protocol error, not evidence that the
+            # repository lacks the term.
+            toolset.search_text("(unclosed", ".")
+
+            self.assertEqual(toolset.provenance.summary()["search_calls"], 0)
+
+
 class EvidenceSourceAttributionTests(unittest.TestCase):
     def test_positive_evidence_is_attributed_to_the_tools_that_observed_it(self):
         provenance = ObservationProvenance()

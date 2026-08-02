@@ -381,6 +381,8 @@ class AdkRepositoryToolset:
 
         if name in ("search_text", "read_file_lines"):
             items = result.get("hits") if isinstance(result, Mapping) else result
+            if name == "search_text" and isinstance(items, list):
+                self.provenance.record_search(len(items))
             if not isinstance(items, list):
                 return
             for item in items:
