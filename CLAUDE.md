@@ -1,8 +1,8 @@
 # Claude Cowork 검토 지침
 
 이 프로젝트의 활성 제품은 Local Git Repository를 읽기 전용으로 탐색해
-Kubernetes Migration Plan과 manifest 초안을 생성하는 Google ADK MVP다. OpenCode
-Skill 프로젝트가 아니며, `AGENTS.md`와 `CONTEXT.md`가 현재 제품 기준이다.
+Kubernetes Migration Plan과 manifest 초안을 생성하는 Google ADK MVP다.
+`AGENTS.md`와 `CONTEXT.md`가 현재 제품 기준이다.
 
 Claude Cowork의 역할은 **읽기 전용 독립 검토**다.
 
@@ -16,6 +16,6 @@ Claude Cowork의 역할은 **읽기 전용 독립 검토**다.
 - Korean UI/오류 문구와 OpenAI-compatible adapter의 provider 중립성도 검토한다.
 
 검토 결과는 한국어로, 심각도와 파일ㆍ줄 근거를 포함해 간결히 제시한다. 제안은 자동
-반영하지 않으며, Codex가 코드와 테스트로 확인한 최소 변경만 채택한다. 새 ADK 경로가
-`SKILL.md`, `runtime/`, `agents/`, OpenCode installer/acceptance harness를 import,
-invoke, 또는 의존한다면 설계 drift로 보고한다.
+반영하지 않으며, Codex가 코드와 테스트로 확인한 최소 변경만 채택한다. Agent 판단과
+Python guardrail의 책임 경계, target read-only, output 분리가 깨지면 설계 drift로
+보고한다.
