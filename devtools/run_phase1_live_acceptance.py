@@ -31,6 +31,7 @@ class AcceptanceRun:
     positive_evidence_count: int
     protocol_error_codes: tuple[str, ...]
     protocol_error_fields: tuple[str | None, ...] = ()
+    protocol_error_inputs: tuple[str | None, ...] = ()
     evidence_provenance: tuple[dict[str, object], ...] = ()
     provenance_summary: Mapping[str, object] = field(default_factory=dict)
     error_type: str | None = None
@@ -53,6 +54,7 @@ class AcceptanceRun:
             "positive_evidence_count": self.positive_evidence_count,
             "protocol_error_codes": list(self.protocol_error_codes),
             "protocol_error_fields": list(self.protocol_error_fields),
+            "protocol_error_inputs": list(self.protocol_error_inputs),
             "evidence_provenance": [dict(item) for item in self.evidence_provenance],
             "provenance_summary": dict(self.provenance_summary),
             "unobserved_evidence_count": self.unobserved_evidence_count,
@@ -200,6 +202,20 @@ def _protocol_error_fields(metadata: Mapping[str, object]) -> tuple[str | None, 
     return tuple(fields)
 
 
+def _protocol_error_inputs(metadata: Mapping[str, object]) -> tuple[str | None, ...]:
+    """Shape of each rejected argument, aligned with _protocol_error_codes."""
+
+    issues = metadata.get("protocol_issues", [])
+    if not isinstance(issues, list):
+        return ()
+    inputs: list[str | None] = []
+    for issue in issues:
+        if isinstance(issue, Mapping) and isinstance(issue.get("code"), str):
+            rejected = issue.get("rejected_input")
+            inputs.append(rejected if isinstance(rejected, str) else None)
+    return tuple(inputs)
+
+
 def _evidence_provenance(metadata: Mapping[str, object]) -> tuple[dict[str, object], ...]:
     """Per-Evidence observation sources; empty sources mean an unobserved citation."""
 
@@ -313,6 +329,7 @@ def _run_once(
         positive_evidence_count=positive_evidence_count,
         protocol_error_codes=_protocol_error_codes(metadata),
         protocol_error_fields=_protocol_error_fields(metadata),
+        protocol_error_inputs=_protocol_error_inputs(metadata),
         evidence_provenance=_evidence_provenance(metadata),
         provenance_summary=_provenance_summary(metadata),
         error_type=error_details.get("error_type"),  # type: ignore[arg-type]

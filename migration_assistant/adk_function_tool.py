@@ -48,6 +48,32 @@ def _field_path(error: Mapping[str, Any]) -> str:
     return path
 
 
+_MAX_REJECTED_INPUT_CHARS = 120
+
+
+def _rejected_input(error: Mapping[str, Any]) -> str | None:
+    """Describe the rejected value for measurement only.
+
+    The field path alone cannot distinguish an over-wide line range from an
+    out-of-file line, which is the difference between a prompt problem and a
+    limit that is too tight. Numbers answer that and carry no repository
+    content, so they are recorded verbatim. A string may itself be the secret -
+    redaction keys off surrounding names, not bare values - so only its shape
+    is recorded.
+    """
+
+    if "input" not in error:
+        return None
+    value = error["input"]
+    if isinstance(value, bool) or value is None:
+        return str(value)
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return f"str(len={len(value)})"
+    return f"{type(value).__name__}(len={len(value)})" if hasattr(value, "__len__") else type(value).__name__
+
+
 class RepositoryFunctionTool(BaseTool):
     """An explicit public Tool with one declaration and one result envelope."""
 
@@ -160,6 +186,7 @@ class RepositoryFunctionTool(BaseTool):
                 message=message,
                 field_path=_field_path(first),
                 retryable=True,
+                rejected_input=_rejected_input(first),
             )
         return None
 

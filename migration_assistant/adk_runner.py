@@ -129,6 +129,10 @@ def run_adk_agent(
                             control.protocol_issue,
                             allowed_next_actions=control.allowed_next_actions(PUBLIC_AGENT_TOOL_NAMES),
                         )["error"]
+                        # Measurement only; the envelope the model received above
+                        # deliberately omits it.
+                        if control.protocol_issue.rejected_input is not None:
+                            issue_payload["rejected_input"] = control.protocol_issue.rejected_input
                         if not run.protocol_issues or run.protocol_issues[-1] != issue_payload:
                             run.protocol_issues.append(issue_payload)
                         if control.protocol_issue.code not in {

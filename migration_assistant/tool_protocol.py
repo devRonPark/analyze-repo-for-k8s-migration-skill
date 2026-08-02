@@ -44,6 +44,9 @@ class ToolIssue:
     message: str
     field_path: str | None = None
     retryable: bool = False
+    # Measurement only. Deliberately absent from error_envelope: the model-facing
+    # contract must not widen just because a run is being diagnosed.
+    rejected_input: str | None = None
 
 
 @dataclass(slots=True)

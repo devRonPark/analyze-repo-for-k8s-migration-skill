@@ -146,7 +146,7 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
                 "tool_calls": ["inspect_target", "validate_analysis"],
                 "protocol_issues": [
                     {"code": "candidate_schema", "message": "필수 Tool 인자가 누락되었습니다.", "field_path": "$.iterations"},
-                    {"code": "invalid_arguments", "message": "범위 오류", "field_path": "$.line_end"},
+                    {"code": "invalid_arguments", "message": "범위 오류", "field_path": "$.line_end", "rejected_input": "92"},
                     {"code": "duplicate_call", "message": "중복", "field_path": None},
                 ],
             })
@@ -159,6 +159,10 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
         self.assertEqual(
             summary["runs"][0]["protocol_error_fields"],
             ["$.iterations", "$.line_end", None],
+        )
+        self.assertEqual(
+            summary["runs"][0]["protocol_error_inputs"],
+            [None, "92", None],
         )
 
     def test_unresolved_evidence_does_not_count_as_gate_success(self):
