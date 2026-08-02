@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
@@ -94,6 +96,17 @@ class MigrationAssistantFoundationTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertIn("Kubernetes Migration Assistant", output.getvalue())
+
+    def test_module_entrypoint_routes_cli_arguments_to_analysis_cli(self):
+        result = subprocess.run(
+            [sys.executable, "-m", "migration_assistant", "analyze", "--help"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Local Git Repository", result.stdout)
 
 
 if __name__ == "__main__":
