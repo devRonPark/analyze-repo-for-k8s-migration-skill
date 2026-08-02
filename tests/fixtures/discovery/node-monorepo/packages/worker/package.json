@@ -1,1 +1,0 @@
-{"name":"worker","scripts":{"build":"tsc","start":"node dist/worker.js"}}
