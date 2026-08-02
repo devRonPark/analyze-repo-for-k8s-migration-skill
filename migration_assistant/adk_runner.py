@@ -12,13 +12,14 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-from .adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
+from .adk_tools import DuplicateTracker, ValidationLedger
 from .agent import AgentApplication
 from .analysis import AnalysisResult, PydanticDependencyError
 from .config import Settings
 from .repository_tools import RepositoryTools, redact_sensitive_text
 from .target import BudgetExceededError, SafetyBudget
-from .tool_protocol import RunControlLedger
+from .tool_contract import PUBLIC_AGENT_TOOL_NAMES
+from .tool_protocol import RunControlLedger, RunPhase, error_envelope
 
 
 class AdkExecutionError(RuntimeError):
@@ -31,9 +32,28 @@ class AdkRun:
     errors: list[str] = field(default_factory=list)
     final_text: str = ""
     tool_calls: list[str] = field(default_factory=list)
+    terminal: bool = False
+    protocol_issues: list[dict[str, object]] = field(default_factory=list)
 
 
 _FENCED_JSON = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL | re.IGNORECASE)
+
+
+def _recovery_prompt(control: RunControlLedger, attempt: int, tool_names: tuple[str, ...]) -> str:
+    issue = control.protocol_issue
+    if issue is None:
+        return (
+            f"이전 응답은 terminal Tool 결과가 아니었습니다. 제한된 recovery {attempt}/2입니다. "
+            "새 분석을 시작하지 말고 이미 수집한 근거로 전체 candidate를 validate_analysis에 제출하세요."
+        )
+    actions = control.allowed_next_actions(tool_names)
+    field = f" 실패 field={issue.field_path}." if issue.field_path else ""
+    return (
+        f"Tool protocol 오류 code={issue.code.value}, category={issue.category}.{field} "
+        f"제한된 recovery {attempt}/2입니다. 허용된 다음 Tool은 {', '.join(actions) or '없음'}입니다. "
+        "오류 메시지에 없는 사실을 추정하지 말고, 동일한 실패 호출을 반복하지 마세요. "
+        "candidate 오류이면 의미를 자동 생성하지 말고 전체 candidate의 보고된 field만 수정해 validate_analysis에 다시 제출하세요."
+    )
 
 
 def parse_structured_final(text: str) -> dict[str, object] | None:
@@ -98,12 +118,23 @@ def run_adk_agent(
                     except StopAsyncIteration:
                         break
                     run.tool_calls.extend(call.name for call in event.get_function_calls())
+                    if control.protocol_issue is not None:
+                        issue_payload = error_envelope(
+                            control.protocol_issue,
+                            allowed_next_actions=control.allowed_next_actions(PUBLIC_AGENT_TOOL_NAMES),
+                        )["error"]
+                        if not run.protocol_issues or run.protocol_issues[-1] != issue_payload:
+                            run.protocol_issues.append(issue_payload)
+                        await events.aclose()
+                        break
                     content = getattr(event, "content", None)
                     if content is not None and getattr(content, "role", None) == "model":
                         text = "\n".join(part.text for part in (content.parts or []) if getattr(part, "text", None))
                         if text:
                             run.final_text = redact_sensitive_text(text)
                     if ledger.result is not None:
+                        run.terminal = True
+                        control.phase = RunPhase.DONE
                         await events.aclose()
                         break
                     # Let the model see validate_analysis's structured errors
@@ -126,7 +157,7 @@ def run_adk_agent(
             ledger.result is None
             and tracker.consecutive_no_progress < tracker.max_no_progress
             and budget.iterations < budget.max_iterations
-            and (run.final_text or run.tool_calls or ledger.validation_error or ledger.tool_error)
+            and (run.final_text or run.tool_calls or ledger.validation_error or ledger.tool_error or control.protocol_issue)
         ):
             for recovery_attempt in range(2):
                 if (
@@ -141,24 +172,22 @@ def run_adk_agent(
                 ledger.validation_error = None
                 ledger.tool_error = None
                 ledger.budget_exhausted = None
+                control.recovery_attempts += 1
                 recovery = types.Content(
                     role="user",
                     parts=[
                         types.Part(
-                            text=(
-                                f"이전 응답은 허용된 종료 형식이 아니었습니다. 제한된 recovery {recovery_attempt + 1}/2입니다. 새 분석을 시작하지 마세요. "
-                                "방금 발생한 Tool 오류를 재시도하지 말고 이미 수집한 관찰만 사용하여 전체 candidate를 validate_analysis Tool에 전달하세요. "
-                                "validate_analysis의 top-level status는 complete, partial, failed 중 하나만 사용하고 confirmed/inferred/unresolved/conflicting은 Evidence/Finding에만 사용하세요. "
-                                "validation 응답에 evidence_corrections가 있으면 해당 path, line, excerpt를 그대로 Evidence에 복사해 다시 제출하세요. "
-                                "status가 partial이면 errors에 비어 있지 않은 실제 Repository 미확인 사유를 포함하고, "
-                                "근거가 충분하면 complete를 선택하세요. "
-                                "Evidence status에 absence 같은 값은 사용할 수 없습니다. 부재 주장은 status=unresolved와 absence_scope, absence_pattern, result를 사용하고, positive Evidence는 confirmed/inferred/conflicting 중 하나와 path, line_start, line_end를 사용하세요. line evidence는 search_text hit의 확인된 line을 기준으로 최대 4줄만 사용하세요. "
-                                "유효한 candidate를 Tool로 검증하기 전에는 prose로 종료하지 마세요."
-                            )
+                            text=_recovery_prompt(control, recovery_attempt + 1, PUBLIC_AGENT_TOOL_NAMES)
                         )
                     ],
                 )
                 await consume(runner.run_async(user_id="local-user", session_id=session.id, new_message=recovery))
+                issue = control.protocol_issue
+                if issue is not None:
+                    fingerprint = f"{issue.field_path or '$'}:{','.join(control.allowed_next_actions(PUBLIC_AGENT_TOOL_NAMES))}"
+                    if control.action_repeated(issue.code, fingerprint):
+                        run.errors.append("동일 protocol 오류와 recovery action이 반복되어 no-progress로 종료했습니다.")
+                        break
 
     try:
         asyncio.run(execute())
@@ -177,26 +206,25 @@ def run_adk_agent(
             run.result = AnalysisResult.model_validate(data)
         except Exception as error:
             run.errors.append(f"AnalysisResult schema validation failure: {error}")
-    elif run.final_text:
+    elif run.final_text and control.protocol_issue is None:
         candidate = parse_structured_final(run.final_text)
         if candidate is not None:
             try:
-                toolset = AdkRepositoryToolset(repository, ledger, tracker)
-                validation = toolset.validate_analysis(
-                    status=str(candidate.get("status", "")),
-                    summary=str(candidate.get("summary", "")),
-                    evidence=candidate.get("evidence", []) if isinstance(candidate.get("evidence", []), list) else [],
-                    findings=candidate.get("findings", []) if isinstance(candidate.get("findings", []), list) else [],
-                    iterations=int(candidate.get("iterations", budget.iterations)),
-                    errors=candidate.get("errors", []) if isinstance(candidate.get("errors", []), list) else [],
-                    termination=str(candidate.get("termination", "normal")),
-                )
-                if validation.get("ok") is not True:
-                    error = validation.get("error")
-                    if isinstance(error, dict) and error.get("message"):
-                        run.errors.append(str(error["message"]))
-                elif ledger.result is not None:
-                    run.result = ledger.result
+                validation = repository.validate_analysis(candidate)
+                if validation.get("valid") is not True:
+                    run.errors.extend(str(item) for item in validation.get("errors", []))
+                else:
+                    fallback = dict(candidate)
+                    if fallback.get("status") == "complete":
+                        fallback["status"] = "partial"
+                        existing_errors = fallback.get("errors")
+                        fallback["errors"] = [
+                            *(existing_errors if isinstance(existing_errors, list) else []),
+                            "validate_analysis terminal Tool 호출이 없어 complete로 승인할 수 없습니다.",
+                        ]
+                    fallback["iterations"] = budget.iterations
+                    fallback["termination"] = "posthoc_fallback"
+                    run.result = AnalysisResult.model_validate(fallback)
             except Exception as error:
                 run.errors.append(f"최종 structured result validation failure: {redact_sensitive_text(str(error))}")
         else:
@@ -207,6 +235,9 @@ def run_adk_agent(
         run.errors.append(ledger.budget_exhausted)
     if ledger.tool_error:
         run.errors.append(f"Repository Tool 오류: {ledger.tool_error}")
+    if run.protocol_issues and not run.errors:
+        latest = run.protocol_issues[-1]
+        run.errors.append(f"Tool protocol 오류: {latest.get('code')}: {latest.get('message')}")
     if tracker.consecutive_no_progress >= tracker.max_no_progress and not any("no-progress" in error for error in run.errors):
         run.errors.append("동일 Tool 반복으로 no-progress 한도에 도달했습니다.")
     if run.result is None:

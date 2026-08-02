@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
@@ -14,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 from .adk_function_tool import RepositoryFunctionTool
 from .repository_tools import RepositoryToolError, RepositoryTools, redact_sensitive_value
 from .target import BudgetExceededError
-from .tool_protocol import RunControlLedger, ToolErrorCode, ToolIssue, error_envelope, success_envelope
+from .tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, ToolIssue, error_envelope, success_envelope
 
 
 class ToolArgs(BaseModel):
@@ -119,8 +118,12 @@ class DuplicateTracker:
     consecutive_no_progress: int = 0
     max_no_progress: int = 3
 
+    @staticmethod
+    def signature(tool_name: str, args: Mapping[str, object]) -> str:
+        return json.dumps([tool_name, dict(args)], sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
     def begin(self, tool_name: str, args: Mapping[str, object]) -> dict[str, object] | None:
-        signature = json.dumps([tool_name, dict(args)], sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        signature = self.signature(tool_name, args)
         if signature in self.signatures:
             self.consecutive_no_progress += 1
             return {
@@ -238,7 +241,10 @@ class AdkRepositoryToolset:
         metadata = llm_response.custom_metadata or {}
         adapter_issue = self._issue_from_metadata(metadata.get("protocol_issue"))
         if adapter_issue is not None:
-            self.control.protocol_issue = adapter_issue
+            self.control.record_issue(
+                adapter_issue,
+                allowed_next_actions=tuple(self._tools_by_name),
+            )
             return llm_response
 
         content = llm_response.content
@@ -259,135 +265,116 @@ class AdkRepositoryToolset:
                     field_path="$.name",
                     retryable=True,
                 )
-                self.control.protocol_issue = issue
+                self.control.record_issue(issue, allowed_next_actions=tuple(self._tools_by_name))
                 return self._protocol_response(issue)
             tool = self._tools_by_name[canonical_name]
             issue = tool.argument_issue(dict(call.args or {}))
             if issue is not None:
-                self.control.protocol_issue = issue
+                self.control.record_issue(issue, allowed_next_actions=(canonical_name,))
                 return self._protocol_response(issue)
             if canonical_name != original_name:
                 call.name = canonical_name
                 canonicalized.append({"original": original_name, "canonical": canonical_name})
 
         self.control.protocol_issue = None
+        self.control.next_actions = None
         if canonicalized:
             llm_response.custom_metadata = {**metadata, "canonicalized_calls": canonicalized}
         return llm_response
 
-    @staticmethod
-    def _normalize_verified_candidate(
-        candidate: Mapping[str, object],
-        corrections: list[object],
-    ) -> dict[str, object] | None:
-        evidence_value = candidate.get("evidence")
-        findings_value = candidate.get("findings")
-        if not isinstance(evidence_value, list) or not isinstance(findings_value, list):
-            return None
-        evidence = [dict(item) for item in evidence_value if isinstance(item, Mapping)]
-        findings = [dict(item) for item in findings_value if isinstance(item, Mapping)]
-        changed = len(evidence) != len(evidence_value) or len(findings) != len(findings_value)
-        status = candidate.get("status")
-        if isinstance(status, str) and not status.strip():
-            if candidate.get("errors"):
-                normalized_status = "partial"
-            else:
-                normalized_status = "complete"
-            candidate = {**candidate, "status": normalized_status}
-            changed = True
-        evidence_ids: set[str] = set()
-        for index, item in enumerate(evidence, 1):
-            evidence_id = item.get("id")
-            if not isinstance(evidence_id, str) or not evidence_id.strip() or evidence_id in evidence_ids:
-                generated = f"e{index}"
-                while generated in evidence_ids:
-                    generated = f"e{index + 1}"
-                item["id"] = generated
-                evidence_id = generated
-                changed = True
-            evidence_ids.add(evidence_id)
+    def _phase_actions(self) -> tuple[str, ...]:
+        names = tuple(self._tools_by_name)
+        if self.control.phase == RunPhase.INIT:
+            return ("inspect_target",)
+        if self.control.phase == RunPhase.VALIDATE:
+            return ("validate_analysis",)
+        if self.control.phase == RunPhase.REPAIR:
+            return self.control.allowed_next_actions(names)
+        if self.control.phase in {RunPhase.DONE, RunPhase.PARTIAL_OR_FAILED}:
+            return ()
+        return tuple(name for name in names if name != "inspect_target")
 
-        correction_by_id = {
-            item.get("id"): item
-            for item in corrections
-            if isinstance(item, Mapping) and isinstance(item.get("id"), str)
-        }
-        correction_by_index = {
-            item.get("index"): item
-            for item in corrections
-            if isinstance(item, Mapping) and isinstance(item.get("index"), int)
-        }
-        for index, item in enumerate(evidence):
-            correction = correction_by_id.get(item.get("id")) or correction_by_index.get(index)
-            if not isinstance(correction, Mapping) or not isinstance(correction.get("excerpt"), str):
-                continue
-            item["text"] = correction["excerpt"]
-            item["excerpt"] = correction["excerpt"]
-            if isinstance(correction.get("line_end"), int):
-                item["line_end"] = correction["line_end"]
-            changed = True
+    def before_tool_callback(self, tool: object, args: dict[str, Any], tool_context: object) -> dict[str, Any] | None:
+        """Enforce run phase, blocked signatures, and exploration budget before execution."""
 
-        def normalized(value: object) -> str:
-            return " ".join(str(value or "").casefold().split())
+        name = str(getattr(tool, "name", ""))
+        allowed = self._phase_actions()
+        signature = self.tracker.signature(name, args)
+        if signature in self.control.blocked_signatures:
+            issue = ToolIssue(
+                code=ToolErrorCode.DUPLICATE_CALL,
+                category="progress",
+                message="이전에 차단된 동일 Tool 호출은 다시 실행할 수 없습니다.",
+                retryable=False,
+            )
+            self.control.record_issue(
+                issue,
+                blocked_signature=signature,
+                allowed_next_actions=allowed,
+            )
+            return error_envelope(issue, allowed_next_actions=allowed)
+        if name not in allowed:
+            issue = ToolIssue(
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="state",
+                message=f"Tool {name}은 현재 phase={self.control.phase.value}에서 호출할 수 없습니다.",
+                field_path="$.name",
+                retryable=True,
+            )
+            self.control.record_issue(issue, allowed_next_actions=allowed)
+            return error_envelope(issue, allowed_next_actions=allowed)
+        budget = self.repository_tools.budget
+        if name != "validate_analysis" and budget.explorations >= budget.max_explorations:
+            issue = ToolIssue(
+                code=ToolErrorCode.BUDGET_EXHAUSTED,
+                category="resource",
+                message="Repository exploration budget이 소진되었습니다.",
+                retryable=False,
+            )
+            self.control.record_issue(issue, allowed_next_actions=("validate_analysis",))
+            return error_envelope(issue, allowed_next_actions=("validate_analysis",))
+        return None
 
-        for index, finding in enumerate(findings, 1):
-            finding_id = finding.get("id")
-            if not isinstance(finding_id, str) or not finding_id.strip() or finding_id in {item.get("id") for item in findings[:index - 1]}:
-                finding["id"] = f"f{index}"
-                changed = True
-            if finding.get("status") == "unresolved":
-                if finding.get("resolution_owner") not in {"repository", "user", "deployment_environment", "external_system"}:
-                    finding["resolution_owner"] = "deployment_environment"
-                    changed = True
-                if not isinstance(finding.get("resolution_source"), str) or not finding["resolution_source"].strip():
-                    finding["resolution_source"] = "deployment decision not determined by Repository"
-                    changed = True
-                if not isinstance(finding.get("reason"), str) or not finding["reason"].strip():
-                    finding["reason"] = "Repository evidence is insufficient to choose this deployment setting."
-                    changed = True
-                continue
-            refs = finding.get("evidence_ids")
-            valid_refs = [ref for ref in refs if ref in evidence_ids] if isinstance(refs, list) else []
-            if not valid_refs:
-                claim = normalized(finding.get("claim"))
-                valid_refs = [
-                    item["id"]
-                    for item in evidence
-                    if item.get("status") != "unresolved"
-                    and claim
-                    and claim == normalized(item.get("claim"))
-                ]
-            if not valid_refs:
-                claim_tokens = set(re.findall(r"[a-z0-9가-힣]{2,}", normalized(finding.get("claim"))))
-                scored = [
-                    (
-                        len(claim_tokens & set(re.findall(r"[a-z0-9가-힣]{2,}", normalized(item.get("claim"))))),
-                        item["id"],
-                    )
-                    for item in evidence
-                    if item.get("status") != "unresolved"
-                ]
-                best_score = max((score for score, _ in scored), default=0)
-                if best_score > 0:
-                    valid_refs = [item_id for score, item_id in scored if score == best_score]
-            if valid_refs and valid_refs != refs:
-                finding["evidence_ids"] = valid_refs
-                changed = True
+    def on_tool_error_callback(
+        self,
+        tool: object,
+        args: dict[str, Any],
+        tool_context: object,
+        error: Exception,
+    ) -> dict[str, Any]:
+        """Convert ADK binding and unexpected execution errors to the public envelope."""
 
-        if not changed:
-            return None
-        return {**candidate, "evidence": evidence, "findings": findings}
+        name = str(getattr(tool, "name", ""))
+        issue = ToolIssue(
+            code=ToolErrorCode.INVALID_ARGUMENTS,
+            category="execution",
+            message=str(redact_sensitive_value(str(error))),
+            retryable=isinstance(error, (TypeError, ValueError)),
+        )
+        actions = (name,) if issue.retryable and name in self._tools_by_name else ("validate_analysis",)
+        self.control.record_issue(issue, allowed_next_actions=actions)
+        return error_envelope(
+            issue,
+            allowed_next_actions=actions,
+        )
 
     def _call(self, name: str, args: Mapping[str, object], operation: Any) -> object:
+        signature = self.tracker.signature(name, args)
         duplicate = self.tracker.begin(name, args)
         if duplicate is not None:
+            issue = ToolIssue(
+                code=ToolErrorCode.DUPLICATE_CALL,
+                category="progress",
+                message=str(duplicate["error"]),
+                retryable=False,
+            )
+            self.control.record_issue(
+                issue,
+                blocked_signature=signature,
+                allowed_next_actions=("validate_analysis",),
+            )
             return error_envelope(
-                ToolIssue(
-                    code=ToolErrorCode.DUPLICATE_CALL,
-                    category="progress",
-                    message=str(duplicate["error"]),
-                    retryable=False,
-                ),
+                issue,
                 allowed_next_actions=("validate_analysis",),
                 meta={"no_progress": duplicate["no_progress"]},
             )
@@ -401,6 +388,12 @@ class AdkRepositoryToolset:
                 self.ledger.observations.extend(redact_sensitive_value(item) for item in result if isinstance(item, Mapping) and item.get("path"))
             if len(self.ledger.observations) > 64:
                 del self.ledger.observations[:-64]
+            if name == "inspect_target":
+                self.control.phase = RunPhase.DISCOVER
+            elif name == "validate_analysis":
+                self.control.phase = RunPhase.VALIDATE
+            else:
+                self.control.phase = RunPhase.GROUND
             return success_envelope(redact_sensitive_value(result))
         except (BudgetExceededError, RepositoryToolError, TypeError, ValueError) as error:
             safe_error = str(redact_sensitive_value(str(error)))
@@ -432,6 +425,15 @@ class AdkRepositoryToolset:
                     retryable=True,
                 )
                 actions = (name, "validate_analysis")
+            self.control.record_issue(
+                issue,
+                blocked_signature=(
+                    signature
+                    if issue.code in {ToolErrorCode.FORBIDDEN_PATH, ToolErrorCode.DUPLICATE_CALL}
+                    else None
+                ),
+                allowed_next_actions=actions,
+            )
             return error_envelope(issue, allowed_next_actions=actions)
 
     def inspect_target(self) -> dict[str, object]:
@@ -491,6 +493,17 @@ class AdkRepositoryToolset:
             "errors": errors,
             "termination": termination,
         })
+        if self.control.candidate_repeated(candidate):
+            issue = ToolIssue(
+                code=ToolErrorCode.DUPLICATE_CALL,
+                category="progress",
+                message="동일한 AnalysisResult candidate가 변경 없이 반복 제출되었습니다.",
+                field_path="$",
+                retryable=False,
+            )
+            self.ledger.validation_error = issue.message
+            self.control.record_issue(issue, allowed_next_actions=())
+            return error_envelope(issue, allowed_next_actions=())
         execution = self._call("validate_analysis", candidate, lambda: self.repository_tools.validate_analysis(candidate))
         if not isinstance(execution, Mapping) or execution.get("ok") is not True:
             return dict(execution) if isinstance(execution, Mapping) else error_envelope(
@@ -503,23 +516,9 @@ class AdkRepositoryToolset:
                 allowed_next_actions=("validate_analysis",),
             )
         preliminary = execution.get("data")
-        normalized_errors: list[object] = []
         corrections = preliminary.get("evidence_corrections") if isinstance(preliminary, Mapping) else []
-        corrected_candidate = self._normalize_verified_candidate(
-            candidate,
-            corrections if isinstance(corrections, list) else [],
-        )
-        if corrected_candidate is not None:
-            corrected = self.repository_tools.validate_analysis(corrected_candidate)
-            if corrected.get("valid") is True:
-                candidate = corrected_candidate
-                preliminary = corrected
-            else:
-                normalized_errors = list(corrected.get("errors", [])) if isinstance(corrected.get("errors"), list) else []
         if not isinstance(preliminary, Mapping) or preliminary.get("valid") is not True:
             response = dict(preliminary) if isinstance(preliminary, Mapping) else {"valid": False, "errors": ["invalid validation response"]}
-            if normalized_errors:
-                response["normalized_errors"] = normalized_errors
             details = response.get("errors")
             if isinstance(details, list) and details:
                 safe_details = "; ".join(str(redact_sensitive_value(item)) for item in details[:8])
@@ -527,18 +526,19 @@ class AdkRepositoryToolset:
             else:
                 self.ledger.validation_error = "Repository evidence validation failed."
             grounding = bool(corrections)
+            issue = ToolIssue(
+                code=(ToolErrorCode.EVIDENCE_GROUNDING if grounding else ToolErrorCode.CANDIDATE_SCHEMA),
+                category=("grounding" if grounding else "validation"),
+                message=self.ledger.validation_error,
+                retryable=True,
+            )
+            self.control.record_issue(issue, allowed_next_actions=("validate_analysis",))
             return error_envelope(
-                ToolIssue(
-                    code=(ToolErrorCode.EVIDENCE_GROUNDING if grounding else ToolErrorCode.CANDIDATE_SCHEMA),
-                    category=("grounding" if grounding else "validation"),
-                    message=self.ledger.validation_error,
-                    retryable=True,
-                ),
+                issue,
                 allowed_next_actions=("validate_analysis",),
                 meta={
                     "issues": response.get("errors", []),
                     "evidence_corrections": corrections if isinstance(corrections, list) else [],
-                    "normalized_errors": normalized_errors,
                 },
             )
         from .analysis import AnalysisResult, PydanticDependencyError
@@ -547,17 +547,22 @@ class AdkRepositoryToolset:
             result = AnalysisResult.model_validate(candidate)
         except (ValueError, PydanticDependencyError) as error:
             self.ledger.validation_error = str(redact_sensitive_value(str(error)))
+            issue = ToolIssue(
+                code=ToolErrorCode.CANDIDATE_SCHEMA,
+                category="validation",
+                message=self.ledger.validation_error,
+                retryable=True,
+            )
+            self.control.record_issue(issue, allowed_next_actions=("validate_analysis",))
             return error_envelope(
-                ToolIssue(
-                    code=ToolErrorCode.CANDIDATE_SCHEMA,
-                    category="validation",
-                    message=self.ledger.validation_error,
-                    retryable=True,
-                ),
+                issue,
                 allowed_next_actions=("validate_analysis",),
             )
         self.ledger.result = result
         self.ledger.validation_error = None
+        self.control.protocol_issue = None
+        self.control.next_actions = None
+        self.control.phase = RunPhase.DONE
         return success_envelope(result.model_dump(mode="json"), meta={"terminal": True})
 
     def functions(self) -> list[object]:

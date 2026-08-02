@@ -12,7 +12,7 @@ from google.adk.models import BaseLlm, LlmRequest, LlmResponse
 from google.genai import types
 from pydantic import PrivateAttr
 
-from migration_assistant.adk_runner import parse_structured_final
+from migration_assistant.adk_runner import parse_structured_final, run_adk_agent
 from migration_assistant.analysis import AnalysisResult, analyze, render_report
 from migration_assistant.cli import main
 from migration_assistant.target import BudgetExceededError, SafetyBudget
@@ -30,14 +30,16 @@ class RepeatingToolLlm(BaseLlm):
 
     async def generate_content_async(self, llm_request, stream: bool = False):
         self._calls += 1
+        name = "inspect_target" if self._calls == 1 else "search_text"
+        args = {} if self._calls == 1 else {"pattern": "PORT"}
         yield LlmResponse(
             content=types.Content(
                 role="model",
                 parts=[
                     types.Part(
                         function_call=types.FunctionCall(
-                            name="search_text",
-                            args={"pattern": "PORT"},
+                            name=name,
+                            args=args,
                             id=f"repeat-{self._calls}",
                         )
                     )
@@ -116,6 +118,10 @@ class RecoveryValidationLlm(BaseLlm):
         self._calls += 1
         if self._calls == 1:
             part = types.Part(
+                function_call=types.FunctionCall(name="inspect_target", args={}, id="inspect")
+            )
+        elif self._calls == 2:
+            part = types.Part(
                 function_call=types.FunctionCall(
                     name="read_file",
                     args={"relative": "."},
@@ -160,6 +166,17 @@ class ValidationRetryLlm(BaseLlm):
 
     async def generate_content_async(self, llm_request, stream: bool = False):
         self._calls += 1
+        if self._calls == 1:
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(function_call=types.FunctionCall(
+                        name="inspect_target", args={}, id="inspect",
+                    ))],
+                ),
+                partial=False,
+            )
+            return
         evidence = {
             "status": "confirmed",
             "path": "app.py",
@@ -168,7 +185,7 @@ class ValidationRetryLlm(BaseLlm):
             "claim": "PORT 설정이 확인됨",
             "text": "PORT = 8080",
         }
-        if self._calls > 1:
+        if self._calls > 2:
             evidence["id"] = "e1"
         yield LlmResponse(
             content=types.Content(
@@ -187,6 +204,47 @@ class ValidationRetryLlm(BaseLlm):
                     id=f"validation-{self._calls}",
                 ))],
             ),
+            partial=False,
+        )
+
+
+class ProtocolThenValidLlm(BaseLlm):
+    model: str = "fake-protocol-recovery-model"
+    _calls: int = PrivateAttr(0)
+
+    async def generate_content_async(self, llm_request, stream: bool = False):
+        self._calls += 1
+        if self._calls == 1:
+            call = types.FunctionCall(name="shell", args={}, id="invented")
+        else:
+            call = types.FunctionCall(
+                name="validate_analysis",
+                args={
+                    "status": "complete",
+                    "summary": "PORT 설정이 확인되었습니다.",
+                    "evidence": [{
+                        "id": "e1",
+                        "status": "confirmed",
+                        "path": "app.py",
+                        "line_start": 1,
+                        "line_end": 1,
+                        "claim": "PORT 설정",
+                        "text": "PORT = 8080",
+                    }],
+                    "findings": [{
+                        "id": "f1",
+                        "status": "confirmed",
+                        "claim": "PORT 설정",
+                        "evidence_ids": ["e1"],
+                    }],
+                    "iterations": 1,
+                    "errors": [],
+                    "termination": "normal",
+                },
+                id="recovered",
+            )
+        yield LlmResponse(
+            content=types.Content(role="model", parts=[types.Part(function_call=call)]),
             partial=False,
         )
 
@@ -263,11 +321,11 @@ class Phase1ContractTests(unittest.TestCase):
             result = analyze(self.make_repo(root), root / "output", adk_model=ValidFinalLlm(), max_iterations=3)
             self.assertNotEqual(result.status, "complete")
 
-    def test_zero_tool_repository_aware_valid_candidate_can_complete(self):
+    def test_zero_tool_repository_aware_valid_candidate_cannot_complete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             result = analyze(self.make_repo(root), root / "output", adk_model=RepositoryAwareValidFinalLlm(), max_iterations=3)
-            self.assertEqual(result.status, "complete")
+            self.assertNotEqual(result.status, "complete")
 
     def test_zero_tool_false_path_line_or_excerpt_cannot_complete(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -286,6 +344,33 @@ class Phase1ContractTests(unittest.TestCase):
             root = Path(tmp)
             result = analyze(self.make_repo(root), root / "output", adk_model=ValidationRetryLlm(), max_iterations=5)
             self.assertEqual(result.status, "complete")
+
+    def test_protocol_error_is_not_final_text_and_gets_one_bounded_recovery(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repository = RepositoryTools(self.make_repo(Path(tmp)), budget=SafetyBudget(max_iterations=5))
+            run = run_adk_agent(
+                repository,
+                Settings(),
+                repository.budget,
+                model_override=ProtocolThenValidLlm(),
+            )
+
+            self.assertEqual(run.result.status, "complete")
+            self.assertTrue(run.terminal)
+            self.assertEqual(run.protocol_issues[0]["code"], "invalid_tool_name")
+            self.assertNotIn("Tool protocol validation failed", run.final_text)
+
+    def test_repeated_candidate_hash_is_detected_without_storing_candidate(self):
+        control = RunControlLedger()
+        candidate = {
+            "status": "complete",
+            "summary": "same",
+            "evidence": [{"id": "e1", "status": "confirmed"}],
+        }
+
+        self.assertFalse(control.candidate_repeated(candidate))
+        self.assertTrue(control.candidate_repeated(candidate))
+        self.assertNotIn("same", repr(control))
 
     def test_fallback_never_promotes_observation_to_confirmed_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -383,7 +468,7 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertEqual(result["error"]["code"], "candidate_schema")
         self.assertEqual(result["error"]["allowed_next_actions"], ["validate_analysis"])
 
-    def test_validation_normalizes_a_verified_line_excerpt_before_schema_commit(self):
+    def test_validation_proposes_excerpt_correction_without_committing_candidate(self):
         repository = RepositoryTools(Path.cwd(), budget=SafetyBudget())
         ledger = ValidationLedger()
         toolset = AdkRepositoryToolset(repository, ledger, DuplicateTracker())
@@ -405,11 +490,15 @@ class Phase1ContractTests(unittest.TestCase):
             errors=[],
         )
 
-        self.assertTrue(result["ok"])
-        self.assertTrue(result["meta"]["terminal"])
-        self.assertEqual(ledger.result.evidence[0].text, '"""Deterministic read-only target and output safety boundary."""')
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "evidence_grounding")
+        self.assertEqual(
+            result["meta"]["evidence_corrections"][0]["excerpt"],
+            '"""Deterministic read-only target and output safety boundary."""',
+        )
+        self.assertIsNone(ledger.result)
 
-    def test_validation_repairs_missing_structural_ids_from_verified_claims(self):
+    def test_validation_does_not_author_missing_ids_or_links(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self.make_repo(Path(tmp))
             ledger = ValidationLedger()
@@ -423,18 +512,18 @@ class Phase1ContractTests(unittest.TestCase):
                     "line_start": 1,
                     "line_end": 1,
                     "claim": "PORT 설정이 확인됨",
-                    "text": "placeholder",
+                    "text": "PORT = 8080",
                 }],
                 findings=[{"status": "confirmed", "claim": "PORT 설정이 확인됨"}],
                 iterations=1,
                 errors=[],
             )
 
-            self.assertTrue(result["ok"], result)
-            self.assertEqual(ledger.result.evidence[0].id, "e1")
-            self.assertEqual(ledger.result.findings[0].evidence_ids, ["e1"])
+            self.assertFalse(result["ok"], result)
+            self.assertEqual(result["error"]["code"], "candidate_schema")
+            self.assertIsNone(ledger.result)
 
-    def test_validation_recovers_an_omitted_top_level_status_after_grounding(self):
+    def test_validation_does_not_author_omitted_top_level_status(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self.make_repo(Path(tmp))
             ledger = ValidationLedger()
@@ -455,8 +544,9 @@ class Phase1ContractTests(unittest.TestCase):
                 errors=[],
             )
 
-            self.assertTrue(result["ok"], result)
-            self.assertEqual(ledger.result.status, "complete")
+            self.assertFalse(result["ok"], result)
+            self.assertEqual(result["error"]["code"], "candidate_schema")
+            self.assertIsNone(ledger.result)
 
     def test_fenced_structured_result_is_safely_extractable(self):
         self.assertEqual(
@@ -536,6 +626,43 @@ class Phase1ContractTests(unittest.TestCase):
         )))
         self.assertEqual(control.protocol_issue.code, ToolErrorCode.INVALID_TOOL_NAME)
         self.assertFalse(any(part.function_call for part in rejected.content.parts))
+
+    def test_before_tool_callback_enforces_initial_phase_without_execution(self):
+        control = RunControlLedger()
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+            control=control,
+        )
+        search = next(tool for tool in toolset.functions() if tool.name == "search_text")
+
+        result = toolset.before_tool_callback(search, {"pattern": "PORT"}, None)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "invalid_arguments")
+        self.assertEqual(result["error"]["allowed_next_actions"], ["inspect_target"])
+
+    def test_on_tool_error_callback_returns_redacted_uniform_envelope(self):
+        control = RunControlLedger()
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+            control=control,
+        )
+        read_file = next(tool for tool in toolset.functions() if tool.name == "read_file")
+
+        result = toolset.on_tool_error_callback(
+            read_file,
+            {"relative": "app.py"},
+            None,
+            TypeError("password=do-not-leak"),
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "invalid_arguments")
+        self.assertNotIn("do-not-leak", repr(result))
 
     def test_adk_model_consumes_the_shared_iteration_budget(self):
         model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=1))

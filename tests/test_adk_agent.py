@@ -27,9 +27,12 @@ class ScriptedAdkLlm(BaseLlm):
     async def generate_content_async(self, llm_request, stream: bool = False):
         self._calls += 1
         if self._calls == 1:
+            name = "inspect_target"
+            args = {}
+        elif self._calls == 2:
             name = "search_text"
             args = {"pattern": "PORT"}
-        elif self._calls == 2:
+        elif self._calls == 3:
             name = "validate_analysis"
             args = {
                 "status": "complete",
@@ -97,6 +100,8 @@ class AdkAgentTests(unittest.TestCase):
             )
             self.assertEqual(type(agent.model), ScriptedAdkLlm)
             self.assertIsNotNone(agent.after_model_callback)
+            self.assertIsNotNone(agent.before_tool_callback)
+            self.assertIsNotNone(agent.on_tool_error_callback)
 
     def test_agent_instruction_bounds_line_evidence_requests(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -114,6 +119,8 @@ class AdkAgentTests(unittest.TestCase):
             self.assertIn("ok=true", agent.instruction)
             self.assertIn("meta.terminal=true", agent.instruction)
             self.assertNotIn("valid=true", agent.instruction)
+            self.assertIn(", ".join(PUBLIC_AGENT_TOOL_NAMES), agent.instruction)
+            self.assertIn("이 8개 외 Tool을 만들거나 호출하지 마세요", agent.instruction)
 
     def test_production_analyze_uses_adk_and_validates_agent_result(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -126,7 +133,7 @@ class AdkAgentTests(unittest.TestCase):
             self.assertEqual(result.status, "complete")
             self.assertIn("Agent가", result.summary)
             self.assertEqual({item.status for item in result.evidence}, {"confirmed", "inferred", "unresolved", "conflicting"})
-            self.assertEqual(model._tool_names, ["search_text", "validate_analysis"])
+            self.assertEqual(model._tool_names, ["inspect_target", "search_text", "validate_analysis"])
             self.assertTrue((root / "outputs" / "analysis" / "analysis-result.json").is_file())
 
 

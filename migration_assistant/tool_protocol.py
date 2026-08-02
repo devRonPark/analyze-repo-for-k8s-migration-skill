@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Mapping, Sequence
@@ -53,6 +55,57 @@ class RunControlLedger:
     retry_counts: dict[ToolErrorCode, int] = field(default_factory=dict)
     blocked_signatures: set[str] = field(default_factory=set)
     last_candidate_hash: str | None = None
+    attempted_actions: set[tuple[ToolErrorCode, str]] = field(default_factory=set)
+    recovery_attempts: int = 0
+    max_recovery_attempts: int = 2
+    next_actions: tuple[str, ...] | None = None
+
+    def record_issue(
+        self,
+        issue: ToolIssue,
+        *,
+        blocked_signature: str | None = None,
+        allowed_next_actions: Sequence[str] = (),
+    ) -> None:
+        self.protocol_issue = issue
+        self.phase = RunPhase.REPAIR
+        self.retry_counts[issue.code] = self.retry_counts.get(issue.code, 0) + 1
+        self.next_actions = tuple(allowed_next_actions)
+        if blocked_signature:
+            self.blocked_signatures.add(blocked_signature)
+
+    def candidate_repeated(self, candidate: Mapping[str, Any]) -> bool:
+        canonical = json.dumps(candidate, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+        fingerprint = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        repeated = fingerprint == self.last_candidate_hash
+        self.last_candidate_hash = fingerprint
+        return repeated
+
+    def action_repeated(self, code: ToolErrorCode, action_fingerprint: str) -> bool:
+        key = (code, action_fingerprint)
+        if key in self.attempted_actions:
+            return True
+        self.attempted_actions.add(key)
+        return False
+
+    def allowed_next_actions(self, registered_names: Sequence[str]) -> tuple[str, ...]:
+        registered = tuple(registered_names)
+        issue = self.protocol_issue
+        if self.phase in {RunPhase.DONE, RunPhase.PARTIAL_OR_FAILED}:
+            return ()
+        if issue is None:
+            return registered
+        if self.next_actions is not None:
+            return tuple(name for name in self.next_actions if name in registered)
+        if issue.code in {
+            ToolErrorCode.CANDIDATE_SCHEMA,
+            ToolErrorCode.EVIDENCE_GROUNDING,
+            ToolErrorCode.BUDGET_EXHAUSTED,
+        }:
+            return ("validate_analysis",) if "validate_analysis" in registered else ()
+        if issue.code == ToolErrorCode.FORBIDDEN_PATH:
+            return tuple(name for name in registered if name != "inspect_target")
+        return registered
 
 
 def success_envelope(
