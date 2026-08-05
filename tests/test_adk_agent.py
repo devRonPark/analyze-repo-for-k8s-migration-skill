@@ -122,6 +122,24 @@ class AdkAgentTests(unittest.TestCase):
             self.assertIn(", ".join(PUBLIC_AGENT_TOOL_NAMES), agent.instruction)
             self.assertIn("이 8개 외 Tool을 만들거나 호출하지 마세요", agent.instruction)
 
+    def test_agent_instruction_shows_nested_component_field_shapes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            agent = create_agent().build_root_agent(
+                repository_tools=RepositoryTools(repo, budget=SafetyBudget()),
+                ledger=ValidationLedger(),
+                tracker=DuplicateTracker(),
+                budget=SafetyBudget(),
+                model_override=ScriptedAdkLlm(),
+            )
+
+            for instruction in (
+                "production_startup도 문자열이 아니라 FieldValue 객체",
+                "ports=[{container_port={status='confirmed', value=8080, evidence_ids=['e1']}}]",
+                "container_image={reference={status='confirmed', value='repo/image:tag', evidence_ids=['e1']}}",
+            ):
+                self.assertIn(instruction, agent.instruction)
+
     def test_agent_instruction_carries_the_migration_domain(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self.make_repo(Path(tmp))
