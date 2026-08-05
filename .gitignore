@@ -13,6 +13,9 @@ dist/
 .code-review-graph/
 .dryforge/
 .phase1-harness-*
+.pytest-temp-*
+.task3-test-temp/
+pytest-cache-files-*/
 /.env-file-loader-*
 /.env
 /.env.*

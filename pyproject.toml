@@ -14,3 +14,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["migration_assistant*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".git", ".dryforge", ".task3-test-temp", "pytest-cache-files-*", ".pytest-temp-*"]
