@@ -130,6 +130,25 @@ package는 `devtools/`를 import하지 않는다.
   독립 검토만 하며 제안을 자동 반영하지 않는다. 같은 파일을 동시에 수정하지 않는다.
 - 현재 요청과 무관한 레거시 정리, dependency 설치, 외부 network 접근은 하지 않는다.
 
+## 검증 명령
+
+관리형 Windows 환경에서는 `tests/conftest.py`가 pytest 실행 시에만 로드되어
+`%TEMP%` ACL 문제를 workspace-safe temporary root로 격리한다. 전체 검증과 완료
+판정에는 다음 명령 중 하나를 사용한다.
+
+```powershell
+python -m pytest -q -p no:cacheprovider
+```
+
+또는 저장소의 정리·잔여물 검사까지 포함한 래퍼를 사용한다.
+
+```powershell
+.\scripts\run_tests.ps1
+```
+
+`python -m unittest discover -s tests -t .`는 `tests/conftest.py`를 로드하지
+않으므로 managed Windows 환경의 전체 검증 명령으로 사용하지 않는다.
+
 ### 공유 Git worktree의 커밋 권한
 
 - 작업 트리가 공유 저장소의 worktree일 수 있으므로 `git rev-parse --git-dir`와
