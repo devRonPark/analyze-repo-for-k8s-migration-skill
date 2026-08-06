@@ -68,12 +68,26 @@ def test_missing_required_disposition_lowers_the_rate_below_one():
     assert result["required_question_disposition_rate"] < 1.0
 
 
-def test_unobserved_positive_evidence_is_counted_not_hidden():
+def test_unobserved_positive_evidence_is_counted_even_when_schema_linked():
+    """evidence_ids can be present (the ADK schema validator already
+    requires this) while the cited line was never actually observed by a
+    Tool -- a provenance defect distinct from a schema defect."""
     trajectory = load_fixture("valid-minimal.test.json")
-    trajectory["evidence"].append({"id": "e3", "status": "confirmed", "observed": False})
+    trajectory["evidence"].append({"id": "e3", "status": "confirmed", "observed": False, "evidence_linked": True})
+    result = evaluate_trajectory(trajectory)
+    assert result["unobserved_evidence_count"] == 1
+    assert result["ungrounded_positive_value_count"] == 0
+
+
+def test_ungrounded_positive_value_is_counted_independently_of_observation():
+    """A positive value missing its evidence_ids link is a schema-level
+    defect; it must be counted even if `observed` happens to be true, and
+    must not be conflated with unobserved_evidence_count."""
+    trajectory = load_fixture("valid-minimal.test.json")
+    trajectory["evidence"].append({"id": "e3", "status": "confirmed", "observed": True, "evidence_linked": False})
     result = evaluate_trajectory(trajectory)
     assert result["ungrounded_positive_value_count"] == 1
-    assert result["unobserved_evidence_count"] == 1
+    assert result["unobserved_evidence_count"] == 0
 
 
 def test_unresolved_evidence_is_never_counted_as_ungrounded():
@@ -90,6 +104,40 @@ def test_recovery_without_a_fresh_observation_is_reported_false():
     trajectory["grounding_error_events"] = [{"tool_call_index": 2, "recovery_tool_call_index": 2}]
     result = evaluate_trajectory(trajectory)
     assert result["fresh_observation_after_grounding_error"] is False
+
+
+def test_repeating_the_same_search_is_not_counted_as_a_fresh_observation():
+    """A recovery step that is the right *kind* of Tool but repeats the
+    exact same call as an earlier observation is a retry, not new
+    evidence -- this must be caught when call signatures are available."""
+    trajectory = load_fixture("grounding-recovery.test.json")
+    trajectory["tool_call_signatures"] = [
+        "inspect_target:{}",
+        "search_text:ENTRYPOINT:.",
+        "validate_analysis:partial",
+        "search_text:ENTRYPOINT:.",
+        "validate_analysis:partial",
+    ]
+    trajectory["tool_calls"][3] = "search_text"
+
+    result = evaluate_trajectory(trajectory)
+
+    assert result["fresh_observation_after_grounding_error"] is False
+
+
+def test_a_genuinely_different_search_counts_as_fresh_with_signatures_present():
+    trajectory = load_fixture("grounding-recovery.test.json")
+    trajectory["tool_call_signatures"] = [
+        "inspect_target:{}",
+        "search_text:ENTRYPOINT:.",
+        "validate_analysis:partial",
+        "read_file_lines:Dockerfile:2:2",
+        "validate_analysis:partial",
+    ]
+
+    result = evaluate_trajectory(trajectory)
+
+    assert result["fresh_observation_after_grounding_error"] is True
 
 
 def test_evaluator_reports_duplicate_and_no_progress_counts_without_a_fixed_threshold():

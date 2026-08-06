@@ -152,18 +152,22 @@ def evaluate_trajectory(trajectory: Mapping[str, Any]) -> dict[str, object]:
 
     evidence_items = trajectory.get("evidence", [])
     evidence_items = evidence_items if isinstance(evidence_items, list) else []
-    ungrounded_positive = [
-        item for item in evidence_items
-        if isinstance(item, Mapping) and item.get("status") != "unresolved" and not item.get("observed")
-    ]
-    # In this fixture-based evaluator both counts read the same "observed"
-    # signal -- a real live run's richer evidence_provenance (Task 2/5)
-    # could later separate "never reviewed" from "reviewed but ungrounded".
-    ungrounded_positive_value_count = len(ungrounded_positive)
-    unobserved_evidence_count = len(ungrounded_positive)
+    positive_items = [item for item in evidence_items if isinstance(item, Mapping) and item.get("status") != "unresolved"]
+    # Two distinct failure modes over the same positive Evidence set:
+    # ungrounded = the candidate's own evidence_ids link is missing (a
+    # schema-level defect an ADK Pydantic validator would already reject);
+    # unobserved = evidence_ids may be present, but no Tool ever actually
+    # produced that observation (a provenance-level defect -- see
+    # AcceptanceRun.unobserved_evidence_count, which this mirrors).
+    # `evidence_linked` defaults to True: a live run's AnalysisResult has
+    # already passed schema validation by the time it reaches a trajectory.
+    ungrounded_positive_value_count = sum(1 for item in positive_items if item.get("evidence_linked", True) is False)
+    unobserved_evidence_count = sum(1 for item in positive_items if not item.get("observed", False))
 
     grounding_events = trajectory.get("grounding_error_events", [])
     grounding_events = grounding_events if isinstance(grounding_events, list) else []
+    tool_call_signatures = trajectory.get("tool_call_signatures")
+    tool_call_signatures = tool_call_signatures if isinstance(tool_call_signatures, list) else None
     fresh_observation_after_grounding_error = True
     for event in grounding_events:
         if not isinstance(event, Mapping):
@@ -175,6 +179,19 @@ def evaluate_trajectory(trajectory: Mapping[str, Any]) -> dict[str, object]:
             continue
         if tool_calls[recovery_index] not in _OBSERVATION_TOOLS:
             fresh_observation_after_grounding_error = False
+            continue
+        # When call signatures are available, require the recovery
+        # observation to differ from every earlier observation -- a
+        # same-tool, same-args resubmit is a repeat, not fresh evidence.
+        if tool_call_signatures is not None and recovery_index < len(tool_call_signatures):
+            recovery_signature = tool_call_signatures[recovery_index]
+            prior_observation_signatures = {
+                tool_call_signatures[index]
+                for index in range(recovery_index)
+                if index < len(tool_calls) and tool_calls[index] in _OBSERVATION_TOOLS and index < len(tool_call_signatures)
+            }
+            if recovery_signature in prior_observation_signatures:
+                fresh_observation_after_grounding_error = False
 
     duplicate_call_count = int(trajectory.get("duplicate_call_count", 0) or 0)
     no_progress_max = int(trajectory.get("no_progress_max", 0) or 0)
