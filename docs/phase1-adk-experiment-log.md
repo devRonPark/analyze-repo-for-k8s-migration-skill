@@ -609,11 +609,16 @@ evidence와 명시적 사유가 있으므로 사용자 계약의 partial 허용 
    fixture 기반 trajectory 평가기)을 적용한 뒤 `jpetstore-6` 대상 1회 smoke를
    실행했다. 가설은 탐색 우선순위와 coverage 피드백이 모델의 파일 선택을
    좁혀 evidence grounding 실패를 줄일 것이라는 것이었다.
-2. 실제 실행 명령의 비밀값 제거 버전:
+2. 실제 실행 명령의 비밀값 제거 버전, 그리고 전체 suite 결과(Task 7 Step 2):
 
    ```powershell
+   python -m pytest -q -p no:cacheprovider
    python -m devtools.run_phase1_live_acceptance --repository <jpetstore-6-checkout> --output-parent .dryforge/live-exploration-policy-20260806 --runs 1
    ```
+
+   전체 suite는 `1 failed, 318 passed, 3 skipped`였다. 유일한 실패는 기존 known
+   baseline인 `tests/test_migration_assistant_foundation.py::test_module_entrypoint_routes_cli_arguments_to_analysis_cli`의
+   Windows subprocess UTF-8 디코딩 문제이며, 이번 세션의 새 실패는 없었다.
 
    target commit은 `3ebd25fd04f1b48361ab879e113ba353838ffe6a`(branch master, clean)였고,
    endpoint는 `https://api.upstage.ai/v1`, model은 `solar-pro2`, timeout은 60초,
@@ -637,15 +642,25 @@ evidence와 명시적 사유가 있으므로 사용자 계약의 partial 허용 
    "synthetic_values": {}}`로 Evidence 0건을 정확히 반영했다 — Task 5의
    기계적 stop 판정이 live 경로에서도 그대로 계산됐다. 결과는 target 밖
    `.dryforge/live-exploration-policy-20260806/run-1`에 저장됐고, target Git
-   상태는 실행 전후 모두 clean이었다. artifact 전체에서
-   `api[_-]?key|authorization|bearer|password|token` 패턴 검색 결과는 0건이었다.
+   상태는 실행 전후 모두 clean이었다. artifact 전체에서 plan Step 4가 지정한
+   전체 패턴 `api[_-]?key|authorization|bearer|password|token|secret`(대소문자
+   무시)로 검색한 결과는 1건이었고, 그 1건은 `run-metadata.json`의
+   `runtime_config_and_secret_names`라는 우리 자신의 question_id 필드 이름일
+   뿐 실제 Secret 값이 아니었다. 최초 기록 시 `secret`을 빠뜨린 축소된
+   패턴으로만 검색했던 것을 독립 리뷰가 지적해 전체 패턴으로 재검증했다.
 5. 다음 실험에서 유지할 것과 폐기할 것: 유지할 것은 smoke 실패 시 공식
    3-run을 중단하는 gate와, `exploration_coverage`/`stop_decision`이 live
    실행에서 실제로 채워진다는 확인이다. 폐기할 것은 "탐색 우선순위 registry와
    coverage 피드백만으로 solar-pro2의 evidence grounding 실패가 해결된다"는
-   가정이다 — 이번 실패는 Task 1~6 변경이 만든 새 회귀가 아니라, 이전 Run 34와
-   동일하게 이 model이 `search_text` 기반 정밀 탐색보다 광범위한 `read_file`을
-   선호하고 excerpt를 부정확하게 재구성하는 이미 알려진 경향으로 보인다.
+   가정이다. Run 34와 Run 35를 다시 대조하면 Run 34의 tool sequence에는
+   `search_text`가 최소 1회 포함됐지만 Run 35는 38회 호출 중 0회였다 — 이는
+   "동일한 경향"이 아니라 이번 run에서 오히려 더 심해졌을 수 있는 관측치이며,
+   독립 리뷰가 초안의 "동일하게"라는 단정적 표현이 근거보다 강하다고 지적해
+   바로잡는다. 공통된 것은 이 model이 `search_text` 기반 정밀 탐색보다
+   광범위한 `read_file`을 선호하고 excerpt를 부정확하게 재구성하는 경향
+   뿐이며, 그 정도가 Run 35에서 더 심했는지는 단일 run 비교로는 통계적으로
+   결론 내릴 수 없다 — 이 실패를 "이미 해결 방향이 있는 known 경향"으로
+   과소평가하지 않는다.
    다음 deterministic 작업 후보는 `meta.exploration_signals`/`context_projection`가
    실제로 `search_text` 사용 빈도를 높이는지 별도 A/B 없이는 판단할 수 없다는
    점을 인정하고, tool 선택 편향 자체를 로그로 남기는 지표(예: 질문별
