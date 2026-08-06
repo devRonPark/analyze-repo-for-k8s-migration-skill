@@ -17,7 +17,7 @@ from typing import Any, Mapping
 
 import pytest
 
-from migration_assistant.analysis import AnalysisResult
+from migration_assistant.analysis import RUN_METADATA_TELEMETRY_FIELDS, AnalysisResult
 from migration_assistant.tool_contract import PUBLIC_AGENT_TOOL_NAMES
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "adk_migration_contract"
@@ -32,13 +32,9 @@ ANALYSIS_RESULT_DOMAIN_FIELDS = {
     "status", "summary", "evidence", "findings", "components", "iterations", "errors", "termination",
 }
 
-# The telemetry keys migration_assistant.analysis.analyze() currently writes
-# into run_metadata. Locked here so a future change cannot silently promote
-# one of these into the AnalysisResult domain schema.
-RUN_METADATA_TELEMETRY_FIELDS = {
-    "terminal", "tool_calls", "protocol_issues", "callback_telemetry", "recovery_attempts",
-    "run_control", "evidence_provenance", "provenance_summary",
-}
+# RUN_METADATA_TELEMETRY_FIELDS is imported from migration_assistant.analysis
+# (the single source of truth analyze() itself asserts against) rather than
+# duplicated here, so this disjointness check cannot silently go stale.
 
 ALLOWED_EXPLORATION_SIGNAL_FIELDS = {
     "question_id", "trigger_rule_id", "observed_fact_ref", "candidate_observation_kind",

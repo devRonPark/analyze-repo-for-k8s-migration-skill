@@ -10,6 +10,7 @@ policy does not cover, and the Agent proceeds generically.
 
 from __future__ import annotations
 
+import fnmatch
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -71,6 +72,30 @@ class ExplorationPolicy:
 
         matches = [rule for rule in self.rules if question_id in rule.question_ids]
         return tuple(sorted(matches, key=lambda rule: rule.priority, reverse=True))
+
+
+def match_rules(policy: ExplorationPolicy, *, path: str | None = None, text: str | None = None) -> tuple[SignalRule, ...]:
+    """Rules whose file_globs match `path` or whose search_patterns appear in `text`.
+
+    This matches only what was actually observed -- an already-seen path or
+    an already-seen line of text -- never a guessed name. An unmatched
+    observation simply returns an empty tuple; that is the generic fallback,
+    not an error.
+    """
+
+    if path is None and text is None:
+        return ()
+    basename = path.rsplit("/", 1)[-1] if path else None
+    matched = []
+    for rule in policy.rules:
+        path_hit = path is not None and any(
+            fnmatch.fnmatch(path, glob) or (basename is not None and fnmatch.fnmatch(basename, glob))
+            for glob in rule.file_globs
+        )
+        text_hit = text is not None and any(pattern.casefold() in text.casefold() for pattern in rule.search_patterns)
+        if path_hit or text_hit:
+            matched.append(rule)
+    return tuple(sorted(matched, key=lambda rule: rule.priority, reverse=True))
 
 
 DEFAULT_MIGRATION_POLICY = ExplorationPolicy(

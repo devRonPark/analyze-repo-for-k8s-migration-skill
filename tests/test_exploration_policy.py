@@ -17,6 +17,7 @@ from migration_assistant.exploration_policy import (
     ExplorationQuestion,
     QuestionImportance,
     SignalRule,
+    match_rules,
 )
 
 
@@ -84,6 +85,22 @@ class ExplorationPolicyTests(unittest.TestCase):
         question = DEFAULT_MIGRATION_POLICY.questions[0]
         with self.assertRaises(AttributeError):
             question.importance = QuestionImportance.OPTIONAL  # type: ignore[misc]
+
+    def test_match_rules_matches_observed_dockerfile_path(self):
+        rules = match_rules(DEFAULT_MIGRATION_POLICY, path="Dockerfile")
+        self.assertTrue(rules)
+        self.assertIn("production_startup", rules[0].question_ids)
+
+    def test_match_rules_matches_observed_text_pattern(self):
+        rules = match_rules(DEFAULT_MIGRATION_POLICY, text="ENTRYPOINT [\"python\", \"app.py\"]")
+        self.assertTrue(rules)
+        self.assertIn("production_startup", rules[0].question_ids)
+
+    def test_match_rules_returns_empty_for_unrelated_observation(self):
+        self.assertEqual(match_rules(DEFAULT_MIGRATION_POLICY, path="README.md", text="hello world"), ())
+
+    def test_match_rules_never_guesses_from_absent_input(self):
+        self.assertEqual(match_rules(DEFAULT_MIGRATION_POLICY), ())
 
 
 if __name__ == "__main__":

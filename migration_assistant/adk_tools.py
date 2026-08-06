@@ -16,6 +16,8 @@ from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from .adk_function_tool import RepositoryFunctionTool
+from .exploration_ledger import ExplorationLedger
+from .exploration_policy import DEFAULT_MIGRATION_POLICY, ExplorationPolicy, match_rules
 from .provenance import ObservationProvenance
 from .repository_tools import _MAX_LINE_EVIDENCE_LINES, RepositoryToolError, RepositoryTools, redact_sensitive_value
 from .target import BudgetExceededError
@@ -219,12 +221,16 @@ class AdkRepositoryToolset:
         *,
         control: RunControlLedger | None = None,
         provenance: ObservationProvenance | None = None,
+        exploration_ledger: ExplorationLedger | None = None,
+        exploration_policy: ExplorationPolicy | None = None,
     ) -> None:
         self.repository_tools = repository_tools
         self.ledger = ledger
         self.tracker = tracker
         self.control = control or RunControlLedger()
         self.provenance = provenance or ObservationProvenance()
+        self.exploration_ledger = exploration_ledger if exploration_ledger is not None else ExplorationLedger()
+        self.exploration_policy = exploration_policy or DEFAULT_MIGRATION_POLICY
         self._callback_delivery_cache: dict[str, object] = {}
         definitions = (
             ("inspect_target", InspectTargetArgs, lambda value: self.inspect_target()),
@@ -751,6 +757,57 @@ class AdkRepositoryToolset:
         if lines:
             self.provenance.record("read_file", path, 1, len(lines))
 
+    def _record_exploration_coverage(self, name: str, result: object) -> None:
+        """Update Secret-safe per-question coverage from an observed Tool result.
+
+        Matching is against the already-observed path/text only -- never a
+        guessed name -- and an unmatched observation records no coverage,
+        which is the generic fallback rather than an error.
+        """
+
+        if name in ("search_text", "read_file_lines"):
+            items = result.get("hits") if isinstance(result, Mapping) else result
+            if not isinstance(items, list):
+                return
+            for item in items:
+                if not isinstance(item, Mapping):
+                    continue
+                path = item.get("path")
+                start = item.get("line_start")
+                end = item.get("line_end")
+                text = item.get("text") if isinstance(item.get("text"), str) else None
+                if not isinstance(path, str):
+                    continue
+                rules = match_rules(self.exploration_policy, path=path, text=text)
+                seen: set[str] = set()
+                for rule in rules:
+                    for question_id in rule.question_ids:
+                        if question_id in seen:
+                            continue
+                        seen.add(question_id)
+                        self.exploration_ledger.record_observation(
+                            question_id,
+                            name,
+                            path,
+                            start if isinstance(start, int) else None,
+                            end if isinstance(end, int) else None,
+                        )
+            return
+        if name != "read_file" or not isinstance(result, Mapping) or result.get("binary"):
+            return
+        path = result.get("path")
+        text = result.get("text")
+        if not isinstance(path, str) or not isinstance(text, str):
+            return
+        rules = match_rules(self.exploration_policy, path=path, text=text)
+        seen: set[str] = set()
+        for rule in rules:
+            for question_id in rule.question_ids:
+                if question_id in seen:
+                    continue
+                seen.add(question_id)
+                self.exploration_ledger.record_observation(question_id, name, path, 1, len(text.splitlines()) or 1)
+
     def _call(self, name: str, args: Mapping[str, object], operation: Any) -> object:
         signature = self.tracker.signature(name, args)
         duplicate = self.tracker.begin(name, args)
@@ -789,6 +846,7 @@ class AdkRepositoryToolset:
             if len(self.ledger.observations) > 64:
                 del self.ledger.observations[:-64]
             self._record_provenance(name, result)
+            self._record_exploration_coverage(name, result)
             if name == "inspect_target":
                 self.control.phase = RunPhase.DISCOVER
             elif name == "validate_analysis":

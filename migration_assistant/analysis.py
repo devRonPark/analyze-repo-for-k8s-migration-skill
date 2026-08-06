@@ -43,6 +43,15 @@ def _existence_only_claim(value: str) -> bool:
     }
 
 
+# The run-execution telemetry keys analyze() writes into run_metadata.
+# AnalysisResult (the domain result) must never gain a field with one of
+# these names -- tests/test_migration_contract.py locks this against drift.
+RUN_METADATA_TELEMETRY_FIELDS = frozenset({
+    "terminal", "tool_calls", "protocol_issues", "callback_telemetry", "recovery_attempts",
+    "run_control", "evidence_provenance", "provenance_summary", "exploration_coverage",
+})
+
+
 DEPLOYMENT_CANDIDATE = "배포 대상 후보"
 REPOSITORY_RUNTIME_DEPENDENCY = "저장소에 정의된 런타임 의존성"
 EXTERNAL_RUNTIME_DEPENDENCY = "외부 런타임 의존성"
@@ -432,8 +441,7 @@ def analyze(
             run = run_adk_agent(tools, settings, budget, model_override=adk_model)
             if run_metadata is not None:
                 run_metadata.clear()
-                run_metadata.update(
-                    {
+                telemetry = {
                         "terminal": bool(getattr(run, "terminal", False)),
                         "tool_calls": [str(name) for name in getattr(run, "tool_calls", [])],
                         "protocol_issues": redact_sensitive_value(
@@ -461,8 +469,12 @@ def analyze(
                         "provenance_summary": redact_sensitive_value(
                             dict(getattr(run, "provenance_summary", {}))
                         ),
-                    }
-                )
+                        "exploration_coverage": redact_sensitive_value(
+                            dict(getattr(run, "exploration_coverage", {}))
+                        ),
+                }
+                assert set(telemetry) == RUN_METADATA_TELEMETRY_FIELDS, "run_metadata telemetry 키가 RUN_METADATA_TELEMETRY_FIELDS와 어긋납니다."
+                run_metadata.update(telemetry)
             result = run.result
             if result is None:
                 raise RuntimeError("ADK Runner가 AnalysisResult를 반환하지 않았습니다.")

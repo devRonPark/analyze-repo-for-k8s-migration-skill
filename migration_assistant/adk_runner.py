@@ -14,6 +14,7 @@ from google.genai import types
 
 from .adk_tools import DuplicateTracker, ValidationLedger
 from .agent import AgentApplication
+from .exploration_ledger import ExplorationLedger
 from .provenance import ObservationProvenance, evidence_sources
 from .analysis import AnalysisResult, PydanticDependencyError
 from .config import Settings
@@ -48,6 +49,7 @@ class AdkRun:
     no_progress_cap: int = 3
     evidence_provenance: list[dict[str, object]] = field(default_factory=list)
     provenance_summary: dict[str, object] = field(default_factory=dict)
+    exploration_coverage: dict[str, object] = field(default_factory=dict)
 
 
 _FENCED_JSON = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL | re.IGNORECASE)
@@ -103,6 +105,7 @@ def run_adk_agent(
     tracker = DuplicateTracker(max_no_progress=budget.max_no_progress)
     control = RunControlLedger()
     provenance = ObservationProvenance()
+    exploration_ledger = ExplorationLedger()
     agent = AgentApplication(settings).build_root_agent(
         repository_tools=repository,
         ledger=ledger,
@@ -111,6 +114,7 @@ def run_adk_agent(
         model_override=model_override,
         control=control,
         provenance=provenance,
+        exploration_ledger=exploration_ledger,
     )
     run = AdkRun()
 
@@ -277,6 +281,7 @@ def run_adk_agent(
             raise AdkExecutionError(str(error)) from error
     # Measurement only: attribution never gates the result above.
     run.provenance_summary = provenance.summary()
+    run.exploration_coverage = exploration_ledger.summary()
     if run.result is not None:
         run.evidence_provenance = evidence_sources(run.result.evidence, provenance)
     return run
