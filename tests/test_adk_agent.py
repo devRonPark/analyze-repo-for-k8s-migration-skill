@@ -101,6 +101,7 @@ class AdkAgentTests(unittest.TestCase):
             self.assertEqual(type(agent.model), ScriptedAdkLlm)
             self.assertIsNotNone(agent.after_model_callback)
             self.assertIsNotNone(agent.before_tool_callback)
+            self.assertIsNotNone(agent.after_tool_callback)
             self.assertIsNotNone(agent.on_tool_error_callback)
 
     def test_agent_instruction_bounds_line_evidence_requests(self):

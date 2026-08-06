@@ -367,6 +367,7 @@ class AdkRepositoryToolset:
         call_id: str | None,
         phase_before: RunPhase,
         result: object,
+        executed: bool | None = None,
     ) -> None:
         _, invocation_id, call_id_hash = self._delivery_key(
             callback_stage,
@@ -395,7 +396,7 @@ class AdkRepositoryToolset:
             "phase_after": self.control.phase.value,
             "issue_code": issue_code,
             "allowed_next_actions": allowed_actions,
-            "executed": False if isinstance(result, Mapping) else None,
+            "executed": executed if executed is not None else (False if isinstance(result, Mapping) else None),
         })
 
     def _cached_callback_result(self, key: str | None) -> tuple[bool, object]:
@@ -620,6 +621,34 @@ class AdkRepositoryToolset:
             return error_envelope(issue, allowed_next_actions=())
         return None
 
+    def after_tool_callback(
+        self,
+        tool: BaseTool,
+        args: dict[str, Any],
+        tool_context: ToolContext,
+        tool_response: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Observe the Tool result without replacing the ADK response."""
+
+        name = str(getattr(tool, "name", ""))
+        call_id = self._context_value(tool_context, "function_call_id")
+        key, _, _ = self._delivery_key("after_tool", tool_context, tool_name=name, call_id=call_id)
+        cached, cached_result = self._cached_callback_result(key)
+        if cached:
+            return cached_result  # type: ignore[return-value]
+        phase_before = self.control.phase
+        self._record_callback_telemetry(
+            "after_tool",
+            context=tool_context,
+            tool_name=name,
+            call_id=call_id,
+            phase_before=phase_before,
+            result=tool_response,
+            executed=True,
+        )
+        self._cache_callback_result(key, None)
+        return None
+
     def on_tool_error_callback(
         self,
         tool: BaseTool,
@@ -642,6 +671,7 @@ class AdkRepositoryToolset:
             call_id=call_id,
             phase_before=phase_before,
             result=result,
+            executed=False,
         )
         self._cache_callback_result(key, result)
         return result

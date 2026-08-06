@@ -97,6 +97,7 @@ class AgentApplication:
             tools=toolset.functions(),
             after_model_callback=toolset.after_model_callback,
             before_tool_callback=toolset.before_tool_callback,
+            after_tool_callback=toolset.after_tool_callback,
             on_tool_error_callback=toolset.on_tool_error_callback,
         )
 

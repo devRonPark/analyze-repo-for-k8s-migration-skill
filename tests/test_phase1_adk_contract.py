@@ -737,6 +737,31 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertIs(on_error_hints["tool"], BaseTool)
         self.assertIs(on_error_hints["tool_context"], ToolContext)
 
+    def test_after_tool_callback_is_telemetry_only_and_preserves_result(self):
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+        )
+        read_file = next(tool for tool in toolset.functions() if tool.name == "read_file")
+        response = {"ok": True, "data": {"path": "app.py", "text": "PORT = 8080"}}
+
+        class ToolContext:
+            invocation_id = "invocation-after"
+            function_call_id = "call-after"
+
+        returned = toolset.after_tool_callback(
+            read_file,
+            {"relative": "app.py"},
+            ToolContext(),
+            response,
+        )
+
+        self.assertIsNone(returned)
+        self.assertEqual(response, {"ok": True, "data": {"path": "app.py", "text": "PORT = 8080"}})
+        self.assertEqual(toolset.ledger.callback_telemetry[-1]["callback_stage"], "after_tool")
+        self.assertTrue(toolset.ledger.callback_telemetry[-1]["executed"])
+
     def test_before_tool_callback_enforces_initial_phase_without_execution(self):
         control = RunControlLedger()
         toolset = AdkRepositoryToolset(
