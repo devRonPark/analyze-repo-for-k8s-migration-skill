@@ -654,14 +654,14 @@ git commit -m "test: evaluate migration exploration trajectories"
 - Modify: this plan
 - Test: existing tests/
 
-- [ ] **Step 1: focused·static 검증**
+- [x] **Step 1: focused·static 검증**
 
 ~~~powershell
 python -m py_compile migration_assistant/exploration_policy.py migration_assistant/exploration_ledger.py migration_assistant/exploration_context.py
 python -m pytest -q -p no:cacheprovider tests/test_migration_contract.py tests/test_exploration_policy.py tests/test_exploration_ledger.py tests/test_exploration_context.py tests/test_migration_trajectory_contract.py tests/test_adk_runner_recovery.py tests/test_phase1_adk_contract.py
 ~~~
 
-- [ ] **Step 2: 전체 suite 실행**
+- [x] **Step 2: 전체 suite 실행**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider
@@ -669,7 +669,7 @@ python -m pytest -q -p no:cacheprovider
 
 새 실패와 기존 Windows subprocess UTF-8 실패를 구분해 기록합니다.
 
-- [ ] **Step 3: 명시적 외부 전송 승인 후 smoke 실행**
+- [x] **Step 3: 명시적 외부 전송 승인 후 smoke 실행**
 
 실행 전 preflight metadata에 target absolute path의 repository revision, endpoint host(Secret 제외), model ID, 전송 범위, 승인 reference, budget/timeout 설정을 기록합니다. 비교 모델 실행은 model ID 외 endpoint 정책, Repository revision, prompt, Tool surface, budget, timeout을 고정하고 output directory를 분리합니다. 한 실행의 승인을 다른 target/model/endpoint에 재사용하지 않습니다.
 
@@ -679,7 +679,7 @@ python -m devtools.run_phase1_live_acceptance --repository "C:\Users\박병찬\D
 
 smoke가 실패하면 공식 3-run을 실행하지 않고 deterministic trajectory와 대조합니다. smoke 성공 시에만 동일 model 3-run을 실행하고, 비교 model은 LLM_MODEL만 변경합니다.
 
-- [ ] **Step 4: target·artifact·Secret 검증**
+- [x] **Step 4: target·artifact·Secret 검증**
 
 ~~~powershell
 git -C "C:\Users\박병찬\Desktop\demo-repositories\jpetstore-6" status --short
@@ -688,7 +688,7 @@ rg -n -i "api[_-]?key|authorization|bearer|password|token|secret" .dryforge\live
 
 검색 결과는 Secret 값 자체를 출력하지 않고 redaction 위반 여부만 확인합니다.
 
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
 
 ~~~powershell
 git add docs/phase1-adk-experiment-log.md docs/superpowers/plans/2026-08-06-kubernetes-migration-agent-lesson-learned-and-improvement-plan.md
@@ -707,24 +707,32 @@ git commit -m "docs: record migration agent lessons learned"
 
 ### 구현
 
-- [ ] Kubernetes DevOps persona가 Role·Mission·Policy·Stop gate로 분리됩니다.
-- [ ] `CoverageSnapshot -> ContextProjection -> next LLM call` 경로가 테스트로 검증됩니다.
-- [ ] registry는 결론값을 만들지 않고 관찰 우선순위만 제공합니다.
-- [ ] `exploration_signals`는 허용 필드만 가지며 값·최종 상태·구체적인 Tool 호출을 포함하지 않습니다.
-- [ ] question coverage가 Secret-safe metadata로 기록됩니다.
+- [x] Kubernetes DevOps persona가 Role·Mission·Policy·Stop gate로 분리됩니다.
+- [x] `CoverageSnapshot -> ContextProjection -> next LLM call` 경로가 테스트로 검증됩니다.
+- [x] registry는 결론값을 만들지 않고 관찰 우선순위만 제공합니다.
+- [x] `exploration_signals`는 허용 필드만 가지며 값·최종 상태·구체적인 Tool 호출을 포함하지 않습니다.
+- [x] question coverage가 Secret-safe metadata로 기록됩니다.
 - [ ] `AnalysisResult`와 `RunMetadata`의 저장·직렬화 경계가 명시되고 schema version이 검증됩니다.
-- [ ] unknown ecosystem은 generic fallback으로 진행됩니다.
-- [ ] 기존 Tool·callback·error envelope·read-only 계약이 유지됩니다.
+      (경계 분리와 별도 파일 저장은 구현·테스트됨. 명시적 schema version 필드/검증은 아직
+      없음 -- 남은 위험으로 기록.)
+- [x] unknown ecosystem은 generic fallback으로 진행됩니다.
+- [x] 기존 Tool·callback·error envelope·read-only 계약이 유지됩니다.
 
 ### 검증
 
-- [ ] inspect_target가 첫 관찰입니다.
-- [ ] positive Evidence가 실제 관찰된 line과 연결됩니다.
-- [ ] grounding 오류 뒤 fresh observation이 요구됩니다.
-- [ ] candidate 오류가 reported field 단위로 bounded하게 복구됩니다.
-- [ ] Stop truth table이 `confirmed`, `unresolved`, `conflicting`, `not_applicable`, Evidence 0건, budget 초과를 모두 판정합니다.
-- [ ] duplicate/phase/no-progress가 bounded STOP됩니다.
+- [x] inspect_target가 첫 관찰입니다.
+- [x] positive Evidence가 실제 관찰된 line과 연결됩니다.
+- [x] grounding 오류 뒤 fresh observation이 요구됩니다.
+- [x] candidate 오류가 reported field 단위로 bounded하게 복구됩니다.
+- [x] Stop truth table이 `confirmed`, `unresolved`, `conflicting`, `not_applicable`, Evidence 0건, budget 초과를 모두 판정합니다.
+      (`conditional_precondition_not_observed`는 정책 구조상 required precondition과
+      얽혀 완전히 동일한 reason 문자열까지는 재현하지 못하고 known limitation으로
+      문서화됨 -- `tests/test_exploration_ledger.py`의 `StopGateFixtureReproductionTests` 참고.)
+- [x] duplicate/phase/no-progress가 bounded STOP됩니다.
 - [ ] trajectory와 question disposition 지표가 live 결과에 포함됩니다.
+      (`exploration_coverage`/`stop_decision`은 Run 35에서 실제 live run_metadata에
+      포함됨을 확인함. `evaluate_trajectory()` 자체는 아직 fixture 전용이며 실제 live
+      trajectory에 적용하는 adapter가 없음 -- 남은 위험으로 기록.)
 
 ## 10. 최종 공유 메시지
 

@@ -600,6 +600,57 @@ evidence와 명시적 사유가 있으므로 사용자 계약의 partial 허용 
    가정이다. 다음 deterministic 작업은 unresolved absence 실패의 typed issue를
    보존해 `absence_contradicted`와 `absence_unverified`를 분리 관찰하는 것이다.
 
+### Run 35 — exploration policy/coverage/stop gate 도입 후 solar-pro2 smoke
+
+1. 바꾼 변수 하나와 그 가설: `docs/superpowers/plans/2026-08-06-kubernetes-migration-agent-lesson-learned-and-improvement-plan.md`의
+   Task 0~6(선언적 exploration registry, Secret-safe coverage ledger,
+   `CoverageSnapshot -> ContextProjection` 피드백, Role/Mission/Policy/Stop
+   instruction 재구성, `exploration_signals`, 기계적 `stop_decision()`,
+   fixture 기반 trajectory 평가기)을 적용한 뒤 `jpetstore-6` 대상 1회 smoke를
+   실행했다. 가설은 탐색 우선순위와 coverage 피드백이 모델의 파일 선택을
+   좁혀 evidence grounding 실패를 줄일 것이라는 것이었다.
+2. 실제 실행 명령의 비밀값 제거 버전:
+
+   ```powershell
+   python -m devtools.run_phase1_live_acceptance --repository <jpetstore-6-checkout> --output-parent .dryforge/live-exploration-policy-20260806 --runs 1
+   ```
+
+   target commit은 `3ebd25fd04f1b48361ab879e113ba353838ffe6a`(branch master, clean)였고,
+   endpoint는 `https://api.upstage.ai/v1`, model은 `solar-pro2`, timeout은 60초,
+   max tokens는 4096이었다. API key와 raw request/response는 기록하지 않는다.
+3. tool sequence, iteration, 오류 상태: 38개 Tool 호출 중 `inspect_target`,
+   `list_tree` 이후 거의 전부가 `read_file`/`read_file_lines`였고 `search_text`
+   호출은 0회였다 — `exploration_coverage`의 7개 질문 모두
+   `has_search_scope=false`, `has_search_pattern=false`로 기록되어, instruction의
+   "search_text hit부터 확보" 지시를 모델이 따르지 않고 광범위한 read로만
+   탐색했음을 관찰로 확인했다. `protocol_error_codes`는
+   `["malformed_arguments", "evidence_grounding", "evidence_grounding",
+   "invalid_arguments"]`였고, `recovery_attempts=1`(cap 1),
+   `inline_corrections=2`(cap 3), `validation_attempts=1`(cap 2),
+   `prebinding_rejections=0`이었다. 마지막 `validate_analysis` 실패는
+   `pom.xml:105-113`, `pom.xml:129-133`의 evidence excerpt가 실제 Repository
+   line과 불일치한 evidence_grounding 오류였고, recovery turn 이후
+   `read_file_lines` 2회가 더 있었지만 `validate_analysis` 재제출 없이 종료됐다.
+4. exit code와 artifact/input Git 상태: exit 1, `status=failed`, `terminal=false`,
+   positive Evidence 0건, acceptance `successes=0/1`이었다. `run_metadata.stop_decision`은
+   `{"allowed": false, "reason": "no_evidence: ...", "allowed_status": [],
+   "synthetic_values": {}}`로 Evidence 0건을 정확히 반영했다 — Task 5의
+   기계적 stop 판정이 live 경로에서도 그대로 계산됐다. 결과는 target 밖
+   `.dryforge/live-exploration-policy-20260806/run-1`에 저장됐고, target Git
+   상태는 실행 전후 모두 clean이었다. artifact 전체에서
+   `api[_-]?key|authorization|bearer|password|token` 패턴 검색 결과는 0건이었다.
+5. 다음 실험에서 유지할 것과 폐기할 것: 유지할 것은 smoke 실패 시 공식
+   3-run을 중단하는 gate와, `exploration_coverage`/`stop_decision`이 live
+   실행에서 실제로 채워진다는 확인이다. 폐기할 것은 "탐색 우선순위 registry와
+   coverage 피드백만으로 solar-pro2의 evidence grounding 실패가 해결된다"는
+   가정이다 — 이번 실패는 Task 1~6 변경이 만든 새 회귀가 아니라, 이전 Run 34와
+   동일하게 이 model이 `search_text` 기반 정밀 탐색보다 광범위한 `read_file`을
+   선호하고 excerpt를 부정확하게 재구성하는 이미 알려진 경향으로 보인다.
+   다음 deterministic 작업 후보는 `meta.exploration_signals`/`context_projection`가
+   실제로 `search_text` 사용 빈도를 높이는지 별도 A/B 없이는 판단할 수 없다는
+   점을 인정하고, tool 선택 편향 자체를 로그로 남기는 지표(예: 질문별
+   `search_text` 대 `read_file` 비율)를 telemetry에 추가하는 것이다.
+
 ## 개발 환경 변수 파일
 
 Live harness는 다음 순서로 처음 발견되는 env 파일 하나를 읽습니다: 명시적
