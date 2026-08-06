@@ -181,7 +181,12 @@ class AdkAgentTests(unittest.TestCase):
         self.assertIn("unresolved", instruction)
         for header in ("## Role", "## Mission", "## Policy", "## Stop"):
             self.assertIn(header, instruction)
-        self.assertNotIn("전체 Repository를 설명", instruction)
+        # The Mission explicitly denies this goal ("...목표가 아닙니다"), which is
+        # fine and expected; what must never appear is the goal stated
+        # affirmatively, in either word order an earlier prototype used.
+        self.assertNotIn("설명하는 것이 목표입니다", instruction)
+        self.assertNotIn("Repository 전체를 설명한다", instruction)
+        self.assertNotIn("전체 Repository를 설명한다", instruction)
 
     def test_instruction_lists_every_policy_question_id(self):
         instruction = build_migration_instruction(DEFAULT_MIGRATION_POLICY)
