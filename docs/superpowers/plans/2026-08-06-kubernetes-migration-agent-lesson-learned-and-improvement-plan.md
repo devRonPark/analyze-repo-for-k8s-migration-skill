@@ -340,7 +340,7 @@ git commit -m "test: define migration exploration contracts"
 
 **Produces:** ExplorationQuestion, SignalRule, ExplorationPolicy, DEFAULT_MIGRATION_POLICY
 
-- [ ] **Step 1: failing test 작성**
+- [x] **Step 1: failing test 작성**
 
 ~~~python
 def test_policy_prioritizes_startup_signals_without_creating_values():
@@ -350,13 +350,13 @@ def test_policy_prioritizes_startup_signals_without_creating_values():
     assert "port_value" not in rules[0].__dict__
 ~~~
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_exploration_policy.py
 ~~~
 
-- [ ] **Step 3: 최소 구현**
+- [x] **Step 3: 최소 구현**
 
 ~~~python
 @dataclass(frozen=True, slots=True)
@@ -371,7 +371,7 @@ class SignalRule:
 
 registry는 관찰 우선순위만 제공하고 port, image, startup 값은 생성하지 않습니다.
 
-- [ ] **Step 4: focused test와 commit**
+- [x] **Step 4: focused test와 commit**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_exploration_policy.py
