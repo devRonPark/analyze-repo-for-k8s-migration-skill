@@ -431,7 +431,7 @@ git commit -m "feat: track migration exploration coverage"
 
 **Produces:** `CoverageSnapshot -> ContextProjection -> next LLM call` 피드백 경로
 
-- [ ] **Step 1: failing test 작성**
+- [x] **Step 1: failing test 작성**
 
 ~~~python
 def test_context_projection_lists_unresolved_questions_without_values():
@@ -441,7 +441,7 @@ def test_context_projection_lists_unresolved_questions_without_values():
     assert "next_tool" not in repr(projection)
 ~~~
 
-- [ ] **Step 2: 최소 구현과 ADK handoff 연결**
+- [x] **Step 2: 최소 구현과 ADK handoff 연결**
 
 `ContextProjection`은 미해결 질문 ID, 해당 질문의 우선순위, 관찰이 필요한 signal rule ID만 Secret-safe compact metadata로 만듭니다. 구체적인 path, port/image 값, 특정 Tool 호출을 생성하지 않습니다. `adk_runner.py`는 다음 모델 호출 전에 이 projection을 별도 context metadata로 전달하며, 모델의 자연어 판단을 대체하지 않습니다.
 
@@ -454,7 +454,7 @@ Tool result
   -> Agent chooses an allowed Tool
 ~~~
 
-- [ ] **Step 3: focused test와 commit**
+- [x] **Step 3: focused test와 commit**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_exploration_context.py tests/test_adk_runner_recovery.py
