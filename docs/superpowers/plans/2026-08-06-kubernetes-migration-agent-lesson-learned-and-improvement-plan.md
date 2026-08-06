@@ -469,7 +469,7 @@ git commit -m "feat: project migration coverage into model context"
 - Modify: migration_assistant/exploration_policy.py
 - Test: tests/test_adk_agent.py
 
-- [ ] **Step 1: failing test 작성**
+- [x] **Step 1: failing test 작성**
 
 ~~~python
 def test_instruction_focuses_on_migration_questions_not_generic_repository_summary():
@@ -481,13 +481,13 @@ def test_instruction_focuses_on_migration_questions_not_generic_repository_summa
     assert "unresolved" in instruction
 ~~~
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_adk_agent.py -k instruction
 ~~~
 
-- [ ] **Step 3: 최소 instruction 변경**
+- [x] **Step 3: 최소 instruction 변경**
 
 ~~~text
 Role: Kubernetes DevOps Engineer 관점의 read-only migration analyst
@@ -498,7 +498,7 @@ Stop: 확인·미확인·상충 질문을 분류하고 validate_analysis
 
 Persona는 관점만 설정하며 일반적인 port/image/storage 값을 추정하라는 문구는 넣지 않습니다.
 
-- [ ] **Step 4: 기존 Tool·callback 등록 보존 확인과 commit**
+- [x] **Step 4: 기존 Tool·callback 등록 보존 확인과 commit**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_adk_agent.py tests/test_phase1_adk_contract.py

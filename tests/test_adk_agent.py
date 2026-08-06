@@ -11,8 +11,9 @@ from google.genai import types
 from pydantic import PrivateAttr
 
 from migration_assistant.analysis import AnalysisResult, analyze
-from migration_assistant.agent import PUBLIC_AGENT_TOOL_NAMES, create_agent
+from migration_assistant.agent import PUBLIC_AGENT_TOOL_NAMES, build_migration_instruction, create_agent
 from migration_assistant.adk_tools import DuplicateTracker, ValidationLedger
+from migration_assistant.exploration_policy import DEFAULT_MIGRATION_POLICY
 from migration_assistant.repository_tools import RepositoryTools
 from migration_assistant.target import SafetyBudget
 
@@ -169,6 +170,37 @@ class AdkAgentTests(unittest.TestCase):
             self.assertIn("결과가 0건이면", agent.instruction)
             # The old blanket ban removed the domain along with the hardcoding.
             self.assertNotIn("고정 파일 순서", agent.instruction)
+
+    def test_instruction_focuses_on_migration_questions_not_generic_repository_summary(self):
+        instruction = build_migration_instruction(DEFAULT_MIGRATION_POLICY)
+
+        self.assertIn("production_startup", instruction)
+        self.assertIn("Kubernetes", instruction)
+        self.assertIn("read-only", instruction)
+        self.assertIn("evidence", instruction.lower())
+        self.assertIn("unresolved", instruction)
+        for header in ("## Role", "## Mission", "## Policy", "## Stop"):
+            self.assertIn(header, instruction)
+        self.assertNotIn("전체 Repository를 설명", instruction)
+
+    def test_instruction_lists_every_policy_question_id(self):
+        instruction = build_migration_instruction(DEFAULT_MIGRATION_POLICY)
+
+        for question in DEFAULT_MIGRATION_POLICY.questions:
+            self.assertIn(question.question_id, instruction)
+
+    def test_build_root_agent_uses_build_migration_instruction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            agent = create_agent().build_root_agent(
+                repository_tools=RepositoryTools(repo, budget=SafetyBudget()),
+                ledger=ValidationLedger(),
+                tracker=DuplicateTracker(),
+                budget=SafetyBudget(),
+                model_override=ScriptedAdkLlm(),
+            )
+
+            self.assertEqual(agent.instruction, build_migration_instruction(DEFAULT_MIGRATION_POLICY))
 
     def test_production_analyze_uses_adk_and_validates_agent_result(self):
         with tempfile.TemporaryDirectory() as tmp:
