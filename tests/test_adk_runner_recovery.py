@@ -12,7 +12,7 @@ from pydantic import PrivateAttr
 
 from devtools.run_phase1_live_acceptance import AcceptanceRun, _is_success
 from migration_assistant.adk_model import OpenAICompatibleAdkLlm
-from migration_assistant.adk_runner import _recovery_prompt, run_adk_agent
+from migration_assistant.adk_runner import _prepare_recovery_tool_choice, _recovery_prompt, run_adk_agent
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from migration_assistant.config import Settings
 from migration_assistant.exploration_ledger import ExplorationLedger
@@ -308,6 +308,37 @@ class RecoveryPromptCoverageProjectionTests(unittest.TestCase):
         ledger.record_observation("runtime_config_and_secret_names", "read_file_lines", "config/application.yml", 1, 1)
         prompt = _recovery_prompt(control, 1, ("inspect_target",), ledger)
         self.assertNotIn("application.yml", prompt)
+
+
+class PrepareRecoveryToolChoiceTests(unittest.TestCase):
+    """Live smoke found a second failure mode after temperature/tool_choice
+    fixes: the model made 17 clean observation calls, zero protocol
+    errors, then simply stopped calling tools and produced unparseable
+    free text instead of a validate_analysis call. That path is the
+    "no protocol_issue, just no result yet" catch-all recovery branch
+    (run_adk_agent), which _tool_choice() never narrowed because nothing
+    had ever called record_issue(). This must narrow next_actions the
+    same way a protocol-issue narrowing would, so the recovery turn's
+    model call is forced toward validate_analysis too."""
+
+    def test_narrows_to_validate_analysis_when_no_protocol_issue_is_pending(self):
+        control = RunControlLedger()
+        self.assertIsNone(control.protocol_issue)
+
+        _prepare_recovery_tool_choice(control)
+
+        self.assertEqual(control.next_actions, ("validate_analysis",))
+
+    def test_leaves_an_active_protocol_issue_narrowing_untouched(self):
+        control = RunControlLedger()
+        control.record_issue(
+            ToolIssue(code=ToolErrorCode.EVIDENCE_GROUNDING, category="grounding", message="mismatch"),
+            allowed_next_actions=("search_text", "read_file", "read_file_lines"),
+        )
+
+        _prepare_recovery_tool_choice(control)
+
+        self.assertEqual(control.next_actions, ("search_text", "read_file", "read_file_lines"))
 
 
 class ScriptedStopDecisionLlm(BaseLlm):

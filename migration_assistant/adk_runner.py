@@ -78,6 +78,22 @@ def _coverage_reminder(exploration_ledger: ExplorationLedger | None) -> str:
     return f" 아직 관찰되지 않은 required 질문: {', '.join(required_ids)}."
 
 
+def _prepare_recovery_tool_choice(control: RunControlLedger) -> None:
+    """Narrow the recovery turn's model call toward validate_analysis.
+
+    When no protocol_issue is pending, the "no result yet" catch-all
+    recovery branch is the only path left, and the only sensible next
+    action is to submit the accepted candidate -- text-only prose or
+    silence is not. Narrowing next_actions here lets
+    OpenAICompatibleAdkLlm._tool_choice() force it at the transport level,
+    the same way an actual protocol-issue narrowing already does. An
+    active protocol_issue's own narrowing is left untouched.
+    """
+
+    if control.protocol_issue is None:
+        control.next_actions = ("validate_analysis",)
+
+
 def _recovery_prompt(
     control: RunControlLedger,
     attempt: int,
@@ -220,6 +236,7 @@ def run_adk_agent(
                 ledger.validation_error = None
                 ledger.tool_error = None
                 ledger.budget_exhausted = None
+                _prepare_recovery_tool_choice(control)
                 recovery = types.Content(
                     role="user",
                     parts=[
