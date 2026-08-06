@@ -260,6 +260,78 @@ Stop: 전체 Repository를 읽지 않고 validate_analysis
 
 ## 8. 개선 구현 계획
 
+구현 전에 관찰 범위와 종료 조건의 계약을 먼저 고정합니다. Coverage를 기록하는 것만으로는 모델의 다음 행동이 바뀌지 않으므로, 기록·문맥 투영·모델 호출·기계적 종료 판정을 분리하되 연결 경로를 계획에 명시합니다.
+
+### Task 0: 탐색 계약과 경계 확정
+
+**Files:**
+- Modify: this plan
+- Create: tests/fixtures/adk_migration_contract/question-dispositions.json
+- Create: tests/fixtures/adk_migration_contract/stop-gate-cases.json
+- Test: tests/test_migration_contract.py
+
+**Produces:** 구현 전에 고정된 질문 상태표, Stop truth table, metadata 경계, signal 허용 필드 계약
+
+- [ ] **Step 1: migration question disposition 정의**
+
+각 질문은 `required`, `conditional`, `optional` 중 하나의 중요도를 가집니다. 모든 질문은 다음 상태 중 하나로 종료됩니다.
+
+~~~text
+confirmed   : 실제 관찰 line-backed Evidence가 있음
+inferred    : positive Evidence에서 파생됐지만 직접 관찰값과 구분됨
+unresolved  : 정해진 탐색 범위·패턴·budget을 소진했으나 근거가 없음
+conflicting : 둘 이상의 positive 관찰이 서로 충돌함
+not_applicable : 조건부 질문의 선행 조건이 관찰되지 않음
+~~~
+
+`unresolved`는 모델의 문장만으로 생성하지 않습니다. Ledger가 탐색 범위, 사용한 pattern, 관찰 횟수 또는 scope 제한, 종료 이유를 보유할 때만 인정합니다.
+
+- [ ] **Step 2: AnalysisResult와 RunMetadata 경계 확정**
+
+`AnalysisResult`는 Evidence·Finding·Component·분석 상태를 담는 도메인 결과로 유지합니다. `run_metadata`는 callback telemetry, Tool trajectory, exploration coverage, budget, approval preflight를 담는 실행 telemetry로 유지하며 모델 결과 schema에 섞지 않습니다.
+
+~~~text
+AnalysisResult -> renderer -> KubernetesMigrationPlan -> manifest validator
+run_metadata  -> run artifact / live acceptance telemetry
+~~~
+
+`renderer`는 `KubernetesMigrationPlan`만 입력받고, `validator`는 manifest set만 입력받습니다. 실행 결과 artifact에는 `analysis-result.json`과 Secret-safe `run-metadata.json`을 별도 파일로 저장하거나, 기존 artifact contract 안에서 두 영역을 명시적으로 분리합니다. 이 위치와 schema version을 테스트로 고정합니다.
+
+- [ ] **Step 3: exploration signal 허용·금지 계약 확정**
+
+Tool이 반환하는 raw observation과 별도의 advisory control metadata를 구분합니다. `exploration_signals`의 허용 필드는 `question_id`, `trigger_rule_id`, `observed_fact_ref`, `candidate_observation_kind`입니다.
+
+다음은 금지합니다.
+
+~~~text
+workload=Deployment, port=8080 같은 결론값
+confirmed/unresolved 같은 최종 상태 확정
+next_tool=read_file 같은 특정 Tool 호출 강제
+registry에 없는 생태계의 parser·business logic 우회
+~~~
+
+- [ ] **Step 4: Stop truth table과 테스트 fixture 작성**
+
+| 조건 | 제출 가능 | 허용 상태 | 필수 근거 |
+|---|---:|---|---|
+| required 질문이 confirmed/inferred이고 충돌 없음 | 예 | complete 또는 partial | positive line-backed Evidence |
+| required 질문을 범위·pattern·budget을 소진해 확인하지 못함 | 예 | partial | ledger가 기록한 genuine unresolved |
+| conditional 질문의 선행 조건이 관찰되지 않음 | 예 | partial | `not_applicable` 근거 |
+| positive 값이 있으나 Evidence가 없음 | 아니오 | 오류 | fresh observation 후 수정 |
+| conflicting 관찰이 있음 | 예 | partial | conflicting Evidence와 자동 선택 금지 |
+| Evidence가 0건 | 아니오 | 오류 | 분석 제출 불가 |
+| duplicate/no-progress/iteration budget 초과 | 예 | failed 또는 partial | bounded stop 사유 |
+
+`tests/test_migration_contract.py`는 위 경우를 모두 검증하며, 모델이 `unresolved`를 임의 선언하거나 Tool이 결론을 반환해도 통과하지 않도록 합니다.
+
+- [ ] **Step 5: RED 확인 및 계약 commit**
+
+~~~powershell
+python -m pytest -q -p no:cacheprovider tests/test_migration_contract.py
+git add tests/fixtures/adk_migration_contract tests/test_migration_contract.py docs/superpowers/plans/2026-08-06-kubernetes-migration-agent-lesson-learned-and-improvement-plan.md
+git commit -m "test: define migration exploration contracts"
+~~~
+
 ### Task 1: 탐색 질문·신호 registry 정의
 
 **Files:**
@@ -316,7 +388,7 @@ git commit -m "feat: define migration exploration signals"
 - Modify: migration_assistant/analysis.py
 - Test: tests/test_exploration_ledger.py
 
-**Produces:** Secret-safe run_metadata["exploration_coverage"]
+**Produces:** Secret-safe `run_metadata["exploration_coverage"]`와 별도 실행 artifact 저장 계약
 
 - [ ] **Step 1: failing test 작성**
 
@@ -335,7 +407,7 @@ def test_observed_question_is_not_reported_as_grounded_value():
 python -m pytest -q -p no:cacheprovider tests/test_exploration_ledger.py
 ~~~
 
-Ledger는 raw args, raw excerpt, Secret 값을 저장하지 않고 question status, Tool 이름, bounded line count, positive Evidence count만 기록합니다.
+Ledger는 raw args, raw excerpt, Secret 값을 저장하지 않고 question status, Tool 이름, bounded line count, positive Evidence count만 기록합니다. 이 단계의 coverage는 관찰성과 telemetry를 위한 것이며, 이것만으로 모델의 다음 행동이 바뀐다고 가정하지 않습니다.
 
 - [ ] **Step 3: ADK handoff 연결과 focused test**
 
@@ -348,6 +420,46 @@ python -m pytest -q -p no:cacheprovider tests/test_exploration_ledger.py tests/t
 ~~~powershell
 git add migration_assistant/exploration_ledger.py migration_assistant/adk_tools.py migration_assistant/adk_runner.py migration_assistant/analysis.py tests/test_exploration_ledger.py
 git commit -m "feat: track migration exploration coverage"
+~~~
+
+### Task 2A: Coverage를 다음 모델 호출 문맥으로 투영
+
+**Files:**
+- Create: migration_assistant/exploration_context.py
+- Test: tests/test_exploration_context.py
+- Modify: migration_assistant/adk_runner.py
+
+**Produces:** `CoverageSnapshot -> ContextProjection -> next LLM call` 피드백 경로
+
+- [ ] **Step 1: failing test 작성**
+
+~~~python
+def test_context_projection_lists_unresolved_questions_without_values():
+    projection = project_next_observations(snapshot)
+    assert projection[0]["question_id"] == "production_startup"
+    assert "port" not in repr(projection)
+    assert "next_tool" not in repr(projection)
+~~~
+
+- [ ] **Step 2: 최소 구현과 ADK handoff 연결**
+
+`ContextProjection`은 미해결 질문 ID, 해당 질문의 우선순위, 관찰이 필요한 signal rule ID만 Secret-safe compact metadata로 만듭니다. 구체적인 path, port/image 값, 특정 Tool 호출을 생성하지 않습니다. `adk_runner.py`는 다음 모델 호출 전에 이 projection을 별도 context metadata로 전달하며, 모델의 자연어 판단을 대체하지 않습니다.
+
+~~~text
+Tool result
+  -> ExplorationLedger update
+  -> CoverageSnapshot
+  -> ContextProjection
+  -> next model context metadata
+  -> Agent chooses an allowed Tool
+~~~
+
+- [ ] **Step 3: focused test와 commit**
+
+~~~powershell
+python -m pytest -q -p no:cacheprovider tests/test_exploration_context.py tests/test_adk_runner_recovery.py
+git add migration_assistant/exploration_context.py migration_assistant/adk_runner.py tests/test_exploration_context.py
+git commit -m "feat: project migration coverage into model context"
 ~~~
 
 ### Task 3: Agent instruction을 Role·Mission·Policy·Stop으로 재구성
@@ -363,7 +475,9 @@ git commit -m "feat: track migration exploration coverage"
 def test_instruction_focuses_on_migration_questions_not_generic_repository_summary():
     instruction = build_migration_instruction(DEFAULT_MIGRATION_POLICY)
     assert "production_startup" in instruction
-    assert "전체 Repository를 설명" in instruction
+    assert "Kubernetes" in instruction
+    assert "read-only" in instruction
+    assert "evidence" in instruction.lower()
     assert "unresolved" in instruction
 ~~~
 
@@ -407,7 +521,14 @@ def test_observation_meta_contains_signal_without_conclusion():
     response = toolset.search_text("ENTRYPOINT")
     signal = response["meta"]["exploration_signals"][0]
     assert signal["question_id"] == "production_startup"
+    assert set(signal) <= {
+        "question_id",
+        "trigger_rule_id",
+        "observed_fact_ref",
+        "candidate_observation_kind",
+    }
     assert "value" not in signal
+    assert "next_tool" not in signal
 ~~~
 
 - [ ] **Step 2: RED 확인**
@@ -423,15 +544,15 @@ python -m pytest -q -p no:cacheprovider tests/test_phase1_adk_contract.py -k sig
   "exploration_signals": [
     {
       "question_id": "production_startup",
-      "signal_rule": "container_or_process_descriptor",
-      "observed": true,
-      "next_observation": "read_file_lines"
+      "trigger_rule_id": "container_or_process_descriptor",
+      "observed_fact_ref": "observation-17",
+      "candidate_observation_kind": "container_entrypoint_hit"
     }
   ]
 }
 ~~~
 
-metadata는 Tool을 강제로 선택하지 않고 다음 관찰을 선택할 때 사용할 안전한 단서만 제공합니다.
+metadata는 raw Tool observation과 별도의 advisory control envelope입니다. 결론값, 최종 상태, 구체적인 `next_tool` 호출을 포함하지 않으며, Tool이 분석 결론을 하드코딩하지 않도록 허용 필드를 schema로 제한합니다.
 
 - [ ] **Step 4: phase·argument·duplicate·budget 회귀 테스트와 commit**
 
@@ -441,7 +562,7 @@ git add migration_assistant/adk_tools.py migration_assistant/agent.py migration_
 git commit -m "feat: guide exploration from observed signals"
 ~~~
 
-### Task 5: coverage 기반 stop gate와 unresolved 경로 고정
+### Task 5: 기계적 coverage stop gate와 unresolved 경로 고정
 
 **Files:**
 - Modify: migration_assistant/exploration_ledger.py
@@ -468,21 +589,19 @@ python -m pytest -q -p no:cacheprovider tests/test_adk_runner_recovery.py tests/
 
 - [ ] **Step 3: stop gate 구현**
 
+`Task 0`의 Stop truth table을 코드로 구현합니다. 모델이 말로 `unresolved`를 선언하는 것만으로는 종료할 수 없습니다. Ledger가 해당 질문의 required/conditional/optional 분류, 탐색 범위·pattern·scope 제한, 관찰 횟수 또는 budget 소진, 종료 이유를 기록하고, 그 기록이 있을 때만 genuine unresolved를 인정합니다.
+
 ~~~text
-submit 가능:
-  workload boundary와 startup/build 근거 또는 genuine unresolved
-  최소 하나의 positive line-backed Evidence
-
-optional unknown:
-  network/config/external dependency/writable state를 확인하지 못함
-  -> unresolved로 기록
-
-conflict:
-  서로 다른 positive 관찰이 충돌
-  -> conflicting으로 기록하고 자동 선택하지 않음
+required confirmed/inferred + positive Evidence + no conflict -> submit 가능
+required genuine unresolved + 탐색 종료 metadata        -> partial submit 가능
+conditional 선행 조건 미관찰 + not_applicable            -> partial submit 가능
+conflicting positive observations                        -> partial submit, 자동 선택 금지
+positive 값 + Evidence 0                                  -> 거부
+Evidence 0 전체                                            -> 거부
+duplicate/no-progress/iteration budget 초과              -> bounded failed/partial stop
 ~~~
 
-gate는 port/image/Service/Storage를 생성하지 않으며 unknown ecosystem의 generic fallback을 막지 않습니다.
+gate는 port/image/Service/Storage를 생성하지 않으며 unknown ecosystem의 generic fallback을 막지 않습니다. `AnalysisResult`의 도메인 판정과 `run_metadata`의 stop 사유를 모두 보존하되 renderer는 coverage나 telemetry에 의존하지 않습니다.
 
 - [ ] **Step 4: recovery 회귀 테스트와 commit**
 
@@ -506,9 +625,10 @@ git commit -m "feat: bound migration exploration completion"
 ~~~python
 def test_trajectory_reports_question_coverage_and_context_efficiency():
     result = evaluate_trajectory(load_fixture("valid-minimal.test.json"))
-    assert result["question_coverage"] >= 4
+    assert result["required_question_disposition_rate"] == 1.0
+    assert result["ungrounded_positive_value_count"] == 0
     assert result["unobserved_evidence_count"] == 0
-    assert result["duplicate_rate"] == 0
+    assert result["fresh_observation_after_grounding_error"] is True
 ~~~
 
 - [ ] **Step 2: RED 확인과 evaluator 구현**
@@ -517,7 +637,7 @@ def test_trajectory_reports_question_coverage_and_context_efficiency():
 python -m pytest -q -p no:cacheprovider tests/test_migration_trajectory_contract.py
 ~~~
 
-exact file order를 강제하지 않고 첫 Tool, observed Evidence, duplicate rate, fresh observation after grounding, Evidence 없는 값 방지, question coverage, bounded context efficiency를 검사합니다.
+exact file order를 강제하지 않고 첫 Tool, observed Evidence, required question disposition, 미근거 positive value, grounding 오류 후 fresh observation, duplicate/no-progress budget, bounded context efficiency를 검사합니다. `question_coverage >= 4` 같은 고정 개수나 모든 duplicate 0을 강제하지 않습니다. Duplicate는 정상적인 recovery 재시도와 no-progress 반복을 구분하고, 종류별 상한과 bounded stop 준수로 평가합니다.
 
 - [ ] **Step 3: focused test와 commit**
 
@@ -537,8 +657,8 @@ git commit -m "test: evaluate migration exploration trajectories"
 - [ ] **Step 1: focused·static 검증**
 
 ~~~powershell
-python -m py_compile migration_assistant/exploration_policy.py migration_assistant/exploration_ledger.py
-python -m pytest -q -p no:cacheprovider tests/test_exploration_policy.py tests/test_exploration_ledger.py tests/test_migration_trajectory_contract.py tests/test_adk_runner_recovery.py tests/test_phase1_adk_contract.py
+python -m py_compile migration_assistant/exploration_policy.py migration_assistant/exploration_ledger.py migration_assistant/exploration_context.py
+python -m pytest -q -p no:cacheprovider tests/test_migration_contract.py tests/test_exploration_policy.py tests/test_exploration_ledger.py tests/test_exploration_context.py tests/test_migration_trajectory_contract.py tests/test_adk_runner_recovery.py tests/test_phase1_adk_contract.py
 ~~~
 
 - [ ] **Step 2: 전체 suite 실행**
@@ -550,6 +670,8 @@ python -m pytest -q -p no:cacheprovider
 새 실패와 기존 Windows subprocess UTF-8 실패를 구분해 기록합니다.
 
 - [ ] **Step 3: 명시적 외부 전송 승인 후 smoke 실행**
+
+실행 전 preflight metadata에 target absolute path의 repository revision, endpoint host(Secret 제외), model ID, 전송 범위, 승인 reference, budget/timeout 설정을 기록합니다. 비교 모델 실행은 model ID 외 endpoint 정책, Repository revision, prompt, Tool surface, budget, timeout을 고정하고 output directory를 분리합니다. 한 실행의 승인을 다른 target/model/endpoint에 재사용하지 않습니다.
 
 ~~~powershell
 python -m devtools.run_phase1_live_acceptance --repository "C:\Users\박병찬\Desktop\demo-repositories\jpetstore-6" --output-parent ".dryforge\live-exploration-policy-20260806" --runs 1
@@ -586,8 +708,11 @@ git commit -m "docs: record migration agent lessons learned"
 ### 구현
 
 - [ ] Kubernetes DevOps persona가 Role·Mission·Policy·Stop gate로 분리됩니다.
+- [ ] `CoverageSnapshot -> ContextProjection -> next LLM call` 경로가 테스트로 검증됩니다.
 - [ ] registry는 결론값을 만들지 않고 관찰 우선순위만 제공합니다.
+- [ ] `exploration_signals`는 허용 필드만 가지며 값·최종 상태·구체적인 Tool 호출을 포함하지 않습니다.
 - [ ] question coverage가 Secret-safe metadata로 기록됩니다.
+- [ ] `AnalysisResult`와 `RunMetadata`의 저장·직렬화 경계가 명시되고 schema version이 검증됩니다.
 - [ ] unknown ecosystem은 generic fallback으로 진행됩니다.
 - [ ] 기존 Tool·callback·error envelope·read-only 계약이 유지됩니다.
 
@@ -597,8 +722,9 @@ git commit -m "docs: record migration agent lessons learned"
 - [ ] positive Evidence가 실제 관찰된 line과 연결됩니다.
 - [ ] grounding 오류 뒤 fresh observation이 요구됩니다.
 - [ ] candidate 오류가 reported field 단위로 bounded하게 복구됩니다.
+- [ ] Stop truth table이 `confirmed`, `unresolved`, `conflicting`, `not_applicable`, Evidence 0건, budget 초과를 모두 판정합니다.
 - [ ] duplicate/phase/no-progress가 bounded STOP됩니다.
-- [ ] trajectory와 question coverage가 live 결과에 포함됩니다.
+- [ ] trajectory와 question disposition 지표가 live 결과에 포함됩니다.
 
 ## 10. 최종 공유 메시지
 
