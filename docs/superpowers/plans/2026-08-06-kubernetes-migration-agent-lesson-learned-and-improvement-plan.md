@@ -571,7 +571,7 @@ git commit -m "feat: guide exploration from observed signals"
 - Test: tests/test_adk_runner_recovery.py
 - Test: tests/test_phase1_adk_contract.py
 
-- [ ] **Step 1: failing test 작성**
+- [x] **Step 1: failing test 작성**
 
 ~~~python
 def test_unknown_optional_value_is_unresolved_not_fabricated():
@@ -581,13 +581,13 @@ def test_unknown_optional_value_is_unresolved_not_fabricated():
     assert decision.synthetic_values == {}
 ~~~
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_adk_runner_recovery.py tests/test_phase1_adk_contract.py -k unresolved
 ~~~
 
-- [ ] **Step 3: stop gate 구현**
+- [x] **Step 3: stop gate 구현**
 
 `Task 0`의 Stop truth table을 코드로 구현합니다. 모델이 말로 `unresolved`를 선언하는 것만으로는 종료할 수 없습니다. Ledger가 해당 질문의 required/conditional/optional 분류, 탐색 범위·pattern·scope 제한, 관찰 횟수 또는 budget 소진, 종료 이유를 기록하고, 그 기록이 있을 때만 genuine unresolved를 인정합니다.
 
@@ -603,7 +603,7 @@ duplicate/no-progress/iteration budget 초과              -> bounded failed/par
 
 gate는 port/image/Service/Storage를 생성하지 않으며 unknown ecosystem의 generic fallback을 막지 않습니다. `AnalysisResult`의 도메인 판정과 `run_metadata`의 stop 사유를 모두 보존하되 renderer는 coverage나 telemetry에 의존하지 않습니다.
 
-- [ ] **Step 4: recovery 회귀 테스트와 commit**
+- [x] **Step 4: recovery 회귀 테스트와 commit**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_adk_runner_recovery.py tests/test_phase1_adk_contract.py

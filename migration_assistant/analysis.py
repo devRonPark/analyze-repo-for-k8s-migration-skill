@@ -48,7 +48,7 @@ def _existence_only_claim(value: str) -> bool:
 # these names -- tests/test_migration_contract.py locks this against drift.
 RUN_METADATA_TELEMETRY_FIELDS = frozenset({
     "terminal", "tool_calls", "protocol_issues", "callback_telemetry", "recovery_attempts",
-    "run_control", "evidence_provenance", "provenance_summary", "exploration_coverage",
+    "run_control", "evidence_provenance", "provenance_summary", "exploration_coverage", "stop_decision",
 })
 
 
@@ -375,6 +375,7 @@ def _build_run_telemetry(run: object) -> dict[str, Any]:
         "evidence_provenance": redact_sensitive_value(list(getattr(run, "evidence_provenance", []))),
         "provenance_summary": redact_sensitive_value(dict(getattr(run, "provenance_summary", {}))),
         "exploration_coverage": redact_sensitive_value(dict(getattr(run, "exploration_coverage", {}))),
+        "stop_decision": redact_sensitive_value(dict(getattr(run, "stop_decision", {}))),
     }
     assert set(telemetry) == RUN_METADATA_TELEMETRY_FIELDS, "run_metadata telemetry 키가 RUN_METADATA_TELEMETRY_FIELDS와 어긋납니다."
     return telemetry

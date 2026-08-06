@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 from .adk_function_tool import RepositoryFunctionTool
 from .exploration_context import build_coverage_snapshot, project_next_observations
 from .exploration_ledger import ExplorationLedger
-from .exploration_policy import DEFAULT_MIGRATION_POLICY, ExplorationPolicy, match_rules
+from .exploration_policy import DEFAULT_MIGRATION_POLICY, ExplorationPolicy, SignalRule, match_rules
 from .provenance import ObservationProvenance
 from .repository_tools import _MAX_LINE_EVIDENCE_LINES, RepositoryToolError, RepositoryTools, redact_sensitive_value
 from .target import BudgetExceededError
@@ -766,7 +766,7 @@ class AdkRepositoryToolset:
         signals: list[dict[str, str]],
         seen_signals: set[tuple[str, str]],
         question_id: str,
-        rule: "object",
+        rule: SignalRule,
     ) -> None:
         """Append one advisory hint -- never a value, status, or forced next Tool."""
 
@@ -784,7 +784,33 @@ class AdkRepositoryToolset:
             }
         )
 
-    def _record_exploration_coverage(self, name: str, result: object) -> list[dict[str, str]]:
+    def _record_search_attempt_coverage(self, args: Mapping[str, object]) -> None:
+        """Give a genuine zero-hit search its ledger backing (Task 5).
+
+        A search_text call that returns no hits is still real information:
+        it earns `unresolved` for the questions its pattern/scope match,
+        but only via this recorded scope+pattern -- never from the model's
+        words alone. The pattern itself is matched, never stored.
+        """
+
+        pattern = args.get("pattern")
+        scope = args.get("relative")
+        if not isinstance(pattern, str):
+            return
+        rules = match_rules(self.exploration_policy, text=pattern)
+        seen_questions: set[str] = set()
+        for rule in rules:
+            for question_id in rule.question_ids:
+                if question_id in seen_questions:
+                    continue
+                seen_questions.add(question_id)
+                self.exploration_ledger.record_search_attempt(
+                    question_id, "search_text", scope if isinstance(scope, str) else None, pattern
+                )
+
+    def _record_exploration_coverage(
+        self, name: str, result: object, args: Mapping[str, object] | None = None
+    ) -> list[dict[str, str]]:
         """Update Secret-safe per-question coverage and return advisory signals.
 
         Matching is against the already-observed path/text only -- never a
@@ -794,12 +820,16 @@ class AdkRepositoryToolset:
         cannot flood the model's context with repeated hints.
         """
 
+        args = args or {}
         signals: list[dict[str, str]] = []
         seen_signals: set[tuple[str, str]] = set()
 
         if name in ("search_text", "read_file_lines"):
             items = result.get("hits") if isinstance(result, Mapping) else result
             if not isinstance(items, list):
+                return signals
+            if name == "search_text" and not items:
+                self._record_search_attempt_coverage(args)
                 return signals
             for item in items:
                 if not isinstance(item, Mapping):
@@ -879,7 +909,7 @@ class AdkRepositoryToolset:
             if len(self.ledger.observations) > 64:
                 del self.ledger.observations[:-64]
             self._record_provenance(name, result)
-            exploration_signals = self._record_exploration_coverage(name, result)
+            exploration_signals = self._record_exploration_coverage(name, result, args)
             if name == "inspect_target":
                 self.control.phase = RunPhase.DISCOVER
             elif name == "validate_analysis":
@@ -1144,7 +1174,8 @@ class AdkRepositoryToolset:
                         path,
                         start if isinstance(start, int) else None,
                         end if isinstance(end, int) else None,
-                        positive=True,
+                        positive=status != "conflicting",
+                        conflicting=status == "conflicting",
                     )
 
     def functions(self) -> list[object]:

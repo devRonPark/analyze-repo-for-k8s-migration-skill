@@ -6,13 +6,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from google.adk.models import LlmResponse
+from google.adk.models import BaseLlm, LlmResponse
 from google.genai import types
+from pydantic import PrivateAttr
 
 from devtools.run_phase1_live_acceptance import AcceptanceRun, _is_success
 from migration_assistant.adk_model import OpenAICompatibleAdkLlm
-from migration_assistant.adk_runner import _recovery_prompt
+from migration_assistant.adk_runner import _recovery_prompt, run_adk_agent
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
+from migration_assistant.config import Settings
 from migration_assistant.exploration_ledger import ExplorationLedger
 from migration_assistant.repository_tools import RepositoryTools
 from migration_assistant.target import SafetyBudget
@@ -306,6 +308,78 @@ class RecoveryPromptCoverageProjectionTests(unittest.TestCase):
         ledger.record_observation("runtime_config_and_secret_names", "read_file_lines", "config/application.yml", 1, 1)
         prompt = _recovery_prompt(control, 1, ("inspect_target",), ledger)
         self.assertNotIn("application.yml", prompt)
+
+
+class ScriptedStopDecisionLlm(BaseLlm):
+    """inspect_target -> search_text (one hit) -> partial validate_analysis."""
+
+    model: str = "fake-stop-decision-model"
+    _calls: int = PrivateAttr(0)
+
+    async def generate_content_async(self, llm_request, stream: bool = False):
+        self._calls += 1
+        if self._calls == 1:
+            name, args = "inspect_target", {}
+        elif self._calls == 2:
+            name, args = "search_text", {"pattern": "ENTRYPOINT", "relative": "."}
+        else:
+            name, args = "validate_analysis", {
+                "status": "partial",
+                "summary": "기동 명령을 확인했지만 일부 질문은 미확인입니다.",
+                "evidence": [
+                    {
+                        "id": "e1",
+                        "status": "confirmed",
+                        "path": "Dockerfile",
+                        "line_start": 2,
+                        "line_end": 2,
+                        "claim": "기동 명령",
+                        "text": 'ENTRYPOINT ["python", "app.py"]',
+                    }
+                ],
+                "findings": [],
+                "iterations": 2,
+                "errors": ["일부 질문이 미확인입니다."],
+                "termination": "normal",
+            }
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[types.Part(function_call=types.FunctionCall(name=name, args=args, id=f"call-{self._calls}"))],
+            ),
+            partial=False,
+        )
+
+
+class StopDecisionTelemetryTests(unittest.TestCase):
+    """Task 5: run_metadata carries a mechanically-derived stop_decision."""
+
+    def make_repo(self, root: Path) -> Path:
+        repo = root / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "--quiet", str(repo)], check=True)
+        (repo / "Dockerfile").write_text('FROM python:3.11\nENTRYPOINT ["python", "app.py"]\n', encoding="utf-8")
+        return repo
+
+    def test_run_carries_a_stop_decision_with_no_synthetic_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            budget = SafetyBudget(max_iterations=5)
+            run = run_adk_agent(
+                RepositoryTools(repo, budget=budget),
+                Settings(),
+                budget,
+                model_override=ScriptedStopDecisionLlm(),
+            )
+
+            self.assertIn("allowed", run.stop_decision)
+            self.assertIn("reason", run.stop_decision)
+            self.assertEqual(run.stop_decision["synthetic_values"], {})
+            self.assertTrue(run.stop_decision["allowed"])
+            # workload_deployment_unit/receiving_port/build_stage were never
+            # explored at all in this scripted run, so the mechanical gate
+            # must not silently call the run fully confirmed.
+            self.assertNotEqual(run.stop_decision["reason"], "confirmed_or_inferred: required 질문이 모두 확인됐습니다.")
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from migration_assistant.exploration_ledger import ExplorationLedger
+from migration_assistant.exploration_policy import DEFAULT_MIGRATION_POLICY, QuestionImportance
 from migration_assistant.repository_tools import RepositoryTools
 from migration_assistant.target import SafetyBudget
 
@@ -174,6 +175,56 @@ class ExplorationLedgerAdkWiringTests(unittest.TestCase):
 
             self.assertEqual(toolset.exploration_ledger.summary()["questions"], {})
 
+    def test_conflicting_evidence_counts_as_conflicting_not_positive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+            toolset.inspect_target()
+
+            toolset.validate_analysis(
+                status="partial",
+                summary="상충하는 근거를 확인했습니다.",
+                evidence=[
+                    {
+                        "id": "e1",
+                        "status": "conflicting",
+                        "path": "Dockerfile",
+                        "line_start": 2,
+                        "line_end": 2,
+                        "claim": "기동 명령 상충",
+                        "text": 'ENTRYPOINT ["python", "app.py"]',
+                    }
+                ],
+                findings=[],
+                iterations=1,
+                errors=["기동 명령이 상충합니다."],
+            )
+
+            coverage = toolset.exploration_ledger.summary()["questions"]["production_startup"]
+            self.assertEqual(coverage["conflicting_evidence_count"], 1)
+            self.assertEqual(coverage["positive_evidence_count"], 0)
+
+    def test_zero_hit_search_earns_a_genuine_unresolved_search_attempt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+
+            toolset.search_text("VOLUME", ".")
+
+            coverage = toolset.exploration_ledger.summary()["questions"]["writable_state_path"]
+            self.assertTrue(coverage["has_search_scope"])
+            self.assertTrue(coverage["has_search_pattern"])
+            self.assertEqual(coverage["positive_evidence_count"], 0)
+
+    def test_zero_hit_search_never_retains_the_pattern_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+
+            toolset.search_text("VOLUME", ".")
+
+            self.assertNotIn("VOLUME", repr(toolset.exploration_ledger.summary()))
+
     def test_injected_exploration_ledger_is_used_instead_of_a_new_one(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self.make_repo(Path(tmp))
@@ -189,6 +240,110 @@ class ExplorationLedgerAdkWiringTests(unittest.TestCase):
 
             self.assertIs(toolset.exploration_ledger, ledger)
             self.assertIn("production_startup", ledger.summary()["questions"])
+
+
+class StopDecisionTests(unittest.TestCase):
+    """Task 5: mechanically apply the Task 0 stop-gate truth table."""
+
+    def test_zero_evidence_blocks_submission(self):
+        ledger = ExplorationLedger()
+        decision = ledger.stop_decision(DEFAULT_MIGRATION_POLICY, total_evidence_count=0)
+        self.assertFalse(decision.allowed)
+        self.assertIn("no_evidence", decision.reason)
+        self.assertEqual(decision.synthetic_values, {})
+
+    def test_positive_value_without_evidence_blocks_submission(self):
+        ledger = ExplorationLedger()
+        decision = ledger.stop_decision(DEFAULT_MIGRATION_POLICY, total_evidence_count=1, positive_without_evidence=True)
+        self.assertFalse(decision.allowed)
+        self.assertIn("ungrounded_positive_value", decision.reason)
+
+    def test_bounded_stop_is_allowed_but_bounded(self):
+        ledger = ExplorationLedger()
+        decision = ledger.stop_decision(DEFAULT_MIGRATION_POLICY, total_evidence_count=1, bounded_stop_triggered=True)
+        self.assertTrue(decision.allowed)
+        self.assertIn("bounded_stop", decision.reason)
+        self.assertEqual(decision.allowed_status, ("failed", "partial"))
+
+    def test_verbal_only_unresolved_claim_is_not_backed_without_a_ledger_record(self):
+        """A model saying "I looked and found nothing" must not earn `unresolved`
+        by itself -- the ledger must hold a recorded scope, pattern, and
+        observation count for that specific question."""
+        ledger = ExplorationLedger()
+        decision = ledger.stop_decision(DEFAULT_MIGRATION_POLICY, total_evidence_count=1)
+        self.assertTrue(decision.allowed)
+        self.assertIn("insufficient_exploration", decision.reason)
+        self.assertIn("workload_deployment_unit", decision.reason)
+        self.assertEqual(decision.synthetic_values, {})
+
+    def test_genuine_unresolved_is_granted_only_with_a_recorded_search_attempt(self):
+        ledger = ExplorationLedger()
+        for question in DEFAULT_MIGRATION_POLICY.questions:
+            if question.importance == QuestionImportance.REQUIRED:
+                ledger.record_observation(question.question_id, "search_text", "app.py", 1, 1, positive=True)
+        ledger.record_search_attempt("writable_state_path", "search_text", ".", "VOLUME")
+
+        decision = ledger.stop_decision(DEFAULT_MIGRATION_POLICY, total_evidence_count=5)
+
+        self.assertTrue(decision.allowed)
+        self.assertIn("unresolved", decision.reason)
+        self.assertIn("writable_state_path", decision.reason)
+        self.assertEqual(decision.synthetic_values, {})
+        self.assertEqual(decision.allowed_status, ("complete", "partial"))
+
+    def test_required_genuine_unresolved_limits_submission_to_partial(self):
+        ledger = ExplorationLedger()
+        for question in DEFAULT_MIGRATION_POLICY.questions:
+            if question.importance == QuestionImportance.REQUIRED and question.question_id != "production_startup":
+                ledger.record_observation(question.question_id, "search_text", "app.py", 1, 1, positive=True)
+        ledger.record_search_attempt("production_startup", "search_text", ".", "ENTRYPOINT")
+
+        decision = ledger.stop_decision(DEFAULT_MIGRATION_POLICY, total_evidence_count=4)
+
+        self.assertTrue(decision.allowed)
+        self.assertEqual(decision.allowed_status, ("partial",))
+        self.assertIn("production_startup", decision.reason)
+
+    def test_conflicting_evidence_blocks_auto_selection(self):
+        ledger = ExplorationLedger()
+        for question in DEFAULT_MIGRATION_POLICY.questions:
+            if question.importance == QuestionImportance.REQUIRED:
+                ledger.record_observation(question.question_id, "search_text", "app.py", 1, 1, positive=True)
+        ledger.record_observation("receiving_port", "read_file_lines", "app.py", 2, 2, conflicting=True)
+
+        decision = ledger.stop_decision(DEFAULT_MIGRATION_POLICY, total_evidence_count=6)
+
+        self.assertTrue(decision.allowed)
+        self.assertEqual(decision.allowed_status, ("partial",))
+        self.assertIn("conflicting", decision.reason)
+        self.assertIn("receiving_port", decision.reason)
+
+    def test_conditional_question_is_not_applicable_when_precondition_never_observed(self):
+        ledger = ExplorationLedger()
+        question = DEFAULT_MIGRATION_POLICY.question("external_dependency")
+        self.assertEqual(ledger.disposition(question), "not_applicable")
+
+    def test_conditional_question_stands_on_its_own_once_precondition_is_observed(self):
+        """Once the precondition question has actually been looked at, the
+        ledger cannot know its resolved value (it never stores one), so the
+        conditional question is no longer dismissed as not_applicable --
+        it must earn its own disposition."""
+        ledger = ExplorationLedger()
+        ledger.record_observation("runtime_config_and_secret_names", "search_text", "app.py", 3, 3, positive=True)
+        question = DEFAULT_MIGRATION_POLICY.question("external_dependency")
+        self.assertEqual(ledger.disposition(question), "rejected")
+
+    def test_stop_decision_never_returns_a_synthetic_value(self):
+        ledger = ExplorationLedger()
+        for question in DEFAULT_MIGRATION_POLICY.questions:
+            ledger.record_observation(question.question_id, "search_text", "app.py", 1, 1, positive=True)
+        decision = ledger.stop_decision(DEFAULT_MIGRATION_POLICY, total_evidence_count=7)
+        self.assertEqual(decision.synthetic_values, {})
+
+    def test_record_search_attempt_never_retains_the_pattern_text(self):
+        ledger = ExplorationLedger()
+        ledger.record_search_attempt("production_startup", "search_text", ".", "ENTRYPOINT")
+        self.assertNotIn("ENTRYPOINT", repr(ledger.summary()))
 
 
 if __name__ == "__main__":

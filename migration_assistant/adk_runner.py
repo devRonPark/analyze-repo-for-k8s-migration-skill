@@ -16,7 +16,7 @@ from .adk_tools import DuplicateTracker, ValidationLedger
 from .agent import AgentApplication
 from .exploration_context import build_coverage_snapshot, project_next_observations
 from .exploration_ledger import ExplorationLedger
-from .exploration_policy import QuestionImportance
+from .exploration_policy import DEFAULT_MIGRATION_POLICY, QuestionImportance
 from .provenance import ObservationProvenance, evidence_sources
 from .analysis import AnalysisResult, PydanticDependencyError
 from .config import Settings
@@ -52,6 +52,7 @@ class AdkRun:
     evidence_provenance: list[dict[str, object]] = field(default_factory=list)
     provenance_summary: dict[str, object] = field(default_factory=dict)
     exploration_coverage: dict[str, object] = field(default_factory=dict)
+    stop_decision: dict[str, object] = field(default_factory=dict)
 
 
 _FENCED_JSON = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL | re.IGNORECASE)
@@ -317,6 +318,22 @@ def run_adk_agent(
     # Measurement only: attribution never gates the result above.
     run.provenance_summary = provenance.summary()
     run.exploration_coverage = exploration_ledger.summary()
+    bounded_stop_triggered = (
+        control.stop_requested
+        or tracker.consecutive_no_progress >= tracker.max_no_progress
+        or budget.iterations >= budget.max_iterations
+    )
+    decision = exploration_ledger.stop_decision(
+        DEFAULT_MIGRATION_POLICY,
+        total_evidence_count=len(run.result.evidence) if run.result is not None else 0,
+        bounded_stop_triggered=bounded_stop_triggered,
+    )
+    run.stop_decision = {
+        "allowed": decision.allowed,
+        "reason": decision.reason,
+        "allowed_status": list(decision.allowed_status),
+        "synthetic_values": dict(decision.synthetic_values),
+    }
     if run.result is not None:
         run.evidence_provenance = evidence_sources(run.result.evidence, provenance)
     return run
