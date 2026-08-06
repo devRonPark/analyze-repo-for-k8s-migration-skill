@@ -566,6 +566,40 @@ evidence와 명시적 사유가 있으므로 사용자 계약의 partial 허용 
    `solar-pro2`가 `solar-pro3`보다 나은 이유는 확인하지 않았다. tool 호출이 세 배인
    것으로 보아 더 오래 탐색하는 특성으로 추정되나 근거는 없다.
 
+### Run 34 — callback telemetry 반영 후 solar-pro2 smoke 재검증
+
+1. 바꾼 변수 하나와 그 가설: callback의 `after_tool` telemetry가 실제 Tool 실행
+   여부를 구분하도록 보강한 현재 코드(`ff7668a`)에서 `solar-pro2` 1회 smoke를
+   재실행했다. before callback이 호출을 차단하더라도 ADK가 after callback을 호출할
+   수 있으므로, telemetry의 `executed` 값이 실제 실행과 차단을 구분하면서 기존
+   acceptance 결과를 보존할 것이라는 가설이다.
+2. 실제 실행 명령의 비밀값 제거 버전:
+
+   ```powershell
+   python -m devtools.run_phase1_live_acceptance --repository <jpetstore-6-checkout> --output-parent <output-parent> --runs 1
+   ```
+
+   target commit은 `3ebd25fd04f1b48361ab879e113ba353838ffe6a`였고, endpoint는
+   `https://api.upstage.ai/v1`, model은 `solar-pro2`, timeout은 60초, max tokens는
+   4096이었다. API key와 raw request/response는 기록하지 않았다.
+3. tool sequence, iteration, 오류 상태: 21회 iteration에서 다음 Tool sequence가
+   관찰됐다: `inspect_target`, `list_tree`, `read_file`, `search_text`,
+   `read_file_lines`, `validate_analysis` 등. protocol 오류는
+   `invalid_arguments`(`$.line_end`), `duplicate_call`, `candidate_schema`
+   (`$.iterations`), `evidence_grounding` 3회였다. `prebinding_rejections=1`,
+   `validation_attempts=2`, `inline_corrections=3`, `recovery_attempts=0`이었다.
+   마지막 오류는 unresolved absence evidence 검증 실패였고, `absence_contradicted`
+   또는 `absence_unverified`의 세부 원인은 raw candidate를 저장하지 않는 현재
+   Secret-safe artifact만으로는 확정할 수 없다.
+4. exit code와 artifact/input Git 상태: exit 1, `status=failed`, `terminal=false`,
+   positive Evidence 0건, acceptance `successes=0/1`이었다. 결과는 target 밖
+   `.dryforge/live-stage8-20260806/run-1`에 저장됐고, target Git 상태는 clean이었다.
+5. 다음 실험에서 유지할 것과 폐기할 것: 유지할 것은 callback telemetry의
+   Secret-safe 실행 여부 구분과 smoke 실패 시 공식 3-run을 중단하는 gate다. 폐기할
+   것은 "callback telemetry 보강만으로 모델의 evidence 수정 실패가 해결된다"는
+   가정이다. 다음 deterministic 작업은 unresolved absence 실패의 typed issue를
+   보존해 `absence_contradicted`와 `absence_unverified`를 분리 관찰하는 것이다.
+
 ## 개발 환경 변수 파일
 
 Live harness는 다음 순서로 처음 발견되는 env 파일 하나를 읽습니다: 명시적
