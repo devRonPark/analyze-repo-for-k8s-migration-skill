@@ -45,6 +45,7 @@ class SignalRule:
     file_globs: tuple[str, ...]
     search_patterns: tuple[str, ...]
     reason: str
+    observation_kind: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +146,7 @@ DEFAULT_MIGRATION_POLICY = ExplorationPolicy(
             file_globs=("Dockerfile*", "compose*.yml", "compose*.yaml", "docker-compose*.yml"),
             search_patterns=("ENTRYPOINT", "CMD", "EXPOSE"),
             reason="컨테이너/프로세스 기동 서술이 프로덕션 기동과 port에 가장 직접적인 신호다.",
+            observation_kind="container_entrypoint_hit",
         ),
         SignalRule(
             key="build_or_package_manifest",
@@ -153,6 +155,7 @@ DEFAULT_MIGRATION_POLICY = ExplorationPolicy(
             file_globs=("pom.xml", "build.gradle*", "package.json", "go.mod", "requirements*.txt", "pyproject.toml"),
             search_patterns=("<build>", "scripts", "main", "entrypoint"),
             reason="build/package manifest는 빌드 단계와 배포 단위 후보를 드러낸다.",
+            observation_kind="build_manifest_hit",
         ),
         SignalRule(
             key="config_and_deployment_descriptor",
@@ -161,6 +164,7 @@ DEFAULT_MIGRATION_POLICY = ExplorationPolicy(
             file_globs=("application*.yml", "application*.properties", ".env*", "config/*.yml"),
             search_patterns=("PORT", "DATABASE_URL", "SECRET", "HOST"),
             reason="설정 파일은 환경변수/Secret 이름과 외부 의존성 후보를 드러낸다.",
+            observation_kind="config_descriptor_hit",
         ),
         SignalRule(
             key="writable_path_descriptor",
@@ -169,6 +173,7 @@ DEFAULT_MIGRATION_POLICY = ExplorationPolicy(
             file_globs=("Dockerfile*", "docker-compose*.yml"),
             search_patterns=("VOLUME", "mount"),
             reason="VOLUME, mount 선언이 쓰기 경로 후보를 드러낸다.",
+            observation_kind="writable_path_hit",
         ),
     ),
 )

@@ -514,7 +514,7 @@ git commit -m "refactor: focus agent on Kubernetes migration questions"
 - Modify: migration_assistant/exploration_policy.py
 - Test: tests/test_phase1_adk_contract.py
 
-- [ ] **Step 1: failing test 작성**
+- [x] **Step 1: failing test 작성**
 
 ~~~python
 def test_observation_meta_contains_signal_without_conclusion():
@@ -531,13 +531,13 @@ def test_observation_meta_contains_signal_without_conclusion():
     assert "next_tool" not in signal
 ~~~
 
-- [ ] **Step 2: RED 확인**
+- [x] **Step 2: RED 확인**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_phase1_adk_contract.py -k signal
 ~~~
 
-- [ ] **Step 3: metadata-only 구현**
+- [x] **Step 3: metadata-only 구현**
 
 ~~~json
 {
@@ -554,7 +554,7 @@ python -m pytest -q -p no:cacheprovider tests/test_phase1_adk_contract.py -k sig
 
 metadata는 raw Tool observation과 별도의 advisory control envelope입니다. 결론값, 최종 상태, 구체적인 `next_tool` 호출을 포함하지 않으며, Tool이 분석 결론을 하드코딩하지 않도록 허용 필드를 schema로 제한합니다.
 
-- [ ] **Step 4: phase·argument·duplicate·budget 회귀 테스트와 commit**
+- [x] **Step 4: phase·argument·duplicate·budget 회귀 테스트와 commit**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_phase1_adk_contract.py tests/test_adk_runner_recovery.py

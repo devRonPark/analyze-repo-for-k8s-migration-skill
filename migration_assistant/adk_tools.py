@@ -232,6 +232,7 @@ class AdkRepositoryToolset:
         self.provenance = provenance or ObservationProvenance()
         self.exploration_ledger = exploration_ledger if exploration_ledger is not None else ExplorationLedger()
         self.exploration_policy = exploration_policy or DEFAULT_MIGRATION_POLICY
+        self._observation_counter = 0
         self._callback_delivery_cache: dict[str, object] = {}
         definitions = (
             ("inspect_target", InspectTargetArgs, lambda value: self.inspect_target()),
@@ -758,18 +759,48 @@ class AdkRepositoryToolset:
         if lines:
             self.provenance.record("read_file", path, 1, len(lines))
 
-    def _record_exploration_coverage(self, name: str, result: object) -> None:
-        """Update Secret-safe per-question coverage from an observed Tool result.
+    _MAX_EXPLORATION_SIGNALS = 8
+
+    def _emit_exploration_signal(
+        self,
+        signals: list[dict[str, str]],
+        seen_signals: set[tuple[str, str]],
+        question_id: str,
+        rule: "object",
+    ) -> None:
+        """Append one advisory hint -- never a value, status, or forced next Tool."""
+
+        key = (question_id, rule.key)
+        if key in seen_signals or len(signals) >= self._MAX_EXPLORATION_SIGNALS:
+            return
+        seen_signals.add(key)
+        self._observation_counter += 1
+        signals.append(
+            {
+                "question_id": question_id,
+                "trigger_rule_id": rule.key,
+                "observed_fact_ref": f"observation-{self._observation_counter}",
+                "candidate_observation_kind": rule.observation_kind,
+            }
+        )
+
+    def _record_exploration_coverage(self, name: str, result: object) -> list[dict[str, str]]:
+        """Update Secret-safe per-question coverage and return advisory signals.
 
         Matching is against the already-observed path/text only -- never a
-        guessed name -- and an unmatched observation records no coverage,
-        which is the generic fallback rather than an error.
+        guessed name -- and an unmatched observation records no coverage and
+        produces no signal, which is the generic fallback rather than an
+        error. Signals are capped and deduplicated so one Tool response
+        cannot flood the model's context with repeated hints.
         """
+
+        signals: list[dict[str, str]] = []
+        seen_signals: set[tuple[str, str]] = set()
 
         if name in ("search_text", "read_file_lines"):
             items = result.get("hits") if isinstance(result, Mapping) else result
             if not isinstance(items, list):
-                return
+                return signals
             for item in items:
                 if not isinstance(item, Mapping):
                     continue
@@ -780,34 +811,35 @@ class AdkRepositoryToolset:
                 if not isinstance(path, str):
                     continue
                 rules = match_rules(self.exploration_policy, path=path, text=text)
-                seen: set[str] = set()
+                seen_questions: set[str] = set()
                 for rule in rules:
                     for question_id in rule.question_ids:
-                        if question_id in seen:
-                            continue
-                        seen.add(question_id)
-                        self.exploration_ledger.record_observation(
-                            question_id,
-                            name,
-                            path,
-                            start if isinstance(start, int) else None,
-                            end if isinstance(end, int) else None,
-                        )
-            return
+                        if question_id not in seen_questions:
+                            seen_questions.add(question_id)
+                            self.exploration_ledger.record_observation(
+                                question_id,
+                                name,
+                                path,
+                                start if isinstance(start, int) else None,
+                                end if isinstance(end, int) else None,
+                            )
+                        self._emit_exploration_signal(signals, seen_signals, question_id, rule)
+            return signals
         if name != "read_file" or not isinstance(result, Mapping) or result.get("binary"):
-            return
+            return signals
         path = result.get("path")
         text = result.get("text")
         if not isinstance(path, str) or not isinstance(text, str):
-            return
+            return signals
         rules = match_rules(self.exploration_policy, path=path, text=text)
-        seen: set[str] = set()
+        seen_questions = set()
         for rule in rules:
             for question_id in rule.question_ids:
-                if question_id in seen:
-                    continue
-                seen.add(question_id)
-                self.exploration_ledger.record_observation(question_id, name, path, 1, len(text.splitlines()) or 1)
+                if question_id not in seen_questions:
+                    seen_questions.add(question_id)
+                    self.exploration_ledger.record_observation(question_id, name, path, 1, len(text.splitlines()) or 1)
+                self._emit_exploration_signal(signals, seen_signals, question_id, rule)
+        return signals
 
     def _call(self, name: str, args: Mapping[str, object], operation: Any) -> object:
         signature = self.tracker.signature(name, args)
@@ -847,7 +879,7 @@ class AdkRepositoryToolset:
             if len(self.ledger.observations) > 64:
                 del self.ledger.observations[:-64]
             self._record_provenance(name, result)
-            self._record_exploration_coverage(name, result)
+            exploration_signals = self._record_exploration_coverage(name, result)
             if name == "inspect_target":
                 self.control.phase = RunPhase.DISCOVER
             elif name == "validate_analysis":
@@ -864,6 +896,9 @@ class AdkRepositoryToolset:
                 meta["context_projection"] = redact_sensitive_value(
                     project_next_observations(snapshot, self.exploration_policy)
                 )
+                # Advisory hint only: never a value, a final status, or a
+                # forced next Tool call -- see tests/test_migration_contract.py.
+                meta["exploration_signals"] = redact_sensitive_value(exploration_signals)
             return success_envelope(redact_sensitive_value(result), meta=meta)
         except (BudgetExceededError, RepositoryToolError, TypeError, ValueError) as error:
             safe_error = str(redact_sensitive_value(str(error)))

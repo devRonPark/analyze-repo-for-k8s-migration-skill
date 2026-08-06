@@ -23,6 +23,7 @@ from migration_assistant.target import BudgetExceededError, SafetyBudget
 from migration_assistant.adk_model import OpenAICompatibleAdkLlm
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from migration_assistant.config import Settings
+from migration_assistant.exploration_policy import DEFAULT_MIGRATION_POLICY
 from migration_assistant.repository_tools import RepositoryTools, RepositoryToolError
 from migration_assistant.tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, ToolIssue, error_envelope
 from migration_assistant.tool_contract import PUBLIC_AGENT_TOOL_NAMES
@@ -1074,6 +1075,97 @@ class Phase1ContractTests(unittest.TestCase):
         failed = AnalysisResult.model_validate({"status": "failed", "summary": "failed", "evidence": []})
         with patch("migration_assistant.cli.analyze", return_value=failed):
             self.assertEqual(main(["analyze", "repo"]), 1)
+
+
+class ExplorationSignalObservationMetaTests(unittest.TestCase):
+    """Task 4: observed Tool results carry an advisory hint, never a conclusion."""
+
+    def make_repo(self, root: Path) -> Path:
+        repo = root / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "--quiet", str(repo)], check=True)
+        (repo / "Dockerfile").write_text('FROM python:3.11\nENTRYPOINT ["python", "app.py"]\n', encoding="utf-8")
+        subprocess.run(["git", "-C", str(repo), "add", "Dockerfile"], check=True)
+        subprocess.run(
+            ["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--quiet", "-m", "fixture"],
+            check=True,
+        )
+        return repo
+
+    def test_observation_meta_contains_signal_without_conclusion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+
+            response = toolset.search_text("ENTRYPOINT", ".")
+
+            signal = response["meta"]["exploration_signals"][0]
+            self.assertEqual(signal["question_id"], "production_startup")
+            self.assertLessEqual(
+                set(signal),
+                {"question_id", "trigger_rule_id", "observed_fact_ref", "candidate_observation_kind"},
+            )
+            self.assertNotIn("value", signal)
+            self.assertNotIn("next_tool", signal)
+
+    def test_exploration_signals_never_leak_the_observed_path_or_excerpt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+
+            response = toolset.search_text("ENTRYPOINT", ".")
+
+            rendered = repr(response["meta"]["exploration_signals"])
+            self.assertNotIn("Dockerfile", rendered)
+            self.assertNotIn("python", rendered)
+
+    def test_unmatched_observation_produces_no_exploration_signal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            (repo / "README.md").write_text("hello world\n", encoding="utf-8")
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+
+            response = toolset.search_text("hello", ".")
+
+            self.assertEqual(response["meta"]["exploration_signals"], [])
+
+    def test_validate_analysis_response_carries_no_exploration_signals(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+            toolset.inspect_target()
+
+            response = toolset.validate_analysis(
+                status="partial",
+                summary="확인했습니다.",
+                evidence=[
+                    {
+                        "id": "e1",
+                        "status": "confirmed",
+                        "path": "Dockerfile",
+                        "line_start": 2,
+                        "line_end": 2,
+                        "claim": "기동 명령",
+                        "text": 'ENTRYPOINT ["python", "app.py"]',
+                    }
+                ],
+                findings=[],
+                iterations=1,
+                errors=["writable path는 확인하지 못했습니다."],
+            )
+
+            self.assertNotIn("exploration_signals", response["meta"])
+
+    def test_exploration_signal_trigger_rule_id_matches_a_registry_rule_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+
+            response = toolset.search_text("ENTRYPOINT", ".")
+
+            rule_keys = {rule.key for rule in DEFAULT_MIGRATION_POLICY.rules}
+            for signal in response["meta"]["exploration_signals"]:
+                self.assertIn(signal["trigger_rule_id"], rule_keys)
 
 
 if __name__ == "__main__":
