@@ -620,7 +620,7 @@ git commit -m "feat: bound migration exploration completion"
 - Modify: tests/test_phase1_live_acceptance_harness.py
 - Modify: devtools/run_phase1_live_acceptance.py
 
-- [ ] **Step 1: failing fixture test 작성**
+- [x] **Step 1: failing fixture test 작성**
 
 ~~~python
 def test_trajectory_reports_question_coverage_and_context_efficiency():
@@ -631,7 +631,7 @@ def test_trajectory_reports_question_coverage_and_context_efficiency():
     assert result["fresh_observation_after_grounding_error"] is True
 ~~~
 
-- [ ] **Step 2: RED 확인과 evaluator 구현**
+- [x] **Step 2: RED 확인과 evaluator 구현**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_migration_trajectory_contract.py
@@ -639,7 +639,7 @@ python -m pytest -q -p no:cacheprovider tests/test_migration_trajectory_contract
 
 exact file order를 강제하지 않고 첫 Tool, observed Evidence, required question disposition, 미근거 positive value, grounding 오류 후 fresh observation, duplicate/no-progress budget, bounded context efficiency를 검사합니다. `question_coverage >= 4` 같은 고정 개수나 모든 duplicate 0을 강제하지 않습니다. Duplicate는 정상적인 recovery 재시도와 no-progress 반복을 구분하고, 종류별 상한과 bounded stop 준수로 평가합니다.
 
-- [ ] **Step 3: focused test와 commit**
+- [x] **Step 3: focused test와 commit**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_migration_trajectory_contract.py tests/test_phase1_live_acceptance_harness.py

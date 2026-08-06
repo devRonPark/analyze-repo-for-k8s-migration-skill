@@ -11,7 +11,13 @@ from uuid import uuid4
 from unittest.mock import patch
 
 from devtools.env_file import EnvFileLoadResult
-from devtools.run_phase1_live_acceptance import AcceptanceRun, _model_summary, evaluate_runs, run_acceptance
+from devtools.run_phase1_live_acceptance import (
+    AcceptanceRun,
+    _model_summary,
+    evaluate_runs,
+    evaluate_trajectory,
+    run_acceptance,
+)
 from migration_assistant.adk_runner import AdkRun
 from migration_assistant.analysis import AnalysisResult, analyze
 
@@ -437,6 +443,33 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
         self.assertTrue(metadata["terminal"])
         self.assertEqual(metadata["tool_calls"], ["inspect_target", "validate_analysis"])
         self.assertNotIn("super-secret-value", json.dumps(metadata, ensure_ascii=False))
+
+
+class TrajectoryEvaluatorHarnessCompatibilityTests(unittest.TestCase):
+    """Task 6: evaluate_trajectory coexists with the existing AcceptanceRun gate
+    and degrades gracefully when a trajectory only carries what an
+    AcceptanceRun already tracks (no fixed threshold, no crash on missing
+    richer fields)."""
+
+    def test_evaluate_trajectory_degrades_gracefully_from_an_acceptance_run_summary(self):
+        acceptance_run = run(0, "complete", terminal=True)
+        trajectory = {"tool_calls": list(acceptance_run.tool_calls)}
+
+        result = evaluate_trajectory(trajectory)
+
+        self.assertTrue(result["first_tool_is_inspect_target"])
+        self.assertIsInstance(result["required_question_disposition_rate"], float)
+        self.assertEqual(result["required_question_disposition_rate"], 0.0)
+        self.assertEqual(result["ungrounded_positive_value_count"], 0)
+        self.assertTrue(result["context_projection_leak_free"])
+
+    def test_evaluate_trajectory_and_evaluate_runs_are_independent_functions(self):
+        """A gate decision (evaluate_runs/_is_success) and a trajectory report
+        (evaluate_trajectory) must not be conflated -- the latter never
+        returns a `passed` verdict."""
+
+        result = evaluate_trajectory({"tool_calls": ["inspect_target"]})
+        self.assertNotIn("passed", result)
 
 
 if __name__ == "__main__":

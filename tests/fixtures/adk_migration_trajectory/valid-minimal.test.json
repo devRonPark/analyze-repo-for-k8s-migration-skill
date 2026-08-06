@@ -1,0 +1,23 @@
+{
+  "tool_calls": ["inspect_target", "search_text", "read_file_lines", "validate_analysis"],
+  "required_question_dispositions": {
+    "workload_deployment_unit": "confirmed",
+    "production_startup": "confirmed",
+    "build_stage": "inferred",
+    "receiving_port": "confirmed",
+    "runtime_config_and_secret_names": "unresolved"
+  },
+  "evidence": [
+    {"id": "e1", "status": "confirmed", "observed": true},
+    {"id": "e2", "status": "inferred", "observed": true}
+  ],
+  "grounding_error_events": [],
+  "duplicate_call_count": 0,
+  "no_progress_max": 0,
+  "no_progress_cap": 3,
+  "iteration_count": 4,
+  "iteration_budget": 20,
+  "context_projection_samples": [
+    {"question_id": "external_dependency", "importance": "conditional", "signal_rule_ids": ["config_and_deployment_descriptor"]}
+  ]
+}

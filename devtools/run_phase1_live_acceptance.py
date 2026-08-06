@@ -13,6 +13,7 @@ from typing import Any, Callable, Mapping, Sequence
 from devtools.env_file import EnvFileLoadResult, load_environment
 from migration_assistant.analysis import analyze
 from migration_assistant.config import Settings
+from migration_assistant.exploration_policy import DEFAULT_MIGRATION_POLICY
 from migration_assistant.repository_tools import redact_sensitive_text, redact_sensitive_value
 from migration_assistant.target import SafetyBudget
 
@@ -120,6 +121,88 @@ def evaluate_runs(
         "required": required,
         "gate_mode": len(runs) == required,
         "runs": [run.as_summary() for run in runs],
+    }
+
+
+_OBSERVATION_TOOLS = frozenset({"search_text", "read_file", "read_file_lines"})
+_ALLOWED_CONTEXT_PROJECTION_FIELDS = frozenset({"question_id", "importance", "signal_rule_ids"})
+
+
+def evaluate_trajectory(trajectory: Mapping[str, Any]) -> dict[str, object]:
+    """Report metrics from one recorded exploration trajectory.
+
+    This never enforces a fixed pass/fail threshold (e.g. a minimum
+    question-coverage count or `duplicate_call_count == 0`) -- those would
+    overfit to one target repository or one model, which the plan
+    explicitly warns against. It only reports; a human or a future Task 7
+    gate interprets the numbers.
+    """
+
+    tool_calls = [str(name) for name in trajectory.get("tool_calls", []) if isinstance(name, str)]
+    first_tool_is_inspect_target = bool(tool_calls) and tool_calls[0] == "inspect_target"
+
+    required_ids = tuple(
+        question.question_id for question in DEFAULT_MIGRATION_POLICY.questions
+        if question.importance.value == "required"
+    )
+    dispositions = trajectory.get("required_question_dispositions", {})
+    dispositions = dispositions if isinstance(dispositions, Mapping) else {}
+    disposed = sum(1 for question_id in required_ids if question_id in dispositions)
+    required_question_disposition_rate = disposed / len(required_ids) if required_ids else 1.0
+
+    evidence_items = trajectory.get("evidence", [])
+    evidence_items = evidence_items if isinstance(evidence_items, list) else []
+    ungrounded_positive = [
+        item for item in evidence_items
+        if isinstance(item, Mapping) and item.get("status") != "unresolved" and not item.get("observed")
+    ]
+    # In this fixture-based evaluator both counts read the same "observed"
+    # signal -- a real live run's richer evidence_provenance (Task 2/5)
+    # could later separate "never reviewed" from "reviewed but ungrounded".
+    ungrounded_positive_value_count = len(ungrounded_positive)
+    unobserved_evidence_count = len(ungrounded_positive)
+
+    grounding_events = trajectory.get("grounding_error_events", [])
+    grounding_events = grounding_events if isinstance(grounding_events, list) else []
+    fresh_observation_after_grounding_error = True
+    for event in grounding_events:
+        if not isinstance(event, Mapping):
+            fresh_observation_after_grounding_error = False
+            continue
+        recovery_index = event.get("recovery_tool_call_index")
+        if not isinstance(recovery_index, int) or not (0 <= recovery_index < len(tool_calls)):
+            fresh_observation_after_grounding_error = False
+            continue
+        if tool_calls[recovery_index] not in _OBSERVATION_TOOLS:
+            fresh_observation_after_grounding_error = False
+
+    duplicate_call_count = int(trajectory.get("duplicate_call_count", 0) or 0)
+    no_progress_max = int(trajectory.get("no_progress_max", 0) or 0)
+    no_progress_cap = int(trajectory.get("no_progress_cap", 0) or 0)
+    iteration_count = int(trajectory.get("iteration_count", 0) or 0)
+    iteration_budget = int(trajectory.get("iteration_budget", 0) or 0)
+    bounded_stop_compliant = no_progress_max <= no_progress_cap and (
+        iteration_budget == 0 or iteration_count <= iteration_budget
+    )
+
+    context_samples = trajectory.get("context_projection_samples", [])
+    context_samples = context_samples if isinstance(context_samples, list) else []
+    context_projection_leak_free = all(
+        isinstance(sample, Mapping) and set(sample) <= _ALLOWED_CONTEXT_PROJECTION_FIELDS
+        for sample in context_samples
+    )
+
+    return {
+        "first_tool_is_inspect_target": first_tool_is_inspect_target,
+        "required_question_disposition_rate": required_question_disposition_rate,
+        "ungrounded_positive_value_count": ungrounded_positive_value_count,
+        "unobserved_evidence_count": unobserved_evidence_count,
+        "fresh_observation_after_grounding_error": fresh_observation_after_grounding_error,
+        "duplicate_call_count": duplicate_call_count,
+        "no_progress_max": no_progress_max,
+        "no_progress_cap": no_progress_cap,
+        "bounded_stop_compliant": bounded_stop_compliant,
+        "context_projection_leak_free": context_projection_leak_free,
     }
 
 
