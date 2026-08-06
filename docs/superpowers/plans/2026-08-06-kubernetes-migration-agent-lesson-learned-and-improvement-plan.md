@@ -390,7 +390,7 @@ git commit -m "feat: define migration exploration signals"
 
 **Produces:** Secret-safe `run_metadata["exploration_coverage"]`와 별도 실행 artifact 저장 계약
 
-- [ ] **Step 1: failing test 작성**
+- [x] **Step 1: failing test 작성**
 
 ~~~python
 def test_observed_question_is_not_reported_as_grounded_value():
@@ -401,7 +401,7 @@ def test_observed_question_is_not_reported_as_grounded_value():
     assert "value" not in repr(summary)
 ~~~
 
-- [ ] **Step 2: RED 확인 및 최소 구현**
+- [x] **Step 2: RED 확인 및 최소 구현**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_exploration_ledger.py
@@ -409,13 +409,13 @@ python -m pytest -q -p no:cacheprovider tests/test_exploration_ledger.py
 
 Ledger는 raw args, raw excerpt, Secret 값을 저장하지 않고 question status, Tool 이름, bounded line count, positive Evidence count만 기록합니다. 이 단계의 coverage는 관찰성과 telemetry를 위한 것이며, 이것만으로 모델의 다음 행동이 바뀐다고 가정하지 않습니다.
 
-- [ ] **Step 3: ADK handoff 연결과 focused test**
+- [x] **Step 3: ADK handoff 연결과 focused test**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_exploration_ledger.py tests/test_phase1_adk_contract.py
 ~~~
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ~~~powershell
 git add migration_assistant/exploration_ledger.py migration_assistant/adk_tools.py migration_assistant/adk_runner.py migration_assistant/analysis.py tests/test_exploration_ledger.py
