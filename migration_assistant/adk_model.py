@@ -14,7 +14,7 @@ from .adapter import OpenAICompatibleAdapter
 from .config import Settings
 from .repository_tools import redact_sensitive_value
 from .target import SafetyBudget
-from .tool_protocol import RunControlLedger, ToolErrorCode, ToolIssue, error_envelope
+from .tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, ToolIssue, error_envelope
 
 
 class OpenAICompatibleAdkLlm(BaseLlm):
@@ -43,6 +43,13 @@ class OpenAICompatibleAdkLlm(BaseLlm):
 
         control = self._control
         if control is None:
+            return None
+        # A stopped or terminal run must never force another call: at
+        # least one stop_requested site (validate_analysis's attempt-limit
+        # branch in adk_tools.py) sets it without clearing next_actions, so
+        # a stale narrowed value can otherwise outlive the run's own
+        # decision to give up.
+        if control.stop_requested or control.phase in {RunPhase.DONE, RunPhase.PARTIAL_OR_FAILED}:
             return None
         actions = control.next_actions
         if isinstance(actions, tuple) and len(actions) == 1:

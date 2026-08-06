@@ -942,6 +942,47 @@ class Phase1ContractTests(unittest.TestCase):
 
         self.assertIsNone(captured["tool_choice"])
 
+    def test_adk_model_never_forces_a_stale_tool_choice_after_stop_requested(self):
+        """Independent review found validate_analysis's attempt-limit branch
+        (adk_tools.py) sets stop_requested=True without clearing
+        next_actions, unlike every other stop_requested site. If that state
+        survived from an earlier evidence_grounding narrowing, a naive
+        _tool_choice() would keep forcing a resubmission the run has
+        already given up on."""
+
+        control = RunControlLedger()
+        control.next_actions = ("validate_analysis",)
+        control.stop_requested = True
+        model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=5), control=control)
+        request = types.Content(role="user", parts=[types.Part(text="hello")])
+        captured: dict[str, object] = {}
+
+        def fake_complete(messages, *, tools=None, response_format=None, temperature=None, tool_choice=None):
+            captured["tool_choice"] = tool_choice
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        with patch.object(model._adapter, "complete", side_effect=fake_complete):
+            asyncio.run(self._drain(model.generate_content_async(LlmRequest(contents=[request]))))
+
+        self.assertIsNone(captured["tool_choice"])
+
+    def test_adk_model_never_forces_a_stale_tool_choice_in_a_terminal_phase(self):
+        control = RunControlLedger()
+        control.next_actions = ("validate_analysis",)
+        control.phase = RunPhase.DONE
+        model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=5), control=control)
+        request = types.Content(role="user", parts=[types.Part(text="hello")])
+        captured: dict[str, object] = {}
+
+        def fake_complete(messages, *, tools=None, response_format=None, temperature=None, tool_choice=None):
+            captured["tool_choice"] = tool_choice
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        with patch.object(model._adapter, "complete", side_effect=fake_complete):
+            asyncio.run(self._drain(model.generate_content_async(LlmRequest(contents=[request]))))
+
+        self.assertIsNone(captured["tool_choice"])
+
     @staticmethod
     async def _drain(agen):
         async for _ in agen:
