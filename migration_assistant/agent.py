@@ -118,10 +118,15 @@ class AgentApplication:
                 "Google ADK dependency가 설치되지 않아 Agent를 시작할 수 없습니다."
             ) from error
 
+        # Resolve one shared RunControlLedger before constructing the model
+        # so the live model can see the same next_actions narrowing the
+        # toolset callbacks enforce, instead of AdkRepositoryToolset
+        # silently creating its own separate instance the model never sees.
+        control = control or RunControlLedger()
         if model_override is None:
             from .adk_model import OpenAICompatibleAdkLlm
 
-            model_override = OpenAICompatibleAdkLlm(self.settings, budget=budget)
+            model_override = OpenAICompatibleAdkLlm(self.settings, budget=budget, control=control)
         toolset = AdkRepositoryToolset(
             repository_tools,
             ledger,

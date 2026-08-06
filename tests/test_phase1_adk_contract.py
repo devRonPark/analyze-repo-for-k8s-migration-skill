@@ -904,6 +904,49 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertEqual(run.result.status, "failed")
         self.assertFalse(run.terminal)
 
+    def test_adk_model_forces_tool_choice_when_control_narrows_to_one_action(self):
+        """Live smoke showed a model ignore a text-only 'next call must be
+        validate_analysis' instruction and get hard-rejected instead. When
+        RunControlLedger has already narrowed control.next_actions to
+        exactly one action, the adapter request must force that same name
+        via tool_choice -- not just describe it in a message."""
+
+        control = RunControlLedger()
+        control.next_actions = ("validate_analysis",)
+        model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=5), control=control)
+        request = types.Content(role="user", parts=[types.Part(text="hello")])
+        captured: dict[str, object] = {}
+
+        def fake_complete(messages, *, tools=None, response_format=None, temperature=None, tool_choice=None):
+            captured["tool_choice"] = tool_choice
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        with patch.object(model._adapter, "complete", side_effect=fake_complete):
+            asyncio.run(self._drain(model.generate_content_async(LlmRequest(contents=[request]))))
+
+        self.assertEqual(captured["tool_choice"], {"type": "function", "function": {"name": "validate_analysis"}})
+
+    def test_adk_model_leaves_tool_choice_auto_when_multiple_actions_allowed(self):
+        control = RunControlLedger()
+        control.next_actions = ("search_text", "read_file", "read_file_lines")
+        model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=5), control=control)
+        request = types.Content(role="user", parts=[types.Part(text="hello")])
+        captured: dict[str, object] = {}
+
+        def fake_complete(messages, *, tools=None, response_format=None, temperature=None, tool_choice=None):
+            captured["tool_choice"] = tool_choice
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        with patch.object(model._adapter, "complete", side_effect=fake_complete):
+            asyncio.run(self._drain(model.generate_content_async(LlmRequest(contents=[request]))))
+
+        self.assertIsNone(captured["tool_choice"])
+
+    @staticmethod
+    async def _drain(agen):
+        async for _ in agen:
+            pass
+
     def test_adk_model_consumes_the_shared_iteration_budget(self):
         model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=1))
         request = types.Content(role="user", parts=[types.Part(text="hello")])

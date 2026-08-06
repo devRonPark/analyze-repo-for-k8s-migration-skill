@@ -58,6 +58,8 @@ class ModelAdapter(Protocol):
         *,
         tools: Sequence[Mapping[str, object]] | None = None,
         response_format: Mapping[str, object] | None = None,
+        temperature: float | None = None,
+        tool_choice: Mapping[str, object] | None = None,
     ) -> ChatCompletionRequest:
         """Build a request without performing network I/O."""
 
@@ -67,12 +69,22 @@ class ModelAdapter(Protocol):
         *,
         tools: Sequence[Mapping[str, object]] | None = None,
         response_format: Mapping[str, object] | None = None,
+        temperature: float | None = None,
+        tool_choice: Mapping[str, object] | None = None,
     ) -> Mapping[str, object]:
         """Perform one chat completion and return its decoded response."""
 
 
 class OpenAICompatibleAdapter:
     """Build requests for any endpoint implementing the OpenAI-compatible API."""
+
+    # Grounded line-backed Evidence extraction is a low-entropy task. Left
+    # unset, a request is exposed to the endpoint's own default (often
+    # ~0.7), which live smoke runs correlated with excerpt hallucination.
+    # This is a fixed internal default, not a sixth LLM_* environment
+    # variable -- the provider-neutral config surface stays exactly
+    # LLM_BASE_URL/LLM_API_KEY/LLM_MODEL/LLM_TIMEOUT_SECONDS/LLM_MAX_TOKENS.
+    DEFAULT_TEMPERATURE = 0.0
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -94,6 +106,8 @@ class OpenAICompatibleAdapter:
         *,
         tools: Sequence[Mapping[str, object]] | None = None,
         response_format: Mapping[str, object] | None = None,
+        temperature: float | None = None,
+        tool_choice: Mapping[str, object] | None = None,
     ) -> ChatCompletionRequest:
         normalized_messages = self._normalize_messages(messages)
         headers = {"Content-Type": "application/json"}
@@ -104,11 +118,23 @@ class OpenAICompatibleAdapter:
             "model": self.settings.llm_model,
             "messages": normalized_messages,
             "max_tokens": self.settings.llm_max_tokens,
+            "temperature": self.DEFAULT_TEMPERATURE if temperature is None else temperature,
         }
         if tools is not None:
             payload["tools"] = [dict(tool) for tool in tools]
+            # This project's protocol already hard-rejects a response
+            # containing more than one function_call (adk_tools.py
+            # after_model_callback). Asking the endpoint to never generate
+            # that shape prevents an already-forbidden malformed_arguments
+            # round-trip rather than changing accepted behavior.
+            payload["parallel_tool_calls"] = False
         if response_format is not None:
             payload["response_format"] = dict(response_format)
+        if tool_choice is not None:
+            # Only ever forces a name RunControlLedger already computed as
+            # the single allowed next action -- the transport channel
+            # changes, judgment ownership does not.
+            payload["tool_choice"] = dict(tool_choice)
 
         return ChatCompletionRequest(
             url=f"{self.settings.llm_base_url.rstrip('/')}/chat/completions",
@@ -123,8 +149,16 @@ class OpenAICompatibleAdapter:
         *,
         tools: Sequence[Mapping[str, object]] | None = None,
         response_format: Mapping[str, object] | None = None,
+        temperature: float | None = None,
+        tool_choice: Mapping[str, object] | None = None,
     ) -> Mapping[str, object]:
-        request = self.build_request(messages, tools=tools, response_format=response_format)
+        request = self.build_request(
+            messages,
+            tools=tools,
+            response_format=response_format,
+            temperature=temperature,
+            tool_choice=tool_choice,
+        )
         body = __import__("json").dumps(request.payload, ensure_ascii=False).encode("utf-8")
         http_request = Request(request.url, data=body, headers=dict(request.headers), method="POST")
         try:

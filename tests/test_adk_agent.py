@@ -11,11 +11,13 @@ from google.genai import types
 from pydantic import PrivateAttr
 
 from migration_assistant.analysis import AnalysisResult, analyze
-from migration_assistant.agent import PUBLIC_AGENT_TOOL_NAMES, build_migration_instruction, create_agent
+from migration_assistant.agent import AgentApplication, PUBLIC_AGENT_TOOL_NAMES, build_migration_instruction, create_agent
 from migration_assistant.adk_tools import DuplicateTracker, ValidationLedger
+from migration_assistant.config import Settings
 from migration_assistant.exploration_policy import DEFAULT_MIGRATION_POLICY
 from migration_assistant.repository_tools import RepositoryTools
 from migration_assistant.target import SafetyBudget
+from migration_assistant.tool_protocol import RunControlLedger
 
 
 class ScriptedAdkLlm(BaseLlm):
@@ -213,6 +215,26 @@ class AdkAgentTests(unittest.TestCase):
             )
 
             self.assertEqual(agent.instruction, build_migration_instruction(DEFAULT_MIGRATION_POLICY))
+
+    def test_build_root_agent_shares_one_control_ledger_with_the_live_model(self):
+        """Live smoke showed the model ignore a narrowed allowed-action
+        instruction that only ever reached it as text. The live
+        OpenAICompatibleAdkLlm path must see the same RunControlLedger
+        instance the toolset callbacks enforce against, not a second one
+        AdkRepositoryToolset created for itself."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            control = RunControlLedger()
+            agent = AgentApplication(settings=Settings()).build_root_agent(
+                repository_tools=RepositoryTools(repo, budget=SafetyBudget()),
+                ledger=ValidationLedger(),
+                tracker=DuplicateTracker(),
+                budget=SafetyBudget(),
+                control=control,
+            )
+
+            self.assertIs(agent.model._control, control)
 
     def test_production_analyze_uses_adk_and_validates_agent_result(self):
         with tempfile.TemporaryDirectory() as tmp:

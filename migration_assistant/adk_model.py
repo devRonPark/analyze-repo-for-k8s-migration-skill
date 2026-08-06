@@ -14,7 +14,7 @@ from .adapter import OpenAICompatibleAdapter
 from .config import Settings
 from .repository_tools import redact_sensitive_value
 from .target import SafetyBudget
-from .tool_protocol import ToolErrorCode, ToolIssue, error_envelope
+from .tool_protocol import RunControlLedger, ToolErrorCode, ToolIssue, error_envelope
 
 
 class OpenAICompatibleAdkLlm(BaseLlm):
@@ -22,17 +22,40 @@ class OpenAICompatibleAdkLlm(BaseLlm):
 
     _adapter: OpenAICompatibleAdapter = PrivateAttr()
     _budget: SafetyBudget = PrivateAttr()
+    _control: RunControlLedger | None = PrivateAttr(default=None)
 
-    def __init__(self, settings: Settings, *, budget: SafetyBudget) -> None:
+    def __init__(self, settings: Settings, *, budget: SafetyBudget, control: RunControlLedger | None = None) -> None:
         super().__init__(model=settings.llm_model)
         self._adapter = OpenAICompatibleAdapter(settings)
         self._budget = budget
+        self._control = control
+
+    def _tool_choice(self) -> dict[str, object] | None:
+        """Force the one action RunControlLedger already computed, at the
+        transport level, instead of only describing it in a message.
+
+        Judgment ownership does not move: RunControlLedger.next_actions is
+        the same value before_tool_callback already enforces after the
+        fact; this only changes which channel carries it. Any time more
+        than one action remains allowed, this stays None (provider default
+        "auto") so the model's own exploration choice is untouched.
+        """
+
+        control = self._control
+        if control is None:
+            return None
+        actions = control.next_actions
+        if isinstance(actions, tuple) and len(actions) == 1:
+            return {"type": "function", "function": {"name": actions[0]}}
+        return None
 
     async def generate_content_async(self, llm_request: LlmRequest, stream: bool = False):
         self._budget.consume_iteration()
         messages = self._messages(llm_request)
         tools = self._tools(llm_request)
-        response = await asyncio.to_thread(self._adapter.complete, messages, tools=tools or None)
+        response = await asyncio.to_thread(
+            self._adapter.complete, messages, tools=tools or None, tool_choice=self._tool_choice()
+        )
         yield self._response(response)
 
     @classmethod

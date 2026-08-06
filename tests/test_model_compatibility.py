@@ -145,6 +145,61 @@ class ModelCompatibilityTests(unittest.TestCase):
 
         self.assertNotIn("super-secret-key", str(error))
 
+    def test_request_defaults_to_deterministic_temperature(self):
+        """Grounded line-backed Evidence extraction is a low-entropy task;
+        an unset temperature leaves the endpoint's own default (often ~0.7)
+        exposed, which live smoke runs showed correlates with excerpt
+        hallucination. Fix it low by default, provider-neutral."""
+
+        request = OpenAICompatibleAdapter(Settings()).build_request([{"role": "user", "content": "hello"}])
+
+        self.assertEqual(request.payload["temperature"], 0.0)
+
+    def test_temperature_can_be_overridden_per_request(self):
+        request = OpenAICompatibleAdapter(Settings()).build_request(
+            [{"role": "user", "content": "hello"}], temperature=0.4
+        )
+
+        self.assertEqual(request.payload["temperature"], 0.4)
+
+    def test_tool_choice_is_omitted_by_default(self):
+        request = OpenAICompatibleAdapter(Settings()).build_request(
+            [{"role": "user", "content": "hello"}],
+            tools=[{"type": "function", "function": {"name": "inspect_target"}}],
+        )
+
+        self.assertNotIn("tool_choice", request.payload)
+
+    def test_parallel_tool_calls_is_disabled_whenever_tools_are_present(self):
+        """after_model_callback (adk_tools.py) already hard-rejects a
+        response with more than one function_call; a live run's first turn
+        produced exactly that malformed_arguments error. Telling the
+        endpoint never to generate parallel calls in the first place is a
+        strictly-additive prevention of an already-forbidden shape."""
+
+        request = OpenAICompatibleAdapter(Settings()).build_request(
+            [{"role": "user", "content": "hello"}],
+            tools=[{"type": "function", "function": {"name": "inspect_target"}}],
+        )
+
+        self.assertEqual(request.payload["parallel_tool_calls"], False)
+
+    def test_parallel_tool_calls_key_is_absent_without_tools(self):
+        request = OpenAICompatibleAdapter(Settings()).build_request([{"role": "user", "content": "hello"}])
+
+        self.assertNotIn("parallel_tool_calls", request.payload)
+
+    def test_tool_choice_forces_a_named_function_when_provided(self):
+        request = OpenAICompatibleAdapter(Settings()).build_request(
+            [{"role": "user", "content": "hello"}],
+            tools=[{"type": "function", "function": {"name": "validate_analysis"}}],
+            tool_choice={"type": "function", "function": {"name": "validate_analysis"}},
+        )
+
+        self.assertEqual(
+            request.payload["tool_choice"], {"type": "function", "function": {"name": "validate_analysis"}}
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
