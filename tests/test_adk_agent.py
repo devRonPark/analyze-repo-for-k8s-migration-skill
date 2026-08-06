@@ -188,6 +188,13 @@ class AdkAgentTests(unittest.TestCase):
         self.assertNotIn("Repository 전체를 설명한다", instruction)
         self.assertNotIn("전체 Repository를 설명한다", instruction)
 
+    def test_instruction_explains_how_to_read_exploration_signals(self):
+        instruction = build_migration_instruction(DEFAULT_MIGRATION_POLICY)
+
+        self.assertIn("exploration_signals", instruction)
+        # Guidance only -- must not force a specific next Tool call.
+        self.assertNotIn("next_tool", instruction)
+
     def test_instruction_lists_every_policy_question_id(self):
         instruction = build_migration_instruction(DEFAULT_MIGRATION_POLICY)
 

@@ -55,6 +55,8 @@ def build_migration_instruction(
         "Tier 0: inspect_target, list_tree로 안전 경계와 구조를 확인합니다.\n"
         "Tier 1: build/package manifest, Dockerfile/Compose, config/deployment 후보처럼 신호가 강한 파일부터 봅니다.\n"
         "Tier 2/3: Tier 1에서 실제로 찾은 hit가 가리키는 곳만 read_file_lines로 확인하고, 남은 질문에 필요한 source/config만 보충합니다.\n"
+        "Tool 응답의 meta.context_projection은 아직 관찰되지 않은 질문 ID와 중요도를 보여주고, meta.exploration_signals는 방금 관찰이 어떤 question_id와 관련 있는지 알려주는 힌트입니다. "
+        "둘 다 다음에 무엇을 보라는 조언일 뿐이며 값, 최종 상태, 특정 다음 Tool 호출을 강제하지 않습니다. 그 값을 그대로 결론으로 베끼지 말고, 반드시 실제 search_text/read_file_lines 관찰로 직접 확인한 뒤에만 Evidence로 쓰세요.\n"
         "이번 실행에서 확인해야 하는 질문입니다 (question_id (importance): 설명).\n"
         f"{question_lines}\n"
         "탐색은 신호가 강한 곳부터 하세요. build/package manifest와 wrapper, Dockerfile, Compose 파일, 환경·설정 파일, web descriptor, application context, entrypoint, DB/broker 설정 순입니다. README, CI, 테스트, 광범위한 소스 읽기는 1차 발견에 근거가 더 필요할 때만 씁니다.\n"
