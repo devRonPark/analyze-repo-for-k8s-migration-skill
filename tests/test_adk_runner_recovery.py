@@ -14,7 +14,7 @@ from migration_assistant.adk_model import OpenAICompatibleAdkLlm
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from migration_assistant.repository_tools import RepositoryTools
 from migration_assistant.target import SafetyBudget
-from migration_assistant.tool_protocol import RunControlLedger, RunPhase, ToolErrorCode
+from migration_assistant.tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, ToolIssue
 
 
 class AdkRecoveryContractTests(unittest.TestCase):
@@ -181,6 +181,49 @@ class AdkRecoveryContractTests(unittest.TestCase):
         self.assertEqual(result["error"]["allowed_next_actions"], [])
         self.assertTrue(control.stop_requested)
         self.assertNotIn("do-not-leak", repr(result))
+
+    def test_before_tool_callback_is_idempotent_for_same_delivery(self):
+        control = RunControlLedger(phase=RunPhase.GROUND)
+        toolset = self.toolset(Path.cwd(), control)
+        validate = next(tool for tool in toolset.functions() if tool.name == "validate_analysis")
+        control.record_issue(
+            ToolIssue(
+                code=ToolErrorCode.CANDIDATE_SCHEMA,
+                category="validation",
+                message="candidate 수정이 필요합니다.",
+                retryable=True,
+            ),
+            allowed_next_actions=("validate_analysis",),
+            originating_tool="validate_analysis",
+            call_id="call-1",
+        )
+
+        class ToolContext:
+            invocation_id = "invocation-1"
+            function_call_id = "call-1"
+
+        args = {
+            "status": "complete",
+            "summary": "password=do-not-leak",
+            "evidence": [],
+            "findings": [],
+            "iterations": 0,
+            "errors": [],
+        }
+        first = toolset.before_tool_callback(validate, args, ToolContext())
+        second = toolset.before_tool_callback(validate, args, ToolContext())
+
+        self.assertIsNone(first)
+        self.assertIsNone(second)
+        self.assertEqual(control.inline_corrections, 1)
+        self.assertFalse(control.stop_requested)
+        self.assertEqual(len(toolset.ledger.callback_telemetry), 1)
+        telemetry = toolset.ledger.callback_telemetry[0]
+        self.assertEqual(telemetry["callback_stage"], "before_tool")
+        self.assertEqual(telemetry["tool_name"], "validate_analysis")
+        self.assertEqual(telemetry["invocation_id"], "invocation-1")
+        self.assertNotIn("do-not-leak", repr(telemetry))
+        self.assertNotIn("args", telemetry)
 
     def test_adapter_malformed_arguments_keep_call_linkage(self):
         response = OpenAICompatibleAdkLlm._response(

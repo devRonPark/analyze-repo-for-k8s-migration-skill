@@ -7,8 +7,12 @@ import unittest
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
+from typing import get_type_hints
 
+from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import BaseLlm, LlmRequest, LlmResponse
+from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 from pydantic import PrivateAttr
 
@@ -721,6 +725,17 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertEqual(modified.error_code, original.error_code)
         self.assertEqual(modified.error_message, original.error_message)
         self.assertEqual(modified.usage_metadata, original.usage_metadata)
+
+    def test_callbacks_use_adk_context_types(self):
+        after_model_hints = get_type_hints(AdkRepositoryToolset.after_model_callback)
+        before_tool_hints = get_type_hints(AdkRepositoryToolset.before_tool_callback)
+        on_error_hints = get_type_hints(AdkRepositoryToolset.on_tool_error_callback)
+
+        self.assertIs(after_model_hints["callback_context"], CallbackContext)
+        self.assertIs(before_tool_hints["tool"], BaseTool)
+        self.assertIs(before_tool_hints["tool_context"], ToolContext)
+        self.assertIs(on_error_hints["tool"], BaseTool)
+        self.assertIs(on_error_hints["tool_context"], ToolContext)
 
     def test_before_tool_callback_enforces_initial_phase_without_execution(self):
         control = RunControlLedger()

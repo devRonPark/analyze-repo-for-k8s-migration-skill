@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Any, Literal, Mapping
 
+from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import LlmResponse
+from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -201,6 +205,7 @@ class ValidationLedger:
     budget_exhausted: str | None = None
     tool_error: str | None = None
     observations: list[dict[str, object]] = field(default_factory=list)
+    callback_telemetry: list[dict[str, object]] = field(default_factory=list)
 
 
 class AdkRepositoryToolset:
@@ -220,6 +225,7 @@ class AdkRepositoryToolset:
         self.tracker = tracker
         self.control = control or RunControlLedger()
         self.provenance = provenance or ObservationProvenance()
+        self._callback_delivery_cache: dict[str, object] = {}
         definitions = (
             ("inspect_target", InspectTargetArgs, lambda value: self.inspect_target()),
             ("list_tree", ListTreeArgs, lambda value: self.list_tree(**value.model_dump())),
@@ -326,7 +332,105 @@ class AdkRepositoryToolset:
             call_id=call_id,
         )
 
-    def after_model_callback(self, callback_context: object, llm_response: LlmResponse) -> LlmResponse | None:
+    @staticmethod
+    def _context_value(context: object, name: str) -> str | None:
+        value = getattr(context, name, None)
+        return value if isinstance(value, str) and value else None
+
+    @staticmethod
+    def _hash_identifier(value: str | None) -> str | None:
+        if value is None:
+            return None
+        return sha256(value.encode("utf-8")).hexdigest()[:16]
+
+    def _delivery_key(
+        self,
+        callback_stage: str,
+        context: object,
+        *,
+        tool_name: str | None = None,
+        call_id: str | None = None,
+    ) -> tuple[str | None, str, str | None]:
+        invocation_id = self._context_value(context, "invocation_id") or "unknown"
+        effective_call_id = call_id or self._context_value(context, "function_call_id")
+        if invocation_id == "unknown" and effective_call_id is None:
+            return None, invocation_id, None
+        raw_key = "|".join((invocation_id, effective_call_id or "", callback_stage, tool_name or ""))
+        return sha256(raw_key.encode("utf-8")).hexdigest(), invocation_id, self._hash_identifier(effective_call_id)
+
+    def _record_callback_telemetry(
+        self,
+        callback_stage: str,
+        *,
+        context: object,
+        tool_name: str | None,
+        call_id: str | None,
+        phase_before: RunPhase,
+        result: object,
+    ) -> None:
+        _, invocation_id, call_id_hash = self._delivery_key(
+            callback_stage,
+            context,
+            tool_name=tool_name,
+            call_id=call_id,
+        )
+        error = result.get("error") if isinstance(result, Mapping) else None
+        current_issue = self.control.protocol_issue
+        issue_code = None
+        allowed_actions: list[str] = []
+        if isinstance(error, Mapping):
+            issue_code = str(error.get("code")) if error.get("code") is not None else None
+            actions = error.get("allowed_next_actions")
+            if isinstance(actions, list):
+                allowed_actions = [str(action) for action in actions]
+        elif current_issue is not None:
+            issue_code = current_issue.code.value
+            allowed_actions = list(self.control.allowed_next_actions(tuple(self._tools_by_name)))
+        self.ledger.callback_telemetry.append({
+            "callback_stage": callback_stage,
+            "invocation_id": invocation_id,
+            "tool_name": tool_name,
+            "call_id_hash": call_id_hash,
+            "phase_before": phase_before.value,
+            "phase_after": self.control.phase.value,
+            "issue_code": issue_code,
+            "allowed_next_actions": allowed_actions,
+            "executed": False if isinstance(result, Mapping) else None,
+        })
+
+    def _cached_callback_result(self, key: str | None) -> tuple[bool, object]:
+        if key is None or key not in self._callback_delivery_cache:
+            return False, None
+        return True, deepcopy(self._callback_delivery_cache[key])
+
+    def _cache_callback_result(self, key: str | None, result: object) -> None:
+        if key is not None:
+            self._callback_delivery_cache[key] = deepcopy(result)
+
+    def after_model_callback(self, callback_context: CallbackContext, llm_response: LlmResponse) -> LlmResponse | None:
+        call_id = None
+        if llm_response.content is not None:
+            calls = [part.function_call for part in llm_response.content.parts or [] if part.function_call is not None]
+            if calls and isinstance(calls[0].id, str):
+                call_id = calls[0].id
+        key, _, _ = self._delivery_key("after_model", callback_context, call_id=call_id)
+        cached, cached_result = self._cached_callback_result(key)
+        if cached:
+            return cached_result  # type: ignore[return-value]
+        phase_before = self.control.phase
+        result = self._after_model_callback_impl(callback_context, llm_response)
+        self._record_callback_telemetry(
+            "after_model",
+            context=callback_context,
+            tool_name=None,
+            call_id=call_id,
+            phase_before=phase_before,
+            result=result,
+        )
+        self._cache_callback_result(key, result)
+        return result
+
+    def _after_model_callback_impl(self, callback_context: CallbackContext, llm_response: LlmResponse) -> LlmResponse | None:
         """Reject only calls that cannot be safely dispatched by ADK."""
 
         metadata = llm_response.custom_metadata or {}
@@ -395,7 +499,27 @@ class AdkRepositoryToolset:
             return ()
         return tuple(name for name in names if name != "inspect_target")
 
-    def before_tool_callback(self, tool: object, args: dict[str, Any], tool_context: object) -> dict[str, Any] | None:
+    def before_tool_callback(self, tool: BaseTool, args: dict[str, Any], tool_context: ToolContext) -> dict[str, Any] | None:
+        name = str(getattr(tool, "name", ""))
+        call_id = self._context_value(tool_context, "function_call_id")
+        key, _, _ = self._delivery_key("before_tool", tool_context, tool_name=name, call_id=call_id)
+        cached, cached_result = self._cached_callback_result(key)
+        if cached:
+            return cached_result  # type: ignore[return-value]
+        phase_before = self.control.phase
+        result = self._before_tool_callback_impl(tool, args, tool_context)
+        self._record_callback_telemetry(
+            "before_tool",
+            context=tool_context,
+            tool_name=name,
+            call_id=call_id,
+            phase_before=phase_before,
+            result=result,
+        )
+        self._cache_callback_result(key, result)
+        return result
+
+    def _before_tool_callback_impl(self, tool: BaseTool, args: dict[str, Any], tool_context: ToolContext) -> dict[str, Any] | None:
         """Enforce run phase, blocked signatures, and exploration budget before execution."""
 
         name = str(getattr(tool, "name", ""))
@@ -498,9 +622,35 @@ class AdkRepositoryToolset:
 
     def on_tool_error_callback(
         self,
-        tool: object,
+        tool: BaseTool,
         args: dict[str, Any],
-        tool_context: object,
+        tool_context: ToolContext,
+        error: Exception,
+    ) -> dict[str, Any]:
+        name = str(getattr(tool, "name", ""))
+        call_id = self._context_value(tool_context, "function_call_id")
+        key, _, _ = self._delivery_key("on_tool_error", tool_context, tool_name=name, call_id=call_id)
+        cached, cached_result = self._cached_callback_result(key)
+        if cached:
+            return cached_result  # type: ignore[return-value]
+        phase_before = self.control.phase
+        result = self._on_tool_error_callback_impl(tool, args, tool_context, error)
+        self._record_callback_telemetry(
+            "on_tool_error",
+            context=tool_context,
+            tool_name=name,
+            call_id=call_id,
+            phase_before=phase_before,
+            result=result,
+        )
+        self._cache_callback_result(key, result)
+        return result
+
+    def _on_tool_error_callback_impl(
+        self,
+        tool: BaseTool,
+        args: dict[str, Any],
+        tool_context: ToolContext,
         error: Exception,
     ) -> dict[str, Any]:
         """Convert ADK binding and unexpected execution errors to the public envelope."""

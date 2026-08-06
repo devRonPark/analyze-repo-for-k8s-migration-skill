@@ -35,6 +35,7 @@ class AdkRun:
     tool_calls: list[str] = field(default_factory=list)
     terminal: bool = False
     protocol_issues: list[dict[str, object]] = field(default_factory=list)
+    callback_telemetry: list[dict[str, object]] = field(default_factory=list)
     recovery_attempts: int = 0
     validation_attempts: int = 0
     prebinding_rejections: int = 0
@@ -205,6 +206,7 @@ def run_adk_agent(
         run.prebinding_cap = control.max_prebinding_rejections
         run.inline_correction_cap = control.max_inline_corrections
         run.no_progress_cap = tracker.max_no_progress
+        run.callback_telemetry = list(ledger.callback_telemetry)
 
     try:
         asyncio.run(execute())

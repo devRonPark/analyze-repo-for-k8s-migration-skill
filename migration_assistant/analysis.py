@@ -439,6 +439,9 @@ def analyze(
                         "protocol_issues": redact_sensitive_value(
                             list(getattr(run, "protocol_issues", []))
                         ),
+                        "callback_telemetry": redact_sensitive_value(
+                            list(getattr(run, "callback_telemetry", []))
+                        ),
                         "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
                         "run_control": {
                             "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
