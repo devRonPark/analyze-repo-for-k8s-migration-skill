@@ -377,6 +377,31 @@ class Phase1ContractTests(unittest.TestCase):
             result = analyze(self.make_repo(root), root / "output", adk_model=RecoveryValidationLlm(), max_iterations=5)
             self.assertEqual(result.status, "complete")
 
+    def test_actual_runner_records_after_tool_execution_truth(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            metadata: dict[str, object] = {}
+            result = analyze(
+                self.make_repo(root),
+                root / "output",
+                adk_model=RecoveryValidationLlm(),
+                max_iterations=5,
+                run_metadata=metadata,
+            )
+
+        self.assertEqual(result.status, "complete")
+        telemetry = metadata["callback_telemetry"]
+        self.assertIsInstance(telemetry, list)
+        stages = [event["callback_stage"] for event in telemetry]
+        self.assertIn("after_model", stages)
+        self.assertIn("before_tool", stages)
+        self.assertIn("after_tool", stages)
+        after_tool_events = [event for event in telemetry if event["callback_stage"] == "after_tool"]
+        self.assertTrue(any(event["executed"] is True for event in after_tool_events))
+        self.assertTrue(any(event["executed"] is False for event in after_tool_events))
+        self.assertNotIn("args", repr(telemetry))
+        self.assertNotIn("PORT = 8080", repr(telemetry))
+
     def test_validation_error_is_returned_to_agent_for_correction(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

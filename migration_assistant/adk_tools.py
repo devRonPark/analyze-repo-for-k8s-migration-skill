@@ -644,7 +644,7 @@ class AdkRepositoryToolset:
             call_id=call_id,
             phase_before=phase_before,
             result=tool_response,
-            executed=True,
+            executed=tool_response.get("ok") is True,
         )
         self._cache_callback_result(key, None)
         return None
