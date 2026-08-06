@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
@@ -14,7 +15,15 @@ from .adk_function_tool import RepositoryFunctionTool
 from .provenance import ObservationProvenance
 from .repository_tools import _MAX_LINE_EVIDENCE_LINES, RepositoryToolError, RepositoryTools, redact_sensitive_value
 from .target import BudgetExceededError
-from .tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, ToolIssue, error_envelope, success_envelope
+from .tool_protocol import (
+    RecoveryDisposition,
+    RunControlLedger,
+    RunPhase,
+    ToolErrorCode,
+    ToolIssue,
+    error_envelope,
+    success_envelope,
+)
 
 
 class ToolArgs(BaseModel):
@@ -154,7 +163,7 @@ TOOL_DESCRIPTIONS = {
     "read_file": """Use when: understanding a known source/build/config file before selecting exact evidence lines.\nDo not use when: requesting directories, .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, .dryforge, or executing code.\nArguments: relative is one safe Repository-relative file path.\nReturns: bounded redacted text or binary metadata as an untrusted observation.\nLimits: file-size and response budgets apply; whole-file text is not line-backed Evidence.\nOn error: use find_files/list_tree for not_found; never retry forbidden or budget-exhausted paths.\nNext action: use search_text or read_file_lines for exact Evidence.""",
     "read_file_lines": """Use when: copying an exact short excerpt from a path and line already confirmed by search_text or read_file.\nDo not use when: guessing line numbers, reading binaries/directories, or requesting .git, AGENTS.md, SKILL.md, CONTEXT.md, README.md, dependency/build output, virtual environments, or .dryforge.\nArguments: relative is Repository-relative; line_start and line_end are inclusive 1-based lines.\nReturns: at most ten redacted line observations with exact path and line metadata.\nLimits: the requested range must exist and target code is never executed.\nOn error: correct only the reported range/path once; never repeat forbidden or identical calls.\nNext action: copy the exact excerpt into Evidence, continue a different observation, or call validate_analysis.""",
     "inspect_git_metadata": """Use when: branch, HEAD, clean/dirty status, or remote metadata is relevant to repository context.\nDo not use when: reading .git files or using Git metadata as application behavior Evidence.\nArguments: none.\nReturns: restricted redacted Git command observations.\nLimits: never exposes .git contents and consumes exploration budget.\nOn error: do not inspect .git directly.\nNext action: continue application observation or call validate_analysis.""",
-    "validate_analysis": """Use when: submitting the complete AnalysisResult candidate after collecting exact line-backed Evidence.\nDo not use when: sending a fragment, prose, a top-level Evidence status, guessed IDs/links, or ungrounded excerpts.\nArguments: status is complete|partial|failed; evidence uses confirmed|inferred|unresolved|conflicting; positive Evidence needs id/path/1-based lines/claim/exact excerpt, unresolved Evidence needs absence_scope/absence_pattern/result; Findings need unique IDs and positive evidence links or unresolved resolution metadata. components is the migration design input: one entry per deployment unit or runtime dependency, classified as 배포 대상 후보, 저장소에 정의된 런타임 의존성, 외부 런타임 의존성, or 배포 대상 후보에서 제외한 항목; every component field carries its own evidence_ids or an unresolved absence_scope/absence_pattern/result; keep dependency_install, application_build, image_build and production_startup apart.\nReturns: one envelope; ok=true with meta.terminal=true only when the repository-grounded candidate is accepted.\nLimits: complete needs no errors and at least one positive Finding linked to line-backed Evidence; partial needs errors and positive line-backed Evidence.\nOn error: preserve the candidate, fix the reported JSON field or apply an exact evidence correction, then resubmit the full candidate.\nNext action: only validate_analysis is appropriate for candidate_schema/evidence_grounding repair; after terminal success return the accepted structured result.""",
+    "validate_analysis": """Use when: submitting the complete AnalysisResult candidate after collecting exact line-backed Evidence.\nDo not use when: sending a fragment, prose, a top-level Evidence status, guessed IDs/links, or ungrounded excerpts.\nArguments: status is complete|partial|failed; evidence uses confirmed|inferred|unresolved|conflicting; positive Evidence needs id/path/1-based lines/claim/exact excerpt, unresolved Evidence needs absence_scope/absence_pattern/result; Findings need unique IDs and positive evidence links or unresolved resolution metadata. components is the migration design input: one entry per deployment unit or runtime dependency, classified as 배포 대상 후보, 저장소에 정의된 런타임 의존성, 외부 런타임 의존성, or 배포 대상 후보에서 제외한 항목; every component field carries its own evidence_ids or an unresolved absence_scope/absence_pattern/result; keep dependency_install, application_build, image_build and production_startup apart.\nReturns: one envelope; ok=true with meta.terminal=true only when the repository-grounded candidate is accepted.\nLimits: complete needs no errors and at least one positive Finding linked to line-backed Evidence; partial needs errors and positive line-backed Evidence.\nOn error: preserve the candidate, fix the reported JSON field or apply an exact evidence correction, then resubmit the full candidate.\nNext action: candidate_schema accepts one changed validate_analysis call; evidence_grounding requires one fresh observation Tool followed by one changed validate_analysis call; after terminal success return the accepted structured result.""",
 }
 
 
@@ -283,21 +292,72 @@ class AdkRepositoryToolset:
             retryable=value.get("retryable") is True,
         )
 
+    def _repair_actions(self, issue: ToolIssue, originating_tool: str | None = None) -> tuple[str, ...]:
+        """Return the narrow current-action lease for one issue."""
+
+        if issue.code == ToolErrorCode.EVIDENCE_GROUNDING:
+            # The model must obtain one fresh observation before the corrected
+            # candidate can be validated.  Do not collapse this to validation:
+            # that was the deterministic $.name failure in live recovery.
+            return ("search_text", "read_file", "read_file_lines")
+        if issue.code in {ToolErrorCode.DUPLICATE_CALL, ToolErrorCode.CANDIDATE_SCHEMA}:
+            return ("validate_analysis",)
+        if issue.retryable and originating_tool in self._tools_by_name:
+            return (str(originating_tool),)
+        return ("validate_analysis",)
+
+    def _record_issue(
+        self,
+        issue: ToolIssue,
+        *,
+        allowed_next_actions: tuple[str, ...] | None = None,
+        follow_up_actions: tuple[str, ...] = (),
+        originating_tool: str | None = None,
+        call_id: str | None = None,
+        blocked_signature: str | None = None,
+    ) -> None:
+        actions = self._repair_actions(issue, originating_tool) if allowed_next_actions is None else allowed_next_actions
+        self.control.record_issue(
+            issue,
+            blocked_signature=blocked_signature,
+            allowed_next_actions=actions,
+            follow_up_actions=follow_up_actions,
+            originating_tool=originating_tool,
+            call_id=call_id,
+        )
+
     def after_model_callback(self, callback_context: object, llm_response: LlmResponse) -> LlmResponse | None:
-        """Reject malformed, unknown, or schema-invalid calls before ADK dispatch."""
+        """Reject only calls that cannot be safely dispatched by ADK."""
 
         metadata = llm_response.custom_metadata or {}
         adapter_issue = self._issue_from_metadata(metadata.get("protocol_issue"))
         if adapter_issue is not None:
-            self.control.record_issue(
+            linkage = metadata.get("call_linkage")
+            origin = linkage.get("name") if isinstance(linkage, Mapping) and isinstance(linkage.get("name"), str) else None
+            call_id = linkage.get("id") if isinstance(linkage, Mapping) and isinstance(linkage.get("id"), str) else None
+            self._record_issue(
                 adapter_issue,
-                allowed_next_actions=tuple(self._tools_by_name),
+                allowed_next_actions=((origin,) if origin in self._tools_by_name else tuple(self._tools_by_name)),
+                originating_tool=origin,
+                call_id=call_id,
             )
-            return llm_response
+            return deepcopy(llm_response)
 
-        content = llm_response.content
+        modified_response = deepcopy(llm_response)
+        content = modified_response.content
         if content is None:
             return None
+        calls = [part.function_call for part in content.parts or [] if part.function_call is not None]
+        if len(calls) > 1:
+            issue = ToolIssue(
+                code=ToolErrorCode.MALFORMED_ARGUMENTS,
+                category="protocol",
+                message="한 번에 하나의 Tool 호출만 허용됩니다.",
+                field_path="$.tool_calls",
+                retryable=True,
+            )
+            self._record_issue(issue, allowed_next_actions=tuple(self._tools_by_name))
+            return self._protocol_response(issue)
         canonicalized: list[dict[str, str]] = []
         for part in content.parts or []:
             call = part.function_call
@@ -313,22 +373,15 @@ class AdkRepositoryToolset:
                     field_path="$.name",
                     retryable=True,
                 )
-                self.control.record_issue(issue, allowed_next_actions=tuple(self._tools_by_name))
-                return self._protocol_response(issue)
-            tool = self._tools_by_name[canonical_name]
-            issue = tool.argument_issue(dict(call.args or {}))
-            if issue is not None:
-                self.control.record_issue(issue, allowed_next_actions=(canonical_name,))
+                self._record_issue(issue, allowed_next_actions=tuple(self._tools_by_name))
                 return self._protocol_response(issue)
             if canonical_name != original_name:
                 call.name = canonical_name
                 canonicalized.append({"original": original_name, "canonical": canonical_name})
 
-        self.control.protocol_issue = None
-        self.control.next_actions = None
         if canonicalized:
-            llm_response.custom_metadata = {**metadata, "canonicalized_calls": canonicalized}
-        return llm_response
+            modified_response.custom_metadata = {**metadata, "canonicalized_calls": canonicalized}
+        return modified_response
 
     def _phase_actions(self) -> tuple[str, ...]:
         names = tuple(self._tools_by_name)
@@ -356,26 +409,48 @@ class AdkRepositoryToolset:
                 field_path="$.name",
                 retryable=True,
             )
-            self.control.record_issue(issue, allowed_next_actions=allowed)
+            self._record_issue(issue, allowed_next_actions=allowed, originating_tool=name)
             return error_envelope(issue, allowed_next_actions=allowed)
-        argument_issue = declared_tool.argument_issue(args)
-        if argument_issue is not None:
-            self.control.record_issue(argument_issue, allowed_next_actions=(name,))
-            return error_envelope(argument_issue, allowed_next_actions=(name,))
-        signature = self.tracker.signature(name, declared_tool.normalized_args(args))
+
+        # A malformed adapter response is represented by a synthetic empty
+        # FunctionCall so ADK can emit a function response with the original
+        # call id/name.  Preserve that issue instead of replacing it with an
+        # unrelated empty-argument schema error.
+        if (
+            self.control.protocol_issue is not None
+            and self.control.pending_originating_tool == name
+            and self.control.protocol_issue.code == ToolErrorCode.MALFORMED_ARGUMENTS
+        ):
+            issue = self.control.protocol_issue
+            return error_envelope(issue, allowed_next_actions=self.control.allowed_next_actions(tuple(self._tools_by_name)))
+
+        try:
+            normalized_args = declared_tool.normalized_args(args)
+        except (TypeError, ValueError):
+            normalized_args = args if isinstance(args, Mapping) else {}
+        signature = self.tracker.signature(name, normalized_args)
         if signature in self.control.blocked_signatures:
+            duplicate = self.tracker.begin(name, normalized_args)
+            no_progress = (
+                int(duplicate.get("no_progress", 0))
+                if isinstance(duplicate, Mapping)
+                else self.tracker.consecutive_no_progress
+            )
             issue = ToolIssue(
                 code=ToolErrorCode.DUPLICATE_CALL,
                 category="progress",
                 message="이전에 차단된 동일 Tool 호출은 다시 실행할 수 없습니다.",
                 retryable=False,
             )
-            self.control.record_issue(
+            self._record_issue(
                 issue,
                 blocked_signature=signature,
                 allowed_next_actions=allowed,
+                originating_tool=name,
             )
+            self.control.observe_no_progress(no_progress)
             return error_envelope(issue, allowed_next_actions=allowed)
+
         if name not in allowed:
             issue = ToolIssue(
                 code=ToolErrorCode.INVALID_ARGUMENTS,
@@ -384,8 +459,21 @@ class AdkRepositoryToolset:
                 field_path="$.name",
                 retryable=True,
             )
-            self.control.record_issue(issue, allowed_next_actions=allowed)
+            if self.control.protocol_issue is not None:
+                self.control.preserve_protocol_issue_for_audit()
+                self._record_issue(issue, allowed_next_actions=(), originating_tool=name)
+                self.control.stop_requested = True
+                return error_envelope(issue, allowed_next_actions=())
+            self._record_issue(issue, allowed_next_actions=allowed, originating_tool=name)
             return error_envelope(issue, allowed_next_actions=allowed)
+
+        argument_issue = declared_tool.argument_issue(args)
+        if argument_issue is not None:
+            if name == "validate_analysis" and argument_issue.code == ToolErrorCode.CANDIDATE_SCHEMA:
+                if not self.control.mark_prebinding_rejection(argument_issue, name):
+                    return error_envelope(argument_issue, allowed_next_actions=())
+            self._record_issue(argument_issue, allowed_next_actions=(name,), originating_tool=name)
+            return error_envelope(argument_issue, allowed_next_actions=(name,))
         budget = self.repository_tools.budget
         if name != "validate_analysis" and budget.explorations >= budget.max_explorations:
             issue = ToolIssue(
@@ -394,8 +482,18 @@ class AdkRepositoryToolset:
                 message="Repository exploration budget이 소진되었습니다.",
                 retryable=False,
             )
-            self.control.record_issue(issue, allowed_next_actions=("validate_analysis",))
+            self._record_issue(issue, allowed_next_actions=("validate_analysis",), originating_tool=name)
             return error_envelope(issue, allowed_next_actions=("validate_analysis",))
+        disposition = self.control.authorize_action(name, allowed)
+        if disposition == RecoveryDisposition.STOP:
+            issue = self.control.protocol_issue or ToolIssue(
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="state",
+                message="현재 run control 상태에서 Tool을 호출할 수 없습니다.",
+                field_path="$.name",
+                retryable=False,
+            )
+            return error_envelope(issue, allowed_next_actions=())
         return None
 
     def on_tool_error_callback(
@@ -408,14 +506,34 @@ class AdkRepositoryToolset:
         """Convert ADK binding and unexpected execution errors to the public envelope."""
 
         name = str(getattr(tool, "name", ""))
+        if (
+            self.control.protocol_issue is not None
+            and self.control.pending_originating_tool == name
+            and self.control.protocol_issue.code == ToolErrorCode.MALFORMED_ARGUMENTS
+        ):
+            issue = self.control.protocol_issue
+            actions = self.control.allowed_next_actions(tuple(self._tools_by_name))
+            return error_envelope(issue, allowed_next_actions=actions)
+        if name == "validate_analysis" and not isinstance(error, (TypeError, ValueError)):
+            issue = ToolIssue(
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="execution",
+                message="validate_analysis 내부 실행 중 오류가 발생했습니다.",
+                retryable=False,
+            )
+            self._record_issue(issue, allowed_next_actions=(), originating_tool=name)
+            self.control.stop_requested = True
+            return error_envelope(issue, allowed_next_actions=())
         issue = ToolIssue(
-            code=ToolErrorCode.INVALID_ARGUMENTS,
-            category="execution",
+            code=ToolErrorCode.CANDIDATE_SCHEMA if name == "validate_analysis" else ToolErrorCode.INVALID_ARGUMENTS,
+            category="validation" if name == "validate_analysis" else "execution",
             message=str(redact_sensitive_value(str(error))),
             retryable=isinstance(error, (TypeError, ValueError)),
         )
         actions = (name,) if issue.retryable and name in self._tools_by_name else ("validate_analysis",)
-        self.control.record_issue(issue, allowed_next_actions=actions)
+        if name == "validate_analysis":
+            self.control.mark_prebinding_rejection(issue, name)
+        self._record_issue(issue, allowed_next_actions=actions, originating_tool=name)
         return error_envelope(
             issue,
             allowed_next_actions=actions,
@@ -463,11 +581,13 @@ class AdkRepositoryToolset:
                 message=str(duplicate["error"]),
                 retryable=False,
             )
-            self.control.record_issue(
+            self._record_issue(
                 issue,
                 blocked_signature=signature,
                 allowed_next_actions=("validate_analysis",),
+                originating_tool=name,
             )
+            self.control.observe_no_progress(int(duplicate.get("no_progress", 0)))
             return error_envelope(
                 issue,
                 allowed_next_actions=("validate_analysis",),
@@ -475,6 +595,11 @@ class AdkRepositoryToolset:
             )
         try:
             result = operation()
+            # A successful correction supersedes the transient execution/budget
+            # error that caused the model to repair.  Validation errors remain
+            # until validate_analysis explicitly accepts the candidate.
+            self.ledger.tool_error = None
+            self.ledger.budget_exhausted = None
             if name == "search_text" and isinstance(result, Mapping):
                 hits = result.get("hits")
                 if isinstance(hits, list):
@@ -490,6 +615,7 @@ class AdkRepositoryToolset:
                 self.control.phase = RunPhase.VALIDATE
             else:
                 self.control.phase = RunPhase.GROUND
+            self.control.complete_action(name)
             return success_envelope(redact_sensitive_value(result))
         except (BudgetExceededError, RepositoryToolError, TypeError, ValueError) as error:
             safe_error = str(redact_sensitive_value(str(error)))
@@ -521,7 +647,7 @@ class AdkRepositoryToolset:
                     retryable=True,
                 )
                 actions = (name, "validate_analysis")
-            self.control.record_issue(
+            self._record_issue(
                 issue,
                 blocked_signature=(
                     signature
@@ -529,8 +655,22 @@ class AdkRepositoryToolset:
                     else None
                 ),
                 allowed_next_actions=actions,
+                originating_tool=name,
             )
             return error_envelope(issue, allowed_next_actions=actions)
+        except RuntimeError:
+            if name != "validate_analysis":
+                raise
+            issue = ToolIssue(
+                code=ToolErrorCode.INVALID_ARGUMENTS,
+                category="execution",
+                message="validate_analysis 내부 실행 중 오류가 발생했습니다.",
+                retryable=False,
+            )
+            self.ledger.tool_error = issue.message
+            self._record_issue(issue, allowed_next_actions=(), originating_tool=name)
+            self.control.stop_requested = True
+            return error_envelope(issue, allowed_next_actions=())
 
     def inspect_target(self) -> dict[str, object]:
         """Inspect the local Git Repository safety boundary. This is not application evidence."""
@@ -591,6 +731,17 @@ class AdkRepositoryToolset:
             "termination": termination,
             "components": components or [],
         })
+        self.control.validation_attempts += 1
+        if self.control.validation_attempts > self.control.max_validation_attempts:
+            issue = ToolIssue(
+                code=ToolErrorCode.CANDIDATE_SCHEMA,
+                category="budget",
+                message="validate_analysis 시도 한도에 도달했습니다.",
+                retryable=False,
+            )
+            self.ledger.validation_error = issue.message
+            self.control.stop_requested = True
+            return error_envelope(issue, allowed_next_actions=())
         if self.control.candidate_repeated(candidate):
             issue = ToolIssue(
                 code=ToolErrorCode.DUPLICATE_CALL,
@@ -600,7 +751,7 @@ class AdkRepositoryToolset:
                 retryable=False,
             )
             self.ledger.validation_error = issue.message
-            self.control.record_issue(issue, allowed_next_actions=())
+            self._record_issue(issue, allowed_next_actions=(), originating_tool="validate_analysis")
             return error_envelope(issue, allowed_next_actions=())
         execution = self._call("validate_analysis", candidate, lambda: self.repository_tools.validate_analysis(candidate))
         if not isinstance(execution, Mapping) or execution.get("ok") is not True:
@@ -637,10 +788,17 @@ class AdkRepositoryToolset:
                 message=self.ledger.validation_error,
                 retryable=True,
             )
-            self.control.record_issue(issue, allowed_next_actions=("validate_analysis",))
+            repair_actions = self._repair_actions(issue, "validate_analysis")
+            follow_up = ("validate_analysis",) if grounding else ()
+            self._record_issue(
+                issue,
+                allowed_next_actions=repair_actions,
+                follow_up_actions=follow_up,
+                originating_tool="validate_analysis",
+            )
             return error_envelope(
                 issue,
-                allowed_next_actions=("validate_analysis",),
+                allowed_next_actions=repair_actions,
                 meta={
                     "issues": typed_issues if isinstance(typed_issues, list) else [],
                     "validation_errors": response.get("errors", []),
@@ -660,7 +818,7 @@ class AdkRepositoryToolset:
                 message=self.ledger.validation_error,
                 retryable=True,
             )
-            self.control.record_issue(issue, allowed_next_actions=("validate_analysis",))
+            self._record_issue(issue, allowed_next_actions=("validate_analysis",), originating_tool="validate_analysis")
             return error_envelope(
                 issue,
                 allowed_next_actions=("validate_analysis",),

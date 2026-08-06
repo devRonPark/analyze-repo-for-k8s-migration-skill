@@ -440,6 +440,18 @@ def analyze(
                             list(getattr(run, "protocol_issues", []))
                         ),
                         "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
+                        "run_control": {
+                            "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
+                            "validation_attempts": int(getattr(run, "validation_attempts", 0)),
+                            "prebinding_rejections": int(getattr(run, "prebinding_rejections", 0)),
+                            "inline_corrections": int(getattr(run, "inline_corrections", 0)),
+                            "max_no_progress_seen": int(getattr(run, "max_no_progress_seen", 0)),
+                            "recovery_cap": int(getattr(run, "recovery_cap", 1)),
+                            "validation_cap": int(getattr(run, "validation_cap", 2)),
+                            "prebinding_cap": int(getattr(run, "prebinding_cap", 1)),
+                            "inline_correction_cap": int(getattr(run, "inline_correction_cap", 3)),
+                            "no_progress_cap": int(getattr(run, "no_progress_cap", 0)),
+                        },
                         "evidence_provenance": redact_sensitive_value(
                             list(getattr(run, "evidence_provenance", []))
                         ),

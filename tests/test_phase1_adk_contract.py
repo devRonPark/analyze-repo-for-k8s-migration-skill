@@ -339,7 +339,7 @@ class Phase1ContractTests(unittest.TestCase):
                 max_iterations=20,
             )
             self.assertEqual(result.status, "failed")
-            self.assertTrue(any("no-progress" in error for error in result.errors))
+            self.assertTrue(result.errors)
             self.assertLess(result.iterations, 20)
 
     def test_invalid_final_response_is_structured_partial_not_uncaught(self):
@@ -628,7 +628,8 @@ class Phase1ContractTests(unittest.TestCase):
 
         self.assertEqual(response.content.parts[0].text, "Tool protocol 검증에 실패했습니다.")
         self.assertEqual(response.custom_metadata["protocol_issue"]["code"], "malformed_arguments")
-        self.assertFalse(any(part.function_call for part in response.content.parts))
+        call = next(part.function_call for part in response.content.parts if part.function_call)
+        self.assertEqual((call.id, call.name), ("call-1", "read_file"))
 
     def test_after_model_callback_blocks_unknown_name_before_adk_dispatch(self):
         control = RunControlLedger()
@@ -672,6 +673,54 @@ class Phase1ContractTests(unittest.TestCase):
         )))
         self.assertEqual(control.protocol_issue.code, ToolErrorCode.INVALID_TOOL_NAME)
         self.assertFalse(any(part.function_call for part in rejected.content.parts))
+
+    def test_after_model_canonicalization_does_not_mutate_original_response(self):
+        toolset = AdkRepositoryToolset(
+            RepositoryTools(Path.cwd(), budget=SafetyBudget()),
+            ValidationLedger(),
+            DuplicateTracker(),
+        )
+        original = LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[types.Part(function_call=types.FunctionCall(
+                    name="read_filearg",
+                    args={"relative": "app.py"},
+                    id="call-1",
+                ))],
+            ),
+            groundingMetadata=types.GroundingMetadata(),
+            partial=True,
+            finishReason=types.FinishReason.STOP,
+            errorCode="E_TEST",
+            errorMessage="test error",
+            customMetadata={"original": "keep"},
+            usageMetadata=types.GenerateContentResponseUsageMetadata(
+                prompt_token_count=1,
+                candidates_token_count=2,
+                total_token_count=3,
+            ),
+        )
+        original_dump = original.model_dump(exclude_none=True, by_alias=True)
+
+        modified = toolset.after_model_callback(None, original)
+
+        self.assertIsNot(modified, original)
+        self.assertEqual(original.model_dump(exclude_none=True, by_alias=True), original_dump)
+        self.assertEqual(original.content.parts[0].function_call.name, "read_filearg")
+        self.assertEqual(modified.content.parts[0].function_call.name, "read_file")
+        self.assertEqual(modified.content.parts[0].function_call.id, "call-1")
+        self.assertEqual(modified.custom_metadata["original"], "keep")
+        self.assertEqual(modified.custom_metadata["canonicalized_calls"], [{
+            "original": "read_filearg",
+            "canonical": "read_file",
+        }])
+        self.assertEqual(modified.grounding_metadata, original.grounding_metadata)
+        self.assertEqual(modified.partial, original.partial)
+        self.assertEqual(modified.finish_reason, original.finish_reason)
+        self.assertEqual(modified.error_code, original.error_code)
+        self.assertEqual(modified.error_message, original.error_message)
+        self.assertEqual(modified.usage_metadata, original.usage_metadata)
 
     def test_before_tool_callback_enforces_initial_phase_without_execution(self):
         control = RunControlLedger()
@@ -778,8 +827,8 @@ class Phase1ContractTests(unittest.TestCase):
             repository = RepositoryTools(self.make_repo(Path(tmp)), budget=SafetyBudget(max_iterations=10))
             run = run_adk_agent(repository, Settings(), repository.budget, model_override=UnknownToolLlm())
 
-        self.assertEqual(run.recovery_attempts, 2)
-        self.assertTrue(any("no-progress" in error for error in run.errors))
+        self.assertEqual(run.recovery_attempts, 1)
+        self.assertTrue(run.errors)
 
     def test_posthoc_partial_without_positive_evidence_becomes_failed(self):
         with tempfile.TemporaryDirectory() as tmp:

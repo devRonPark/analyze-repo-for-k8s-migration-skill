@@ -16,6 +16,20 @@ from migration_assistant.adk_runner import AdkRun
 from migration_assistant.analysis import AnalysisResult, analyze
 
 
+VALID_RUN_CONTROL = {
+    "recovery_attempts": 0,
+    "validation_attempts": 1,
+    "prebinding_rejections": 0,
+    "inline_corrections": 0,
+    "max_no_progress_seen": 0,
+    "recovery_cap": 1,
+    "validation_cap": 2,
+    "prebinding_cap": 1,
+    "inline_correction_cap": 3,
+    "no_progress_cap": 3,
+}
+
+
 def run(
     exit_code: int,
     status: str,
@@ -177,6 +191,7 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
                 "terminal": True,
                 "tool_calls": ["inspect_target", "validate_analysis"],
                 "protocol_issues": [],
+                "run_control": dict(VALID_RUN_CONTROL),
             })
             return SimpleNamespace(
                 status="complete",
@@ -227,6 +242,7 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
                 "terminal": True,
                 "tool_calls": ["inspect_target", "validate_analysis"],
                 "protocol_issues": [],
+                "run_control": dict(VALID_RUN_CONTROL),
             })
             return SimpleNamespace(
                 status="complete",
@@ -260,6 +276,7 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
                 "terminal": True,
                 "tool_calls": ["inspect_target", "validate_analysis"],
                 "protocol_issues": [],
+                "run_control": dict(VALID_RUN_CONTROL),
             })
             return SimpleNamespace(
                 status="complete",
@@ -357,6 +374,7 @@ class Phase1LiveAcceptanceHarnessTests(unittest.TestCase):
                 "terminal": True,
                 "tool_calls": ["inspect_target", "validate_analysis"],
                 "protocol_issues": [],
+                "run_control": dict(VALID_RUN_CONTROL),
             })
             return SimpleNamespace(
                 status="complete",

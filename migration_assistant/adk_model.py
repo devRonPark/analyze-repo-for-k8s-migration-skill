@@ -315,7 +315,8 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                                 message="Tool 인자는 유효한 JSON object 문자열이어야 합니다.",
                                 field_path=f"$.tool_calls[{index}].function.arguments",
                                 retryable=True,
-                            )
+                            ),
+                            call=call,
                         )
                 elif isinstance(arguments, Mapping):
                     args = dict(arguments)
@@ -327,7 +328,8 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                             message="Tool 인자는 object 형식이어야 합니다.",
                             field_path=f"$.tool_calls[{index}].function.arguments",
                             retryable=True,
-                        )
+                        ),
+                        call=call,
                     )
                 if not isinstance(args, dict):
                     return cls._protocol_failure(
@@ -337,7 +339,8 @@ class OpenAICompatibleAdkLlm(BaseLlm):
                             message="Tool 인자 JSON은 object로 해석되어야 합니다.",
                             field_path=f"$.tool_calls[{index}].function.arguments",
                             retryable=True,
-                        )
+                        ),
+                        call=call,
                     )
                 parts.append(types.Part(functionCall=types.FunctionCall(
                     name=str(function["name"]), args=args, id=call.get("id")
@@ -345,12 +348,27 @@ class OpenAICompatibleAdkLlm(BaseLlm):
         return LlmResponse(content=types.Content(role="model", parts=parts), partial=False)
 
     @staticmethod
-    def _protocol_failure(issue: ToolIssue) -> LlmResponse:
+    def _protocol_failure(issue: ToolIssue, *, call: Mapping[str, object] | None = None) -> LlmResponse:
+        linkage: dict[str, str] = {}
+        if isinstance(call, Mapping):
+            function = call.get("function")
+            if isinstance(function, Mapping) and isinstance(function.get("name"), str):
+                linkage["name"] = function["name"]
+            if isinstance(call.get("id"), str):
+                linkage["id"] = call["id"]
+        parts = [types.Part(text="Tool protocol 검증에 실패했습니다.")]
+        if linkage.get("name"):
+            parts.append(types.Part(functionCall=types.FunctionCall(
+                name=linkage["name"], args={}, id=linkage.get("id")
+            )))
+        metadata: dict[str, object] = {"protocol_issue": error_envelope(issue)["error"]}
+        if linkage:
+            metadata["call_linkage"] = linkage
         return LlmResponse(
             content=types.Content(
                 role="model",
-                parts=[types.Part(text="Tool protocol 검증에 실패했습니다.")],
+                parts=parts,
             ),
-            custom_metadata={"protocol_issue": error_envelope(issue)["error"]},
+            custom_metadata=metadata,
             partial=False,
         )

@@ -35,6 +35,20 @@ class RunPhase(StrEnum):
     PARTIAL_OR_FAILED = "partial_or_failed"
 
 
+class RecoveryDisposition(StrEnum):
+    """Private runner decisions for a protocol issue.
+
+    These values are deliberately not part of the model-facing envelope.  They
+    describe whether the next model function call may consume the issue's
+    correction lease or whether the runner must start/stop a bounded turn.
+    """
+
+    INLINE_CORRECTION = "inline_correction"
+    INLINE_VALIDATE_ONLY = "inline_validate_only"
+    NEXT_TURN_RECOVERY = "next_turn_recovery"
+    STOP = "stop"
+
+
 @dataclass(frozen=True, slots=True)
 class ToolIssue:
     """A Secret-safe issue that tells the model what failed and whether to retry."""
@@ -61,8 +75,23 @@ class RunControlLedger:
     candidate_hashes: set[str] = field(default_factory=set)
     attempted_actions: set[tuple[ToolErrorCode, str]] = field(default_factory=set)
     recovery_attempts: int = 0
-    max_recovery_attempts: int = 2
+    max_recovery_attempts: int = 1
     next_actions: tuple[str, ...] | None = None
+    pending_originating_tool: str | None = None
+    pending_call_id: str | None = None
+    follow_up_actions: tuple[str, ...] = ()
+    inline_lease_used: bool = False
+    next_turn_lease_used: bool = False
+    stop_requested: bool = False
+    inline_corrections: int = 0
+    max_inline_corrections: int = 3
+    validation_attempts: int = 0
+    max_validation_attempts: int = 2
+    prebinding_rejections: int = 0
+    max_prebinding_rejections: int = 1
+    max_no_progress_seen: int = 0
+    audit_issues: list[ToolIssue] = field(default_factory=list)
+    _issue_fingerprints: set[str] = field(default_factory=set, repr=False)
 
     def record_issue(
         self,
@@ -70,13 +99,145 @@ class RunControlLedger:
         *,
         blocked_signature: str | None = None,
         allowed_next_actions: Sequence[str] = (),
+        follow_up_actions: Sequence[str] = (),
+        originating_tool: str | None = None,
+        call_id: str | None = None,
     ) -> None:
+        fingerprint = self.issue_fingerprint(issue, originating_tool, allowed_next_actions)
+        if fingerprint in self._issue_fingerprints:
+            self.stop_requested = True
+        else:
+            self._issue_fingerprints.add(fingerprint)
+        if self.protocol_issue is None:
+            # A completed correction starts a fresh issue lease.  A grounding
+            # correction intentionally keeps the pending issue until its
+            # follow-up validation call has been accepted.
+            self.inline_lease_used = False
         self.protocol_issue = issue
         self.phase = RunPhase.REPAIR
         self.retry_counts[issue.code] = self.retry_counts.get(issue.code, 0) + 1
         self.next_actions = tuple(allowed_next_actions)
+        self.follow_up_actions = tuple(follow_up_actions)
+        self.pending_originating_tool = originating_tool
+        self.pending_call_id = call_id
         if blocked_signature:
             self.blocked_signatures.add(blocked_signature)
+
+    @staticmethod
+    def issue_fingerprint(
+        issue: ToolIssue,
+        originating_tool: str | None = None,
+        allowed_next_actions: Sequence[str] = (),
+    ) -> str:
+        """Return a Secret-safe issue identity for bounded repetition checks."""
+
+        return "|".join(
+            (
+                issue.code.value,
+                issue.category,
+                issue.field_path or "",
+                originating_tool or "",
+                ",".join(allowed_next_actions),
+            )
+        )
+
+    def mark_prebinding_rejection(self, issue: ToolIssue, originating_tool: str | None = None) -> bool:
+        """Record an ADK/schema rejection before the handler is entered.
+
+        The boolean indicates whether this fingerprint may be exposed to one
+        correction.  No argument value is retained.
+        """
+
+        actions = (originating_tool,) if originating_tool else ("validate_analysis",)
+        fingerprint = self.issue_fingerprint(issue, originating_tool, actions)
+        if fingerprint in self._issue_fingerprints:
+            self.stop_requested = True
+            return False
+        self.prebinding_rejections += 1
+        if self.prebinding_rejections > self.max_prebinding_rejections:
+            self.stop_requested = True
+            return False
+        return True
+
+    def preserve_protocol_issue_for_audit(self) -> None:
+        """Keep the active issue when a forbidden recovery action is rejected."""
+
+        if self.protocol_issue is not None and (
+            not self.audit_issues or self.audit_issues[-1] != self.protocol_issue
+        ):
+            self.audit_issues.append(self.protocol_issue)
+
+    def authorize_action(
+        self,
+        action: str,
+        phase_actions: Sequence[str],
+    ) -> RecoveryDisposition:
+        """Decide whether a model function call may execute.
+
+        This is the single lease decision point used by the callbacks.  The
+        action is checked only after the caller has performed duplicate and
+        argument checks, so a rejected correction never consumes a lease.
+        """
+
+        if self.stop_requested or self.phase in {RunPhase.DONE, RunPhase.PARTIAL_OR_FAILED}:
+            return RecoveryDisposition.STOP
+        issue = self.protocol_issue
+        if issue is None:
+            if action in phase_actions:
+                return RecoveryDisposition.INLINE_VALIDATE_ONLY
+            return RecoveryDisposition.STOP
+        allowed = self.allowed_next_actions(phase_actions)
+        if action not in allowed:
+            self.stop_requested = True
+            return RecoveryDisposition.STOP
+        if action in self.follow_up_actions:
+            return RecoveryDisposition.INLINE_VALIDATE_ONLY
+        if self.inline_lease_used or self.inline_corrections >= self.max_inline_corrections:
+            self.stop_requested = True
+            return RecoveryDisposition.STOP
+        self.inline_lease_used = True
+        self.inline_corrections += 1
+        return RecoveryDisposition.INLINE_CORRECTION
+
+    def complete_action(self, action: str) -> None:
+        """Advance a pending correction after the Tool actually succeeded."""
+
+        if self.protocol_issue is None:
+            return
+        if action in self.follow_up_actions:
+            self.protocol_issue = None
+            self.next_actions = None
+            self.follow_up_actions = ()
+            self.pending_originating_tool = None
+            self.pending_call_id = None
+            return
+        if self.follow_up_actions:
+            self.next_actions = self.follow_up_actions
+            self.phase = RunPhase.REPAIR
+            return
+        self.protocol_issue = None
+        self.next_actions = None
+        self.follow_up_actions = ()
+        self.pending_originating_tool = None
+        self.pending_call_id = None
+
+    def begin_next_turn(self) -> bool:
+        """Consume the only recovery turn not covered by an inline lease."""
+
+        if (
+            self.stop_requested
+            or self.next_turn_lease_used
+            or self.inline_lease_used
+            or self.recovery_attempts >= self.max_recovery_attempts
+        ):
+            self.stop_requested = True
+            return False
+        self.next_turn_lease_used = True
+        self.recovery_attempts += 1
+        return True
+
+    def observe_no_progress(self, value: int) -> None:
+        self.max_no_progress_seen = max(self.max_no_progress_seen, max(0, int(value)))
 
     def candidate_repeated(self, candidate: Mapping[str, Any]) -> bool:
         canonical = json.dumps(candidate, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
@@ -100,6 +261,8 @@ class RunControlLedger:
             return ()
         if issue is None:
             return registered
+        if self.stop_requested:
+            return ()
         if self.next_actions is not None:
             return tuple(name for name in self.next_actions if name in registered)
         if issue.code in {

@@ -34,6 +34,18 @@ class AcceptanceRun:
     protocol_error_inputs: tuple[str | None, ...] = ()
     evidence_provenance: tuple[dict[str, object], ...] = ()
     provenance_summary: Mapping[str, object] = field(default_factory=dict)
+    recovery_attempts: int = 0
+    validation_attempts: int = 0
+    prebinding_rejections: int = 0
+    inline_corrections: int = 0
+    max_no_progress_seen: int = 0
+    recovery_cap: int = 1
+    validation_cap: int = 2
+    prebinding_cap: int = 1
+    inline_correction_cap: int = 3
+    no_progress_cap: int = 3
+    telemetry_valid: bool = True
+    telemetry_error: str | None = None
     error_type: str | None = None
     error_message: str | None = None
 
@@ -58,7 +70,20 @@ class AcceptanceRun:
             "evidence_provenance": [dict(item) for item in self.evidence_provenance],
             "provenance_summary": dict(self.provenance_summary),
             "unobserved_evidence_count": self.unobserved_evidence_count,
+            "recovery_attempts": self.recovery_attempts,
+            "validation_attempts": self.validation_attempts,
+            "prebinding_rejections": self.prebinding_rejections,
+            "inline_corrections": self.inline_corrections,
+            "max_no_progress_seen": self.max_no_progress_seen,
+            "recovery_cap": self.recovery_cap,
+            "validation_cap": self.validation_cap,
+            "prebinding_cap": self.prebinding_cap,
+            "inline_correction_cap": self.inline_correction_cap,
+            "no_progress_cap": self.no_progress_cap,
+            "telemetry_valid": self.telemetry_valid,
         }
+        if self.telemetry_error is not None:
+            summary["telemetry_error"] = self.telemetry_error
         if self.error_type is not None:
             summary["error_type"] = self.error_type
         if self.error_message is not None:
@@ -73,6 +98,13 @@ def _is_success(run: AcceptanceRun) -> bool:
         and run.terminal
         and "validate_analysis" in run.tool_calls
         and run.positive_evidence_count > 0
+        and run.telemetry_valid
+        and run.unobserved_evidence_count == 0
+        and run.recovery_attempts <= run.recovery_cap
+        and run.validation_attempts <= run.validation_cap
+        and run.prebinding_rejections <= run.prebinding_cap
+        and run.inline_corrections <= run.inline_correction_cap
+        and run.max_no_progress_seen <= run.no_progress_cap
     )
 
 
@@ -255,6 +287,22 @@ def _error_summary(error: BaseException) -> dict[str, object]:
     })  # type: ignore[return-value]
 
 
+def _run_control_telemetry(metadata: Mapping[str, object]) -> dict[str, object]:
+    """Read run-control counts fail-closed without inferring missing zeros."""
+
+    value = metadata.get("run_control")
+    if not isinstance(value, Mapping):
+        return {"telemetry_valid": False, "telemetry_error": "run_control telemetry가 없습니다."}
+    fields = (
+        "recovery_attempts", "validation_attempts", "prebinding_rejections",
+        "inline_corrections", "max_no_progress_seen", "recovery_cap",
+        "validation_cap", "prebinding_cap", "inline_correction_cap", "no_progress_cap",
+    )
+    if any(not isinstance(value.get(name), int) or value.get(name) < 0 for name in fields):
+        return {"telemetry_valid": False, "telemetry_error": "run_control telemetry 형식이 올바르지 않습니다."}
+    return {name: int(value[name]) for name in fields} | {"telemetry_valid": True}
+
+
 def _safe_evidence_items(result: object) -> tuple[object, ...]:
     try:
         evidence = getattr(result, "evidence", ())
@@ -316,6 +364,8 @@ def _run_once(
     else:
         error_details = {}
 
+    telemetry = _run_control_telemetry(metadata)
+
     tool_calls = metadata.get("tool_calls", ())
     if not isinstance(tool_calls, (list, tuple)):
         tool_calls = ()
@@ -332,6 +382,22 @@ def _run_once(
         protocol_error_inputs=_protocol_error_inputs(metadata),
         evidence_provenance=_evidence_provenance(metadata),
         provenance_summary=_provenance_summary(metadata),
+        recovery_attempts=int(telemetry.get("recovery_attempts", 0)),
+        validation_attempts=int(telemetry.get("validation_attempts", 0)),
+        prebinding_rejections=int(telemetry.get("prebinding_rejections", 0)),
+        inline_corrections=int(telemetry.get("inline_corrections", 0)),
+        max_no_progress_seen=int(telemetry.get("max_no_progress_seen", 0)),
+        recovery_cap=int(telemetry.get("recovery_cap", 0)),
+        validation_cap=int(telemetry.get("validation_cap", 0)),
+        prebinding_cap=int(telemetry.get("prebinding_cap", 0)),
+        inline_correction_cap=int(telemetry.get("inline_correction_cap", 0)),
+        no_progress_cap=int(telemetry.get("no_progress_cap", 0)),
+        telemetry_valid=bool(telemetry.get("telemetry_valid", False)),
+        telemetry_error=(
+            str(telemetry["telemetry_error"])
+            if isinstance(telemetry.get("telemetry_error"), str)
+            else None
+        ),
         error_type=error_details.get("error_type"),  # type: ignore[arg-type]
         error_message=error_details.get("error_message"),  # type: ignore[arg-type]
     )

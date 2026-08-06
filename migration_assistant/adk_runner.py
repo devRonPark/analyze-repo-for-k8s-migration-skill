@@ -36,6 +36,15 @@ class AdkRun:
     terminal: bool = False
     protocol_issues: list[dict[str, object]] = field(default_factory=list)
     recovery_attempts: int = 0
+    validation_attempts: int = 0
+    prebinding_rejections: int = 0
+    inline_corrections: int = 0
+    max_no_progress_seen: int = 0
+    recovery_cap: int = 1
+    validation_cap: int = 2
+    prebinding_cap: int = 1
+    inline_correction_cap: int = 3
+    no_progress_cap: int = 3
     evidence_provenance: list[dict[str, object]] = field(default_factory=list)
     provenance_summary: dict[str, object] = field(default_factory=dict)
 
@@ -135,12 +144,6 @@ def run_adk_agent(
                             issue_payload["rejected_input"] = control.protocol_issue.rejected_input
                         if not run.protocol_issues or run.protocol_issues[-1] != issue_payload:
                             run.protocol_issues.append(issue_payload)
-                        if control.protocol_issue.code not in {
-                            ToolErrorCode.CANDIDATE_SCHEMA,
-                            ToolErrorCode.EVIDENCE_GROUNDING,
-                        }:
-                            await events.aclose()
-                            break
                     content = getattr(event, "content", None)
                     if content is not None and getattr(content, "role", None) == "model":
                         text = "\n".join(part.text for part in (content.parts or []) if getattr(part, "text", None))
@@ -151,11 +154,13 @@ def run_adk_agent(
                         control.phase = RunPhase.DONE
                         await events.aclose()
                         break
-                    # Let the model see validate_analysis's structured errors
-                    # and correct the same candidate in the current turn. A
-                    # repository/tool failure still ends the stream so the
-                    # bounded recovery prompt can steer it safely.
-                    if ledger.tool_error or ledger.budget_exhausted:
+                    # Let the model see structured Tool errors and choose the
+                    # next call in the current stream when its lease allows it.
+                    # A function response can be followed by the next model
+                    # function call in this same stream.  The current event is
+                    # not itself a recovery decision; the ledger authorizes the
+                    # next call after duplicate/phase/argument checks.
+                    if control.stop_requested:
                         await events.aclose()
                         break
                     if tracker.consecutive_no_progress >= tracker.max_no_progress:
@@ -173,36 +178,33 @@ def run_adk_agent(
             and budget.iterations < budget.max_iterations
             and (run.final_text or run.tool_calls or ledger.validation_error or ledger.tool_error or control.protocol_issue)
         ):
-            for recovery_attempt in range(control.max_recovery_attempts):
-                if (
-                    ledger.result is not None
-                    or tracker.consecutive_no_progress >= tracker.max_no_progress
-                    or budget.iterations >= budget.max_iterations
-                ):
-                    break
+            if control.begin_next_turn():
                 # A recovery turn must observe only errors produced by that turn;
-                # otherwise the first failed tool call closes the recovery stream
-                # before the Agent can submit the already collected candidate.
+                # inline correction leases are not replenished here.
                 ledger.validation_error = None
                 ledger.tool_error = None
                 ledger.budget_exhausted = None
-                control.recovery_attempts += 1
                 recovery = types.Content(
                     role="user",
                     parts=[
                         types.Part(
-                            text=_recovery_prompt(control, recovery_attempt + 1, PUBLIC_AGENT_TOOL_NAMES)
+                            text=_recovery_prompt(control, control.recovery_attempts, PUBLIC_AGENT_TOOL_NAMES)
                         )
                     ],
                 )
                 await consume(runner.run_async(user_id="local-user", session_id=session.id, new_message=recovery))
-                issue = control.protocol_issue
-                if issue is not None:
-                    fingerprint = f"{issue.field_path or '$'}:{','.join(control.allowed_next_actions(PUBLIC_AGENT_TOOL_NAMES))}"
-                    if control.action_repeated(issue.code, fingerprint):
-                        run.errors.append("동일 protocol 오류와 recovery action이 반복되어 no-progress로 종료했습니다.")
-                        break
+            elif control.protocol_issue is not None and not control.inline_lease_used:
+                run.errors.append("제한된 protocol recovery 한도에 도달했습니다.")
         run.recovery_attempts = control.recovery_attempts
+        run.validation_attempts = control.validation_attempts
+        run.prebinding_rejections = control.prebinding_rejections
+        run.inline_corrections = control.inline_corrections
+        run.max_no_progress_seen = max(control.max_no_progress_seen, tracker.consecutive_no_progress)
+        run.recovery_cap = control.max_recovery_attempts
+        run.validation_cap = control.max_validation_attempts
+        run.prebinding_cap = control.max_prebinding_rejections
+        run.inline_correction_cap = control.max_inline_corrections
+        run.no_progress_cap = tracker.max_no_progress
 
     try:
         asyncio.run(execute())
