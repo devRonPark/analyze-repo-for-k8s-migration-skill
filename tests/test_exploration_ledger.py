@@ -119,6 +119,61 @@ class ExplorationLedgerAdkWiringTests(unittest.TestCase):
 
             self.assertNotIn("Dockerfile", repr(toolset.exploration_ledger.summary()))
 
+    def test_accepted_positive_evidence_increments_positive_evidence_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+            toolset.inspect_target()
+
+            response = toolset.validate_analysis(
+                status="partial",
+                summary="기동 명령을 확인했습니다.",
+                evidence=[
+                    {
+                        "id": "e1",
+                        "status": "confirmed",
+                        "path": "Dockerfile",
+                        "line_start": 2,
+                        "line_end": 2,
+                        "claim": "기동 명령",
+                        "text": 'ENTRYPOINT ["python", "app.py"]',
+                    }
+                ],
+                findings=[],
+                iterations=1,
+                errors=["writable path는 확인하지 못했습니다."],
+            )
+
+            self.assertTrue(response["ok"], response)
+            coverage = toolset.exploration_ledger.summary()["questions"]
+            self.assertIn("production_startup", coverage)
+            self.assertEqual(coverage["production_startup"]["positive_evidence_count"], 1)
+
+    def test_unresolved_evidence_never_counts_as_positive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self.make_repo(Path(tmp))
+            toolset = AdkRepositoryToolset(RepositoryTools(repo, budget=SafetyBudget()), ValidationLedger(), DuplicateTracker())
+            toolset.inspect_target()
+
+            toolset.validate_analysis(
+                status="partial",
+                summary="확인하지 못했습니다.",
+                evidence=[
+                    {
+                        "id": "e1",
+                        "status": "unresolved",
+                        "absence_scope": "Dockerfile*",
+                        "absence_pattern": "VOLUME",
+                        "result": "no match",
+                    }
+                ],
+                findings=[],
+                iterations=1,
+                errors=["writable path는 확인하지 못했습니다."],
+            )
+
+            self.assertEqual(toolset.exploration_ledger.summary()["questions"], {})
+
     def test_injected_exploration_ledger_is_used_instead_of_a_new_one(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self.make_repo(Path(tmp))

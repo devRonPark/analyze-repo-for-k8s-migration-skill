@@ -14,7 +14,9 @@ from google.genai import types
 
 from .adk_tools import DuplicateTracker, ValidationLedger
 from .agent import AgentApplication
+from .exploration_context import build_coverage_snapshot, project_next_observations
 from .exploration_ledger import ExplorationLedger
+from .exploration_policy import QuestionImportance
 from .provenance import ObservationProvenance, evidence_sources
 from .analysis import AnalysisResult, PydanticDependencyError
 from .config import Settings
@@ -55,12 +57,39 @@ class AdkRun:
 _FENCED_JSON = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL | re.IGNORECASE)
 
 
-def _recovery_prompt(control: RunControlLedger, attempt: int, tool_names: tuple[str, ...]) -> str:
+def _coverage_reminder(exploration_ledger: ExplorationLedger | None) -> str:
+    """A Secret-safe, value-free reminder of which required questions are still uncovered.
+
+    Never names a path, a resolved value, or a specific next Tool -- only
+    the question_id, matching the exploration_context contract.
+    """
+
+    if exploration_ledger is None:
+        return ""
+    snapshot = build_coverage_snapshot(exploration_ledger)
+    required_ids = [
+        entry["question_id"]
+        for entry in project_next_observations(snapshot)
+        if entry["importance"] == QuestionImportance.REQUIRED.value
+    ]
+    if not required_ids:
+        return ""
+    return f" 아직 관찰되지 않은 required 질문: {', '.join(required_ids)}."
+
+
+def _recovery_prompt(
+    control: RunControlLedger,
+    attempt: int,
+    tool_names: tuple[str, ...],
+    exploration_ledger: ExplorationLedger | None = None,
+) -> str:
     issue = control.protocol_issue
+    coverage_reminder = _coverage_reminder(exploration_ledger)
     if issue is None:
         return (
             f"이전 응답은 terminal Tool 결과가 아니었습니다. 제한된 recovery {attempt}/{control.max_recovery_attempts}입니다. "
             "새 분석을 시작하지 말고 이미 수집한 근거로 전체 candidate를 validate_analysis에 제출하세요."
+            f"{coverage_reminder}"
         )
     actions = control.allowed_next_actions(tool_names)
     field = f" 실패 field={issue.field_path}." if issue.field_path else ""
@@ -69,6 +98,7 @@ def _recovery_prompt(control: RunControlLedger, attempt: int, tool_names: tuple[
         f"제한된 recovery {attempt}/{control.max_recovery_attempts}입니다. 허용된 다음 Tool은 {', '.join(actions) or '없음'}입니다. "
         "오류 메시지에 없는 사실을 추정하지 말고, 동일한 실패 호출을 반복하지 마세요. "
         "candidate 오류이면 의미를 자동 생성하지 말고 전체 candidate의 보고된 field만 수정해 validate_analysis에 다시 제출하세요."
+        f"{coverage_reminder}"
     )
 
 
@@ -193,7 +223,12 @@ def run_adk_agent(
                     role="user",
                     parts=[
                         types.Part(
-                            text=_recovery_prompt(control, control.recovery_attempts, PUBLIC_AGENT_TOOL_NAMES)
+                            text=_recovery_prompt(
+                                control,
+                                control.recovery_attempts,
+                                PUBLIC_AGENT_TOOL_NAMES,
+                                exploration_ledger,
+                            )
                         )
                     ],
                 )

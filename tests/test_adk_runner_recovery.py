@@ -11,7 +11,9 @@ from google.genai import types
 
 from devtools.run_phase1_live_acceptance import AcceptanceRun, _is_success
 from migration_assistant.adk_model import OpenAICompatibleAdkLlm
+from migration_assistant.adk_runner import _recovery_prompt
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
+from migration_assistant.exploration_ledger import ExplorationLedger
 from migration_assistant.repository_tools import RepositoryTools
 from migration_assistant.target import SafetyBudget
 from migration_assistant.tool_protocol import RunControlLedger, RunPhase, ToolErrorCode, ToolIssue
@@ -273,6 +275,37 @@ class AdkRecoveryContractTests(unittest.TestCase):
         self.assertFalse(_is_success(make(evidence_provenance=({"id": "e1", "sources": []},))))
         self.assertFalse(_is_success(make(validation_attempts=3)))
         self.assertFalse(_is_success(make(telemetry_valid=False)))
+
+
+class RecoveryPromptCoverageProjectionTests(unittest.TestCase):
+    """Task 2A: the recovery message is one of the few places adk_runner.py
+    builds a message directly, so the coverage projection must reach it."""
+
+    def test_recovery_prompt_without_a_ledger_has_no_coverage_reminder(self):
+        control = RunControlLedger()
+        prompt = _recovery_prompt(control, 1, ("inspect_target",))
+        self.assertNotIn("required 질문", prompt)
+
+    def test_recovery_prompt_names_unobserved_required_questions(self):
+        control = RunControlLedger()
+        ledger = ExplorationLedger()
+        prompt = _recovery_prompt(control, 1, ("inspect_target",), ledger)
+        self.assertIn("production_startup", prompt)
+        self.assertIn("required 질문", prompt)
+
+    def test_recovery_prompt_coverage_reminder_shrinks_as_questions_are_observed(self):
+        control = RunControlLedger()
+        ledger = ExplorationLedger()
+        ledger.record_observation("production_startup", "search_text", "Dockerfile", 1, 1)
+        prompt = _recovery_prompt(control, 1, ("inspect_target",), ledger)
+        self.assertNotIn("production_startup", prompt)
+
+    def test_recovery_prompt_coverage_reminder_carries_no_path_or_value(self):
+        control = RunControlLedger()
+        ledger = ExplorationLedger()
+        ledger.record_observation("runtime_config_and_secret_names", "read_file_lines", "config/application.yml", 1, 1)
+        prompt = _recovery_prompt(control, 1, ("inspect_target",), ledger)
+        self.assertNotIn("application.yml", prompt)
 
 
 if __name__ == "__main__":

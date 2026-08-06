@@ -16,6 +16,7 @@ from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from .adk_function_tool import RepositoryFunctionTool
+from .exploration_context import build_coverage_snapshot, project_next_observations
 from .exploration_ledger import ExplorationLedger
 from .exploration_policy import DEFAULT_MIGRATION_POLICY, ExplorationPolicy, match_rules
 from .provenance import ObservationProvenance
@@ -854,7 +855,16 @@ class AdkRepositoryToolset:
             else:
                 self.control.phase = RunPhase.GROUND
             self.control.complete_action(name)
-            return success_envelope(redact_sensitive_value(result))
+            meta: dict[str, object] = {}
+            if name != "validate_analysis":
+                # Feed coverage back before the model's next Tool choice:
+                # Tool result -> ExplorationLedger -> CoverageSnapshot ->
+                # ContextProjection -> next model context metadata.
+                snapshot = build_coverage_snapshot(self.exploration_ledger, self.exploration_policy)
+                meta["context_projection"] = redact_sensitive_value(
+                    project_next_observations(snapshot, self.exploration_policy)
+                )
+            return success_envelope(redact_sensitive_value(result), meta=meta)
         except (BudgetExceededError, RepositoryToolError, TypeError, ValueError) as error:
             safe_error = str(redact_sensitive_value(str(error)))
             if isinstance(error, BudgetExceededError):
@@ -1066,7 +1076,41 @@ class AdkRepositoryToolset:
         self.control.protocol_issue = None
         self.control.next_actions = None
         self.control.phase = RunPhase.DONE
+        self._record_positive_evidence_coverage(result)
         return success_envelope(result.model_dump(mode="json"), meta={"terminal": True})
+
+    def _record_positive_evidence_coverage(self, result: Any) -> None:
+        """Count accepted positive Evidence toward per-question coverage.
+
+        Only Evidence the model actually submitted and validate_analysis
+        accepted counts as positive -- a raw search/read hit is an
+        observation, not grounded Evidence, so this runs once at terminal
+        acceptance rather than on every Tool call.
+        """
+
+        for item in getattr(result, "evidence", []):
+            status = getattr(item, "status", None)
+            path = getattr(item, "path", None)
+            start = getattr(item, "line_start", None)
+            end = getattr(item, "line_end", None)
+            text = getattr(item, "excerpt", None) or getattr(item, "text", None)
+            if status == "unresolved" or not isinstance(path, str):
+                continue
+            rules = match_rules(self.exploration_policy, path=path, text=text if isinstance(text, str) else None)
+            seen: set[str] = set()
+            for rule in rules:
+                for question_id in rule.question_ids:
+                    if question_id in seen:
+                        continue
+                    seen.add(question_id)
+                    self.exploration_ledger.record_observation(
+                        question_id,
+                        "validate_analysis",
+                        path,
+                        start if isinstance(start, int) else None,
+                        end if isinstance(end, int) else None,
+                        positive=True,
+                    )
 
     def functions(self) -> list[object]:
         return list(self._tools)

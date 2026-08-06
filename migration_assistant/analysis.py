@@ -346,6 +346,40 @@ def require_pydantic() -> None:
         raise PydanticDependencyError("필수 dependency pydantic이 설치되지 않아 분석을 시작할 수 없습니다.")
 
 
+def _build_run_telemetry(run: object) -> dict[str, Any]:
+    """Secret-safe run-execution telemetry, kept out of AnalysisResult.
+
+    Always built from the ADK run object so it can be persisted as
+    run-metadata.json regardless of whether the caller also wants a live
+    mutable view via the `run_metadata` parameter.
+    """
+
+    telemetry = {
+        "terminal": bool(getattr(run, "terminal", False)),
+        "tool_calls": [str(name) for name in getattr(run, "tool_calls", [])],
+        "protocol_issues": redact_sensitive_value(list(getattr(run, "protocol_issues", []))),
+        "callback_telemetry": redact_sensitive_value(list(getattr(run, "callback_telemetry", []))),
+        "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
+        "run_control": {
+            "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
+            "validation_attempts": int(getattr(run, "validation_attempts", 0)),
+            "prebinding_rejections": int(getattr(run, "prebinding_rejections", 0)),
+            "inline_corrections": int(getattr(run, "inline_corrections", 0)),
+            "max_no_progress_seen": int(getattr(run, "max_no_progress_seen", 0)),
+            "recovery_cap": int(getattr(run, "recovery_cap", 1)),
+            "validation_cap": int(getattr(run, "validation_cap", 2)),
+            "prebinding_cap": int(getattr(run, "prebinding_cap", 1)),
+            "inline_correction_cap": int(getattr(run, "inline_correction_cap", 3)),
+            "no_progress_cap": int(getattr(run, "no_progress_cap", 0)),
+        },
+        "evidence_provenance": redact_sensitive_value(list(getattr(run, "evidence_provenance", []))),
+        "provenance_summary": redact_sensitive_value(dict(getattr(run, "provenance_summary", {}))),
+        "exploration_coverage": redact_sensitive_value(dict(getattr(run, "exploration_coverage", {}))),
+    }
+    assert set(telemetry) == RUN_METADATA_TELEMETRY_FIELDS, "run_metadata telemetry 키가 RUN_METADATA_TELEMETRY_FIELDS와 어긋납니다."
+    return telemetry
+
+
 def _result_to_dict(result: AnalysisResult) -> dict[str, Any]:
     data = result.model_dump(mode="json") if PYDANTIC_AVAILABLE else result.model_dump()  # type: ignore[call-arg]
     return json.loads(json.dumps(data, ensure_ascii=False))
@@ -439,42 +473,13 @@ def analyze(
                     raise GoogleAdkDependencyError("필수 dependency google-adk가 설치되지 않아 분석을 시작할 수 없습니다.") from error
                 raise
             run = run_adk_agent(tools, settings, budget, model_override=adk_model)
+            telemetry = _build_run_telemetry(run)
             if run_metadata is not None:
                 run_metadata.clear()
-                telemetry = {
-                        "terminal": bool(getattr(run, "terminal", False)),
-                        "tool_calls": [str(name) for name in getattr(run, "tool_calls", [])],
-                        "protocol_issues": redact_sensitive_value(
-                            list(getattr(run, "protocol_issues", []))
-                        ),
-                        "callback_telemetry": redact_sensitive_value(
-                            list(getattr(run, "callback_telemetry", []))
-                        ),
-                        "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
-                        "run_control": {
-                            "recovery_attempts": int(getattr(run, "recovery_attempts", 0)),
-                            "validation_attempts": int(getattr(run, "validation_attempts", 0)),
-                            "prebinding_rejections": int(getattr(run, "prebinding_rejections", 0)),
-                            "inline_corrections": int(getattr(run, "inline_corrections", 0)),
-                            "max_no_progress_seen": int(getattr(run, "max_no_progress_seen", 0)),
-                            "recovery_cap": int(getattr(run, "recovery_cap", 1)),
-                            "validation_cap": int(getattr(run, "validation_cap", 2)),
-                            "prebinding_cap": int(getattr(run, "prebinding_cap", 1)),
-                            "inline_correction_cap": int(getattr(run, "inline_correction_cap", 3)),
-                            "no_progress_cap": int(getattr(run, "no_progress_cap", 0)),
-                        },
-                        "evidence_provenance": redact_sensitive_value(
-                            list(getattr(run, "evidence_provenance", []))
-                        ),
-                        "provenance_summary": redact_sensitive_value(
-                            dict(getattr(run, "provenance_summary", {}))
-                        ),
-                        "exploration_coverage": redact_sensitive_value(
-                            dict(getattr(run, "exploration_coverage", {}))
-                        ),
-                }
-                assert set(telemetry) == RUN_METADATA_TELEMETRY_FIELDS, "run_metadata telemetry 키가 RUN_METADATA_TELEMETRY_FIELDS와 어긋납니다."
                 run_metadata.update(telemetry)
+            (transaction.path / "run-metadata.json").write_text(
+                json.dumps(telemetry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
             result = run.result
             if result is None:
                 raise RuntimeError("ADK Runner가 AnalysisResult를 반환하지 않았습니다.")
