@@ -7,6 +7,7 @@ recording coverage must never promote a value into a grounded finding.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 import unittest
@@ -14,7 +15,12 @@ from pathlib import Path
 
 from migration_assistant.adk_tools import AdkRepositoryToolset, DuplicateTracker, ValidationLedger
 from migration_assistant.exploration_ledger import ExplorationLedger
-from migration_assistant.exploration_policy import DEFAULT_MIGRATION_POLICY, QuestionImportance
+from migration_assistant.exploration_policy import (
+    DEFAULT_MIGRATION_POLICY,
+    ExplorationPolicy,
+    ExplorationQuestion,
+    QuestionImportance,
+)
 from migration_assistant.repository_tools import RepositoryTools
 from migration_assistant.target import SafetyBudget
 
@@ -333,6 +339,35 @@ class StopDecisionTests(unittest.TestCase):
         question = DEFAULT_MIGRATION_POLICY.question("external_dependency")
         self.assertEqual(ledger.disposition(question), "rejected")
 
+    def test_stop_decision_surfaces_not_applicable_instead_of_hiding_it(self):
+        """A not_applicable conditional question must never blend into the
+        same reason as a fully-confirmed run -- it must stay auditable in
+        run_metadata. Uses a small custom policy so the conditional
+        question's precondition is not itself required, isolating this
+        from DEFAULT_MIGRATION_POLICY's required-precondition entanglement
+        (see test_conditional_question_is_not_applicable_when_precondition_never_observed)."""
+
+        policy = ExplorationPolicy(
+            questions=(
+                ExplorationQuestion(question_id="required_q", importance=QuestionImportance.REQUIRED, description="required"),
+                ExplorationQuestion(
+                    question_id="conditional_q",
+                    importance=QuestionImportance.CONDITIONAL,
+                    description="conditional",
+                    depends_on_question_id="optional_precondition_q",
+                ),
+            ),
+            rules=(),
+        )
+        ledger = ExplorationLedger()
+        ledger.record_observation("required_q", "search_text", "app.py", 1, 1, positive=True)
+
+        decision = ledger.stop_decision(policy, total_evidence_count=1)
+
+        self.assertTrue(decision.allowed)
+        self.assertIn("not_applicable_precondition", decision.reason)
+        self.assertIn("conditional_q", decision.reason)
+
     def test_stop_decision_never_returns_a_synthetic_value(self):
         ledger = ExplorationLedger()
         for question in DEFAULT_MIGRATION_POLICY.questions:
@@ -344,6 +379,127 @@ class StopDecisionTests(unittest.TestCase):
         ledger = ExplorationLedger()
         ledger.record_search_attempt("production_startup", "search_text", ".", "ENTRYPOINT")
         self.assertNotIn("ENTRYPOINT", repr(ledger.summary()))
+
+
+_STOP_GATE_FIXTURE = Path(__file__).parent / "fixtures" / "adk_migration_contract" / "stop-gate-cases.json"
+
+
+def _seed_disposition(ledger: ExplorationLedger, question_id: str, status: str) -> None:
+    if status in ("confirmed", "inferred"):
+        ledger.record_observation(question_id, "test", "app.py", 1, 1, positive=True)
+    elif status == "conflicting":
+        ledger.record_observation(question_id, "test", "app.py", 1, 1, conflicting=True)
+    elif status == "unresolved":
+        ledger.record_search_attempt(question_id, "test", ".", "pattern")
+    elif status == "not_applicable":
+        pass  # leave untouched; see the case-3 caveat below.
+    else:
+        raise ValueError(f"unknown fixture status: {status}")
+
+
+class StopGateFixtureReproductionTests(unittest.TestCase):
+    """Task 5 follow-up: an independent review found that the Task 0 stop-gate
+    fixture (tests/test_migration_contract.py) was only ever exercised
+    against the test file's own local oracle, never against the real
+    ExplorationLedger.stop_decision(). Reproduce all 7 locked cases against
+    the real implementation so a regression in stop_decision() itself
+    would actually be caught."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cases = {case["case_id"]: case for case in json.loads(_STOP_GATE_FIXTURE.read_text(encoding="utf-8"))["cases"]}
+
+    def _run_case(self, case_id: str, *, seed_unmentioned_as_confirmed: bool) -> "object":
+        """`seed_unmentioned_as_confirmed` fills every policy question this
+        case's fixture does not mention (required, conditional, and
+        optional alike) with a confirmed observation, so the case exercises
+        only the one behavior it names -- otherwise an untouched
+        conditional/optional question would legitimately also show up as
+        an `other_gaps` unresolved entry, which the abstract fixture oracle
+        never modeled (it only ever looks at required_question_dispositions)."""
+
+        case = self.cases[case_id]
+        ledger = ExplorationLedger()
+        dispositions = case["input"]["required_question_dispositions"]
+        mentioned = set(dispositions)
+        if seed_unmentioned_as_confirmed:
+            for question in DEFAULT_MIGRATION_POLICY.questions:
+                if question.question_id not in mentioned:
+                    ledger.record_observation(question.question_id, "test", "app.py", 1, 1, positive=True)
+        for question_id, status in dispositions.items():
+            _seed_disposition(ledger, question_id, status)
+        return ledger.stop_decision(
+            DEFAULT_MIGRATION_POLICY,
+            total_evidence_count=case["input"]["evidence_count"],
+            positive_without_evidence=case["input"]["positive_without_evidence"],
+            bounded_stop_triggered=case["input"]["bounded_stop_triggered"],
+        )
+
+    def test_required_confirmed_no_conflict_submits(self):
+        decision = self._run_case("required_confirmed_no_conflict_submits", seed_unmentioned_as_confirmed=True)
+        expected = self.cases["required_confirmed_no_conflict_submits"]["expected"]
+        self.assertEqual(decision.allowed, expected["submit_allowed"])
+        self.assertEqual(set(decision.allowed_status), set(expected["allowed_status"]))
+        self.assertIn(expected["reason"], decision.reason)
+
+    def test_required_genuine_unresolved_after_budget_exhausted(self):
+        decision = self._run_case(
+            "required_genuine_unresolved_after_budget_exhausted", seed_unmentioned_as_confirmed=True
+        )
+        expected = self.cases["required_genuine_unresolved_after_budget_exhausted"]["expected"]
+        self.assertEqual(decision.allowed, expected["submit_allowed"])
+        self.assertEqual(set(decision.allowed_status), set(expected["allowed_status"]))
+        self.assertIn(expected["reason"], decision.reason)
+
+    def test_conditional_precondition_not_observed(self):
+        """Known limitation: this fixture's precondition question
+        (runtime_config_and_secret_names) is itself REQUIRED in
+        DEFAULT_MIGRATION_POLICY, so leaving it untouched to trigger
+        `not_applicable` on external_dependency also makes
+        runtime_config_and_secret_names itself `rejected`, and
+        required_rejected is checked before not_applicable_ids in
+        stop_decision(). The real decision therefore reports
+        `insufficient_exploration` here, not the oracle's literal
+        `not_applicable_precondition` string. The not_applicable code path
+        itself is proven end-to-end in
+        StopDecisionTests.test_stop_decision_surfaces_not_applicable_instead_of_hiding_it
+        using a policy where the precondition is not also required. Only
+        the allow/status-category level is asserted here."""
+        decision = self._run_case("conditional_precondition_not_observed", seed_unmentioned_as_confirmed=False)
+        expected = self.cases["conditional_precondition_not_observed"]["expected"]
+        self.assertEqual(decision.allowed, expected["submit_allowed"])
+        self.assertIn("partial", decision.allowed_status)
+        self.assertEqual(decision.synthetic_values, {})
+
+    def test_positive_value_without_evidence_blocks_submission(self):
+        decision = self._run_case("positive_value_without_evidence_blocks_submission", seed_unmentioned_as_confirmed=False)
+        expected = self.cases["positive_value_without_evidence_blocks_submission"]["expected"]
+        self.assertEqual(decision.allowed, expected["submit_allowed"])
+        self.assertEqual(decision.allowed_status, tuple(expected["allowed_status"]))
+        self.assertIn(expected["reason"], decision.reason)
+
+    def test_conflicting_evidence_blocks_auto_select(self):
+        decision = self._run_case("conflicting_evidence_blocks_auto_select", seed_unmentioned_as_confirmed=True)
+        expected = self.cases["conflicting_evidence_blocks_auto_select"]["expected"]
+        self.assertEqual(decision.allowed, expected["submit_allowed"])
+        self.assertEqual(set(decision.allowed_status), set(expected["allowed_status"]))
+        self.assertIn(expected["reason"], decision.reason)
+
+    def test_zero_evidence_blocks_submission(self):
+        decision = self._run_case("zero_evidence_blocks_submission", seed_unmentioned_as_confirmed=False)
+        expected = self.cases["zero_evidence_blocks_submission"]["expected"]
+        self.assertEqual(decision.allowed, expected["submit_allowed"])
+        self.assertEqual(decision.allowed_status, tuple(expected["allowed_status"]))
+        self.assertIn(expected["reason"], decision.reason)
+
+    def test_duplicate_or_no_progress_or_budget_exceeded_bounded_stop(self):
+        decision = self._run_case(
+            "duplicate_or_no_progress_or_budget_exceeded_bounded_stop", seed_unmentioned_as_confirmed=False
+        )
+        expected = self.cases["duplicate_or_no_progress_or_budget_exceeded_bounded_stop"]["expected"]
+        self.assertEqual(decision.allowed, expected["submit_allowed"])
+        self.assertEqual(set(decision.allowed_status), set(expected["allowed_status"]))
+        self.assertIn(expected["reason"], decision.reason)
 
 
 if __name__ == "__main__":

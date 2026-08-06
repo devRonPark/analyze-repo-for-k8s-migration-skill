@@ -207,4 +207,16 @@ class ExplorationLedger:
                 {},
             )
 
+        not_applicable_ids = sorted(qid for qid, status in dispositions.items() if status == "not_applicable")
+        if not_applicable_ids:
+            # not_applicable never blocks submission -- surfaced here only so
+            # it is auditable in run_metadata instead of silently vanishing
+            # into the same reason as a fully-confirmed run.
+            return StopDecision(
+                True,
+                f"not_applicable_precondition: 선행 조건이 관찰되지 않아 조건부 질문을 not_applicable로 남깁니다 ({', '.join(not_applicable_ids)}).",
+                ("complete", "partial"),
+                {},
+            )
+
         return StopDecision(True, "confirmed_or_inferred: required 질문이 모두 확인됐습니다.", ("complete", "partial"), {})
