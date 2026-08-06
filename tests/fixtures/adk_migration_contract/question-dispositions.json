@@ -1,0 +1,80 @@
+{
+  "importance_levels": ["required", "conditional", "optional"],
+  "status_values": ["confirmed", "inferred", "unresolved", "conflicting", "not_applicable"],
+  "questions": [
+    {"question_id": "workload_deployment_unit", "importance": "required"},
+    {"question_id": "production_startup", "importance": "required"},
+    {"question_id": "build_stage", "importance": "required"},
+    {"question_id": "receiving_port", "importance": "required"},
+    {"question_id": "runtime_config_and_secret_names", "importance": "required"},
+    {
+      "question_id": "external_dependency",
+      "importance": "conditional",
+      "depends_on_question_id": "runtime_config_and_secret_names"
+    },
+    {"question_id": "writable_state_path", "importance": "optional"}
+  ],
+  "disposition_cases": [
+    {
+      "case_id": "confirmed_from_positive_evidence",
+      "question_id": "workload_deployment_unit",
+      "model_claim": "unresolved",
+      "ledger": {"positive_evidence_count": 1},
+      "expected_status": "confirmed"
+    },
+    {
+      "case_id": "inferred_from_derived_positive_evidence",
+      "question_id": "build_stage",
+      "model_claim": "confirmed",
+      "ledger": {"positive_evidence_count": 1, "inferred_only": true},
+      "expected_status": "inferred"
+    },
+    {
+      "case_id": "unresolved_rejected_without_ledger_scope",
+      "question_id": "production_startup",
+      "model_claim": "unresolved",
+      "ledger": {"positive_evidence_count": 0},
+      "expected_status": "rejected"
+    },
+    {
+      "case_id": "unresolved_rejected_with_scope_but_no_pattern",
+      "question_id": "production_startup",
+      "model_claim": "unresolved",
+      "ledger": {"positive_evidence_count": 0, "search_scope": "Dockerfile*"},
+      "expected_status": "rejected"
+    },
+    {
+      "case_id": "unresolved_accepted_with_full_ledger_record",
+      "question_id": "production_startup",
+      "model_claim": "unresolved",
+      "ledger": {
+        "positive_evidence_count": 0,
+        "search_scope": "Dockerfile*, compose*.yml",
+        "search_pattern": "ENTRYPOINT|CMD",
+        "observation_count": 3
+      },
+      "expected_status": "unresolved"
+    },
+    {
+      "case_id": "not_applicable_conditional_precondition_missing",
+      "question_id": "external_dependency",
+      "model_claim": "not_applicable",
+      "ledger": {"positive_evidence_count": 0, "precondition_observed": false},
+      "expected_status": "not_applicable"
+    },
+    {
+      "case_id": "conflicting_two_positive_observations",
+      "question_id": "receiving_port",
+      "model_claim": "confirmed",
+      "ledger": {"positive_evidence_count": 2, "conflicting_positive": true},
+      "expected_status": "conflicting"
+    },
+    {
+      "case_id": "silent_claim_without_ledger_record_rejected",
+      "question_id": "writable_state_path",
+      "model_claim": null,
+      "ledger": {"positive_evidence_count": 0},
+      "expected_status": "rejected"
+    }
+  ]
+}

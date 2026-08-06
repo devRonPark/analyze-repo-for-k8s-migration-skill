@@ -1,0 +1,84 @@
+{
+  "status_values": ["confirmed", "inferred", "unresolved", "conflicting", "not_applicable"],
+  "cases": [
+    {
+      "case_id": "required_confirmed_no_conflict_submits",
+      "input": {
+        "evidence_count": 3,
+        "positive_without_evidence": false,
+        "bounded_stop_triggered": false,
+        "required_question_dispositions": {
+          "workload_deployment_unit": "confirmed",
+          "production_startup": "inferred"
+        }
+      },
+      "expected": {"submit_allowed": true, "allowed_status": ["complete", "partial"], "reason": "confirmed_or_inferred"}
+    },
+    {
+      "case_id": "required_genuine_unresolved_after_budget_exhausted",
+      "input": {
+        "evidence_count": 2,
+        "positive_without_evidence": false,
+        "bounded_stop_triggered": false,
+        "required_question_dispositions": {
+          "workload_deployment_unit": "confirmed",
+          "production_startup": "unresolved"
+        }
+      },
+      "expected": {"submit_allowed": true, "allowed_status": ["partial"], "reason": "genuine_unresolved"}
+    },
+    {
+      "case_id": "conditional_precondition_not_observed",
+      "input": {
+        "evidence_count": 2,
+        "positive_without_evidence": false,
+        "bounded_stop_triggered": false,
+        "required_question_dispositions": {
+          "workload_deployment_unit": "confirmed",
+          "external_dependency": "not_applicable"
+        }
+      },
+      "expected": {"submit_allowed": true, "allowed_status": ["partial"], "reason": "not_applicable_precondition"}
+    },
+    {
+      "case_id": "positive_value_without_evidence_blocks_submission",
+      "input": {
+        "evidence_count": 1,
+        "positive_without_evidence": true,
+        "bounded_stop_triggered": false,
+        "required_question_dispositions": {"workload_deployment_unit": "confirmed"}
+      },
+      "expected": {"submit_allowed": false, "allowed_status": [], "reason": "ungrounded_positive_value"}
+    },
+    {
+      "case_id": "conflicting_evidence_blocks_auto_select",
+      "input": {
+        "evidence_count": 4,
+        "positive_without_evidence": false,
+        "bounded_stop_triggered": false,
+        "required_question_dispositions": {"receiving_port": "conflicting"}
+      },
+      "expected": {"submit_allowed": true, "allowed_status": ["partial"], "reason": "conflicting_no_auto_select"}
+    },
+    {
+      "case_id": "zero_evidence_blocks_submission",
+      "input": {
+        "evidence_count": 0,
+        "positive_without_evidence": false,
+        "bounded_stop_triggered": false,
+        "required_question_dispositions": {}
+      },
+      "expected": {"submit_allowed": false, "allowed_status": [], "reason": "no_evidence"}
+    },
+    {
+      "case_id": "duplicate_or_no_progress_or_budget_exceeded_bounded_stop",
+      "input": {
+        "evidence_count": 1,
+        "positive_without_evidence": false,
+        "bounded_stop_triggered": true,
+        "required_question_dispositions": {"workload_deployment_unit": "unresolved"}
+      },
+      "expected": {"submit_allowed": true, "allowed_status": ["failed", "partial"], "reason": "bounded_stop"}
+    }
+  ]
+}

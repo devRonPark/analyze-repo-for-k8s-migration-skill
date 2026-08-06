@@ -272,7 +272,7 @@ Stop: 전체 Repository를 읽지 않고 validate_analysis
 
 **Produces:** 구현 전에 고정된 질문 상태표, Stop truth table, metadata 경계, signal 허용 필드 계약
 
-- [ ] **Step 1: migration question disposition 정의**
+- [x] **Step 1: migration question disposition 정의**
 
 각 질문은 `required`, `conditional`, `optional` 중 하나의 중요도를 가집니다. 모든 질문은 다음 상태 중 하나로 종료됩니다.
 
@@ -286,7 +286,7 @@ not_applicable : 조건부 질문의 선행 조건이 관찰되지 않음
 
 `unresolved`는 모델의 문장만으로 생성하지 않습니다. Ledger가 탐색 범위, 사용한 pattern, 관찰 횟수 또는 scope 제한, 종료 이유를 보유할 때만 인정합니다.
 
-- [ ] **Step 2: AnalysisResult와 RunMetadata 경계 확정**
+- [x] **Step 2: AnalysisResult와 RunMetadata 경계 확정**
 
 `AnalysisResult`는 Evidence·Finding·Component·분석 상태를 담는 도메인 결과로 유지합니다. `run_metadata`는 callback telemetry, Tool trajectory, exploration coverage, budget, approval preflight를 담는 실행 telemetry로 유지하며 모델 결과 schema에 섞지 않습니다.
 
@@ -297,7 +297,7 @@ run_metadata  -> run artifact / live acceptance telemetry
 
 `renderer`는 `KubernetesMigrationPlan`만 입력받고, `validator`는 manifest set만 입력받습니다. 실행 결과 artifact에는 `analysis-result.json`과 Secret-safe `run-metadata.json`을 별도 파일로 저장하거나, 기존 artifact contract 안에서 두 영역을 명시적으로 분리합니다. 이 위치와 schema version을 테스트로 고정합니다.
 
-- [ ] **Step 3: exploration signal 허용·금지 계약 확정**
+- [x] **Step 3: exploration signal 허용·금지 계약 확정**
 
 Tool이 반환하는 raw observation과 별도의 advisory control metadata를 구분합니다. `exploration_signals`의 허용 필드는 `question_id`, `trigger_rule_id`, `observed_fact_ref`, `candidate_observation_kind`입니다.
 
@@ -310,7 +310,7 @@ next_tool=read_file 같은 특정 Tool 호출 강제
 registry에 없는 생태계의 parser·business logic 우회
 ~~~
 
-- [ ] **Step 4: Stop truth table과 테스트 fixture 작성**
+- [x] **Step 4: Stop truth table과 테스트 fixture 작성**
 
 | 조건 | 제출 가능 | 허용 상태 | 필수 근거 |
 |---|---:|---|---|
@@ -324,7 +324,7 @@ registry에 없는 생태계의 parser·business logic 우회
 
 `tests/test_migration_contract.py`는 위 경우를 모두 검증하며, 모델이 `unresolved`를 임의 선언하거나 Tool이 결론을 반환해도 통과하지 않도록 합니다.
 
-- [ ] **Step 5: RED 확인 및 계약 commit**
+- [x] **Step 5: RED 확인 및 계약 commit**
 
 ~~~powershell
 python -m pytest -q -p no:cacheprovider tests/test_migration_contract.py
