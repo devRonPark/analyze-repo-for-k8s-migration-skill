@@ -30,6 +30,24 @@ class OpenAICompatibleAdkLlm(BaseLlm):
         self._budget = budget
         self._control = control
 
+    def _active_narrowing(self) -> tuple[str, ...] | None:
+        """RunControlLedger.next_actions, unless the run has already stopped.
+
+        A stopped or terminal run must never have another call narrowed or
+        forced: at least one stop_requested site (validate_analysis's
+        attempt-limit branch in adk_tools.py) sets it without clearing
+        next_actions, so a stale narrowed value can otherwise outlive the
+        run's own decision to give up.
+        """
+
+        control = self._control
+        if control is None:
+            return None
+        if control.stop_requested or control.phase in {RunPhase.DONE, RunPhase.PARTIAL_OR_FAILED}:
+            return None
+        actions = control.next_actions
+        return actions if isinstance(actions, tuple) and actions else None
+
     def _tool_choice(self) -> dict[str, object] | None:
         """Force the one action RunControlLedger already computed, at the
         transport level, instead of only describing it in a message.
@@ -41,25 +59,36 @@ class OpenAICompatibleAdkLlm(BaseLlm):
         "auto") so the model's own exploration choice is untouched.
         """
 
-        control = self._control
-        if control is None:
-            return None
-        # A stopped or terminal run must never force another call: at
-        # least one stop_requested site (validate_analysis's attempt-limit
-        # branch in adk_tools.py) sets it without clearing next_actions, so
-        # a stale narrowed value can otherwise outlive the run's own
-        # decision to give up.
-        if control.stop_requested or control.phase in {RunPhase.DONE, RunPhase.PARTIAL_OR_FAILED}:
-            return None
-        actions = control.next_actions
-        if isinstance(actions, tuple) and len(actions) == 1:
+        actions = self._active_narrowing()
+        if actions is not None and len(actions) == 1:
             return {"type": "function", "function": {"name": actions[0]}}
         return None
+
+    def _narrow_tools(self, tools: list[dict[str, object]]) -> list[dict[str, object]]:
+        """Declare only control.next_actions when it has narrowed the choice set.
+
+        tool_choice alone cannot express "one of these N specific
+        functions" in the OpenAI-compatible API -- only a single named
+        function, "auto", "required", or "none". Shrinking the declared
+        `tools` array makes an excluded function actually uncallable
+        regardless of how many options remain, which is what stopped a
+        live run from calling search_text after a not_found error had
+        narrowed the choice to (list_tree, find_files, validate_analysis).
+        Unconstrained (next_actions is None, or the run has stopped)
+        declares everything, unchanged.
+        """
+
+        actions = self._active_narrowing()
+        if actions is None:
+            return tools
+        allowed = set(actions)
+        narrowed = [tool for tool in tools if tool.get("function", {}).get("name") in allowed]
+        return narrowed or tools
 
     async def generate_content_async(self, llm_request: LlmRequest, stream: bool = False):
         self._budget.consume_iteration()
         messages = self._messages(llm_request)
-        tools = self._tools(llm_request)
+        tools = self._narrow_tools(self._tools(llm_request))
         response = await asyncio.to_thread(
             self._adapter.complete, messages, tools=tools or None, tool_choice=self._tool_choice()
         )

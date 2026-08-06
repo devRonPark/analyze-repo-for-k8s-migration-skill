@@ -942,6 +942,100 @@ class Phase1ContractTests(unittest.TestCase):
 
         self.assertIsNone(captured["tool_choice"])
 
+    def test_adk_model_declares_only_the_narrowed_tools_when_multiple_remain(self):
+        """A third live smoke found the model ignore a 3-option narrowing
+        (list_tree/find_files/validate_analysis after a not_found error)
+        and call search_text anyway, getting hard-rejected. tool_choice
+        alone cannot express "one of these N specific functions" in the
+        OpenAI-compatible API, but shrinking the declared `tools` array
+        itself makes the excluded function uncallable regardless."""
+
+        control = RunControlLedger()
+        control.next_actions = ("list_tree", "find_files", "validate_analysis")
+        model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=5), control=control)
+        declarations = types.Tool(
+            function_declarations=[
+                types.FunctionDeclaration(name=name, description="d", parameters=types.Schema(type="OBJECT"))
+                for name in ("list_tree", "find_files", "validate_analysis", "search_text", "read_file")
+            ]
+        )
+        request = types.Content(role="user", parts=[types.Part(text="hello")])
+        captured: dict[str, object] = {}
+
+        def fake_complete(messages, *, tools=None, response_format=None, temperature=None, tool_choice=None):
+            captured["tools"] = tools
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        with patch.object(model._adapter, "complete", side_effect=fake_complete):
+            asyncio.run(
+                self._drain(
+                    model.generate_content_async(
+                        LlmRequest(contents=[request], config=types.GenerateContentConfig(tools=[declarations]))
+                    )
+                )
+            )
+
+        declared_names = {tool["function"]["name"] for tool in captured["tools"]}
+        self.assertEqual(declared_names, {"list_tree", "find_files", "validate_analysis"})
+
+    def test_adk_model_declares_all_tools_when_the_run_has_already_stopped(self):
+        control = RunControlLedger()
+        control.next_actions = ("validate_analysis",)
+        control.stop_requested = True
+        model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=5), control=control)
+        declarations = types.Tool(
+            function_declarations=[
+                types.FunctionDeclaration(name=name, description="d", parameters=types.Schema(type="OBJECT"))
+                for name in ("list_tree", "find_files", "validate_analysis")
+            ]
+        )
+        request = types.Content(role="user", parts=[types.Part(text="hello")])
+        captured: dict[str, object] = {}
+
+        def fake_complete(messages, *, tools=None, response_format=None, temperature=None, tool_choice=None):
+            captured["tools"] = tools
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        with patch.object(model._adapter, "complete", side_effect=fake_complete):
+            asyncio.run(
+                self._drain(
+                    model.generate_content_async(
+                        LlmRequest(contents=[request], config=types.GenerateContentConfig(tools=[declarations]))
+                    )
+                )
+            )
+
+        declared_names = {tool["function"]["name"] for tool in captured["tools"]}
+        self.assertEqual(declared_names, {"list_tree", "find_files", "validate_analysis"})
+
+    def test_adk_model_declares_all_tools_when_unconstrained(self):
+        control = RunControlLedger()
+        model = OpenAICompatibleAdkLlm(Settings(), budget=SafetyBudget(max_iterations=5), control=control)
+        declarations = types.Tool(
+            function_declarations=[
+                types.FunctionDeclaration(name=name, description="d", parameters=types.Schema(type="OBJECT"))
+                for name in ("list_tree", "find_files", "validate_analysis")
+            ]
+        )
+        request = types.Content(role="user", parts=[types.Part(text="hello")])
+        captured: dict[str, object] = {}
+
+        def fake_complete(messages, *, tools=None, response_format=None, temperature=None, tool_choice=None):
+            captured["tools"] = tools
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        with patch.object(model._adapter, "complete", side_effect=fake_complete):
+            asyncio.run(
+                self._drain(
+                    model.generate_content_async(
+                        LlmRequest(contents=[request], config=types.GenerateContentConfig(tools=[declarations]))
+                    )
+                )
+            )
+
+        declared_names = {tool["function"]["name"] for tool in captured["tools"]}
+        self.assertEqual(declared_names, {"list_tree", "find_files", "validate_analysis"})
+
     def test_adk_model_never_forces_a_stale_tool_choice_after_stop_requested(self):
         """Independent review found validate_analysis's attempt-limit branch
         (adk_tools.py) sets stop_requested=True without clearing
