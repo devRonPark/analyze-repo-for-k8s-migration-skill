@@ -102,6 +102,52 @@ class ExplorationPolicyTests(unittest.TestCase):
     def test_match_rules_never_guesses_from_absent_input(self):
         self.assertEqual(match_rules(DEFAULT_MIGRATION_POLICY), ())
 
+    def test_generic_main_substring_no_longer_false_positives_on_pom_xml(self):
+        """A live jpetstore-6 smoke found this exact false positive: Maven's
+        own repository URL for a GlassFish distribution contains the
+        substring "main" (org/glassfish/main/...), which used to match
+        build_or_package_manifest even though it has nothing to do with a
+        Java main class or entrypoint."""
+
+        # path is deliberately omitted: pom.xml is always a legitimate build
+        # manifest via file_globs regardless of content, so this isolates
+        # whether the *text* alone (unrelated to any specific file) still
+        # false-positives on the bare "main" substring.
+        text = (
+            "<cargo.maven.containerUrl>https://repo.maven.apache.org/maven2/"
+            "org/glassfish/main/distributions/glassfish/1.0/glassfish-1.0.zip</cargo.maven.containerUrl>"
+        )
+        rules = match_rules(DEFAULT_MIGRATION_POLICY, text=text)
+        matched_keys = {rule.key for rule in rules}
+        self.assertNotIn("build_or_package_manifest", matched_keys)
+
+    def test_maven_packaging_and_plugin_signals_are_recognized(self):
+        for text in (
+            "<packaging>war</packaging>",
+            "<artifactId>maven-war-plugin</artifactId>",
+            "<artifactId>spring-boot-maven-plugin</artifactId>",
+            "<mainClass>com.example.Application</mainClass>",
+            "<parent><groupId>org.springframework.boot</groupId></parent>",
+        ):
+            with self.subTest(text=text):
+                rules = match_rules(DEFAULT_MIGRATION_POLICY, text=text)
+                matched_keys = {rule.key for rule in rules}
+                self.assertIn("build_or_package_manifest", matched_keys)
+
+    def test_spring_xml_context_files_match_config_descriptor_rule(self):
+        for path in ("src/main/webapp/WEB-INF/applicationContext.xml", "web.xml", "service-context.xml"):
+            with self.subTest(path=path):
+                rules = match_rules(DEFAULT_MIGRATION_POLICY, path=path)
+                matched_keys = {rule.key for rule in rules}
+                self.assertIn("config_and_deployment_descriptor", matched_keys)
+
+    def test_spring_datasource_signals_are_recognized(self):
+        for text in ("<jdbc:embedded-database>", "class=\"org.springframework.jdbc.datasource.DriverManagerDataSource\""):
+            with self.subTest(text=text):
+                rules = match_rules(DEFAULT_MIGRATION_POLICY, text=text)
+                matched_keys = {rule.key for rule in rules}
+                self.assertIn("config_and_deployment_descriptor", matched_keys)
+
 
 if __name__ == "__main__":
     unittest.main()

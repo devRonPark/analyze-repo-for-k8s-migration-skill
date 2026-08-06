@@ -153,7 +153,15 @@ DEFAULT_MIGRATION_POLICY = ExplorationPolicy(
             question_ids=("build_stage", "workload_deployment_unit"),
             priority=9,
             file_globs=("pom.xml", "build.gradle*", "package.json", "go.mod", "requirements*.txt", "pyproject.toml"),
-            search_patterns=("<build>", "scripts", "main", "entrypoint"),
+            # A bare "main" false-positived on a live jpetstore-6 run: Maven's
+            # own repository URL for a GlassFish distribution contains
+            # "org/glassfish/main/...", nothing to do with a Java main class.
+            # Replaced with tag-bounded Maven signals plus the still-useful
+            # generic ones (package.json's "scripts").
+            search_patterns=(
+                "<build>", "<packaging>", "<parent>", "maven-war-plugin",
+                "spring-boot-maven-plugin", "<mainClass>", "scripts", "entrypoint",
+            ),
             reason="build/package manifest는 빌드 단계와 배포 단위 후보를 드러낸다.",
             observation_kind="build_manifest_hit",
         ),
@@ -161,8 +169,15 @@ DEFAULT_MIGRATION_POLICY = ExplorationPolicy(
             key="config_and_deployment_descriptor",
             question_ids=("runtime_config_and_secret_names", "external_dependency", "receiving_port"),
             priority=8,
-            file_globs=("application*.yml", "application*.properties", ".env*", "config/*.yml"),
-            search_patterns=("PORT", "DATABASE_URL", "SECRET", "HOST"),
+            # Spring/Java apps often keep runtime config in XML context
+            # files (web.xml, applicationContext*.xml, *-context.xml)
+            # rather than application.yml/.properties -- a live jpetstore-6
+            # run's actual DB config lived in exactly this shape.
+            file_globs=(
+                "application*.yml", "application*.properties", ".env*", "config/*.yml",
+                "web.xml", "applicationContext*.xml", "*-context.xml",
+            ),
+            search_patterns=("PORT", "DATABASE_URL", "SECRET", "HOST", "jdbc:", "DataSource"),
             reason="설정 파일은 환경변수/Secret 이름과 외부 의존성 후보를 드러낸다.",
             observation_kind="config_descriptor_hit",
         ),
