@@ -3,6 +3,41 @@
 Operational memory for running this Skill against a local OpenCode provider. It
 does not change the runtime Skill contract.
 
+## Provider fallback: Upstage Solar
+
+The default `local-sglang` provider (`http://172.16.4.249:30000/v1`) has been
+unreachable from this environment across multiple sessions (2026-08-07:
+`curl` timed out, exit 28, both sandboxed and with per-command escalation).
+Do not treat one more retry against it as diagnostic; check connectivity once
+and move to the fallback below rather than re-attempting silently (repeated
+silent retries produce a failure that looks like a provider outage, per
+`CLAUDE.md`'s escalation guidance).
+
+`runtime/opencode.json` (commit `1239c50`) already defines an `upstage`
+provider (`upstage/solar-pro2`, `@ai-sdk/openai-compatible`,
+`baseURL: https://api.upstage.ai/v1`) as a working substitute. Its `apiKey`
+is `{env:UPSTAGE_API_KEY}` — no secret lives in this repo.
+
+- If `UPSTAGE_API_KEY` is not already set in the session, a key targeting the
+  same `https://api.upstage.ai/v1` account exists in a sibling project's env
+  file: `C:\Users\<user>\.config\kubernetes-migration-assistant\env`
+  (`LLM_API_KEY`, confirm the `LLM_BASE_URL` line matches before reusing it).
+  Load it into `UPSTAGE_API_KEY` for the single command that needs it; do not
+  print the raw value or write it into any repo file.
+- Verify with a direct `curl -H "Authorization: Bearer $UPSTAGE_API_KEY"
+  https://api.upstage.ai/v1/models` (expect `200`) before spending a full
+  acceptance run on it.
+- Pass `--model upstage/solar-pro2` to `run_opencode_acceptance.py` (or set
+  `"model"` in a copied `opencode.json`) to use it. Solar's latency can
+  exceed the harness's default 180s timeout on some repeats — retry the
+  specific failed repeat with `--timeout 300` rather than treating one
+  timeout as a correctness failure.
+- `demo-repositories/` is not checked into any worktree; clone the target
+  fresh (e.g. `git clone https://github.com/mybatis/jpetstore-6.git` for the
+  JPetStore 6 golden set) and pin it to the revision named in the relevant
+  golden-set file (`tests/evaluation/jpetstore-6-golden.md`'s `Revision:`
+  line) before running.
+
 ## Safe preflight
 
 - Run `git status --short --branch` in this repository and
