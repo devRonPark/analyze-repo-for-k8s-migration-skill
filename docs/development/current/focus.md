@@ -95,8 +95,20 @@ architecture review (2026-08-07), prioritized:
   (`open_design_decision`); no schema change. Live-verified 3/3 `PASS`
   against JPetStore 6 via the `upstage/solar-pro2` provider (the local
   `local-sglang` endpoint was unreachable this session) — see the ticket's
-  "Decision outcome" for the full result. A genuine multi-process fixture to
-  exercise the split path remains VS-027's job.
+  "Decision outcome" for the full result.
+- **P0 — [VS-028](../tickets/VS-028-prose-only-process-discovery.md) — NEW
+  (2026-08-07), read before starting VS-027**: live-verifying VS-025 against
+  a real must-split fixture (`github.com/miguelgrinberg/flask-celery-example`
+  — Flask app + Celery worker, distinct start commands documented only in
+  README prose, no Dockerfile/Compose) found the Celery worker never becomes
+  a candidate at all; the model reads the README line naming its start
+  command but folds it into the Flask component's fields instead of
+  surfacing it, so `workload-boundary.md` is never even loaded. This is
+  upstream of VS-025's routing fix and of the boundary rule itself — it's a
+  candidate-discovery gap when the only evidence is prose, not a
+  declarative artifact. See the ticket's "Why this is a vertical slice" for
+  the full trace evidence (not preserved elsewhere; the run went to a
+  scratch directory outside this repo).
 - **P1 — [VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md)**:
   re-open `ADR-2026-08-07-003`'s VS-023 Phase 2 deferral given two
   evidence-sourcing gaps since: the wrong-file `docker-compose.yaml`
@@ -107,6 +119,10 @@ architecture review (2026-08-07), prioritized:
   `references/workload-boundary.md` has no fixture or golden-set coverage —
   JPetStore 6 never presents a multi-process split. Adds a must-split and a
   must-not-split fixture to verify the rule actually decides correctly.
+  **Likely blocked by VS-028** in practice: a must-split fixture whose only
+  evidence is prose will hit VS-028's gap before it ever exercises the
+  boundary rule; either land VS-028 first or build Case B's second process
+  with declarative (Dockerfile/Compose/Procfile) evidence to sidestep it.
 
 Other reasonable candidates if none of the above is picked up next, in no
 particular priority order:
