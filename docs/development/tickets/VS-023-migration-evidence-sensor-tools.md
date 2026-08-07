@@ -34,7 +34,7 @@ timeout.
 
 ## Status and dependencies
 
-- **Status:** Needs a scoping decision before implementation (see Scope) — the tool boundary and return shapes below are a proposal, not yet accepted.
+- **Status:** Needs a scoping decision before implementation (see Scope) — the tool boundary and return shapes below are a proposal, not yet accepted. **2026-08-07: scoping pass done, see [ADR-2026-08-07-003](../daily/2026-08-07/ADR-2026-08-07-003-vs-023-sensor-tool-scoping.md).** That ADR recommends a narrower Phase 1 (one generic, judgment-free `locate_evidence` primitive) in place of the five ecosystem-aware tools proposed below, and is itself still pending user confirmation — no tool code has been written.
 - **Depends on:** [SEC-002](SEC-002-read-tool-symlink-escape.md) — if sensor tools wrap the same underlying safe-file-access logic as `read.ts`, the symlink-boundary fix should land in the shared primitive, not be duplicated or skipped.
 - **Blocks:** None
 
