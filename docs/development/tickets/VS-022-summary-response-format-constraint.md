@@ -24,7 +24,7 @@ now reproduced.
 
 ## Status and dependencies
 
-- **Status:** Ready — first step is a spike/investigation, not straight implementation
+- **Status:** Closed — investigated, not implemented; see Decision outcome below.
 - **Depends on:** DEL-002/DEL-003 (`d6a5fba`)
 - **Blocks:** None
 
@@ -97,6 +97,45 @@ python scripts/run_opencode_acceptance.py --config runtime/opencode.json --cases
 
 - Commit only `runtime/opencode.json` and any new investigation notes.
 - Suggested commit: `feat: constrain Summary JSON output via sglang response_format` or `docs: record why sglang response_format isn't wired up yet`
+
+## Decision outcome (2026-08-07)
+
+Investigated; not implemented, per the ticket's own fallback path ("if not
+supported, record the specific blocker and leave DEL-002/DEL-003's
+prompt-only approach as the accepted interim state").
+
+**Finding**: OpenCode 1.18 does have engine-enforced structured output —
+`session.prompt({ path, body: { format: { type: "json_schema", schema },
+retryCount } })`, backed by an internal `StructuredOutput` tool with
+validate-and-retry and a `StructuredOutputError` on exhaustion. Confirmed
+against both `https://opencode.ai/docs/sdk/` and
+`https://opencode.ai/docs/config` (the config schema at
+`https://opencode.ai/config.json` has no `response_format`/structured-output
+property anywhere under provider or model options).
+
+**The blocker is OpenCode's invocation path, not the inference engine.**
+`format: json_schema` is only reachable through the SDK's `session.prompt()`
+API — an external program driving a session over HTTP. It is not
+configurable from `opencode.json`, not from an agent `.md` definition, and
+not reachable from the CLI paths this project uses (`opencode run`, the
+`/analyze-repo-for-kubernetes` custom command, or the acceptance harness's
+subprocess invocation). **Switching the underlying LLM runtime (e.g.
+sglang → vLLM) would not close this gap** — both engines already support
+schema-constrained decoding at the inference layer; the missing piece is
+that OpenCode's CLI/agent-config surface never forwards a schema constraint
+down to whichever engine is behind it.
+
+Closing the gap for real would mean migrating `scripts/run_opencode_acceptance.py`
+(and eventually the documented user workflow) from CLI-subprocess
+invocation to SDK-driven `session.prompt()` calls — a change to this
+project's core invocation architecture, not a config tweak. That is out of
+scope for this ticket and would need its own ADR if pursued.
+
+**Interim state kept**: DEL-002/DEL-003's prompt-only JSON contract, plus
+VS-021's payload-level rejection of disallowed content, remain the accepted
+approach. `retain_summary_markdown`'s clear `FAIL` on invalid JSON (rather
+than silently accepting free-form Markdown) is the safety net for the
+failure mode this ticket can't yet prevent at the source.
 
 ## Codex execution instruction
 
