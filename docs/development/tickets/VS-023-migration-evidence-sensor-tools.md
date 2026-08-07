@@ -239,3 +239,36 @@ which is a separate decision from what was asked.
 
 `python scripts/run_quality_gate.py`: 156/157 (same pre-existing VS-019
 Windows-junction failure only).
+
+## Step-budget increase and timing measurement (2026-08-07, same session)
+
+User-requested follow-up to the tool-call-volume cost noted above:
+`runtime/agents/kubernetes-migration-analyzer.md`'s `steps: 32` frontmatter
+value doubled to `steps: 64` (regression test
+`test_e2e_agent_has_bounded_summary_and_no_target_shell_rules` updated to
+assert `64`).
+
+Measured 3 live Summary runs against `jpetstore-6` (same pinned revision),
+all `PASS`, target unchanged: `426.1s` (158 `locate_evidence` calls),
+`145.6s` (31 calls), `122.8s` (10 calls) — average `231.5s`, versus the
+`steps: 32` baseline's `195.1s` / `166.0s` / `177.0s` (average `179.4s`,
+7-13 calls per run pre-enforcement, ~30 post-enforcement). The extra budget
+is used unevenly: two of three runs finished comparably to or faster than
+the old baseline, while one run used the freed-up room for far more
+`locate_evidence` attempts and took over twice as long.
+
+That slow, call-heavy run was not wasted time: its report caught a real
+finding no run this session had surfaced before — a Spring 6.2.19 /
+`spring-web` 5.3.39 version split combined with `web.xml`'s Java EE 3.0
+(`javax.*`) namespace, which conflicts with Spring 6.x's Jakarta EE 10+
+(`jakarta.*`) requirement (`pom.xml:69, pom.xml:120`). This is exactly the
+golden set's "Compatibility risk" required finding
+(`tests/evaluation/jpetstore-6-golden.md`'s Java EE/Jakarta row), which no
+`steps: 32` run this session had evidenced.
+
+All timings measured are Summary mode only (`slash-default-summary`
+case, `report_mode: "summary"`); Detailed mode was not re-measured with the
+new step budget.
+
+`python scripts/run_quality_gate.py`: 156/157 (same pre-existing VS-019
+failure).

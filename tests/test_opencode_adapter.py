@@ -100,7 +100,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertEqual(bash_rules, {"*": "deny"})
 
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertRegex(agent, r"(?m)^steps:\s+32$")
+        self.assertRegex(agent, r"(?m)^steps:\s+64$")
         self.assertIn("bounded high-signal pass", agent)
         self.assertRegex(agent, r"synthesize the\s+Summary immediately")
         self.assertIn("no more than twelve target `read` calls", agent)

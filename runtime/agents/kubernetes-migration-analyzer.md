@@ -1,7 +1,7 @@
 ---
 description: Analyze a local application repository for Kubernetes migration readiness without changing files.
 mode: primary
-steps: 32
+steps: 64
 permission:
   "*": deny
   read: allow
