@@ -161,3 +161,31 @@ network permission (not requested this session). The tool's own logic is
 unit-tested and verified against real fixture files, but whether the agent
 actually calls `locate_evidence` instead of citing from memory, and whether
 that measurably reduces the scored fabrication rate, is unverified.
+
+## Live verification outcome (2026-08-07, follow-up session)
+
+**Acceptance criterion met.** 3/3 live runs against a `jpetstore-6` clone
+pinned to the golden set's revision (`e1dd9a31d1cef68793cd0933ae06898e6fcfa807`),
+all `PASS`, target unchanged before/after. `locate_evidence` was called 7,
+10, and 13 times respectively; every citation in all three rendered reports
+resolves to a real, correct `file:line` — no fabricated citation observed,
+versus the pre-change baseline's documented `file:17-268` for a 117-line
+file. Full detail, the evidence-calibration re-score (9/10, up from 8/10
+post-VS-020), and one near-miss (a `locate_evidence` glob/pattern matching
+an unrelated file, which did not leak into the final report) are recorded in
+`tests/evaluation/jpetstore-6-summary-json-first-scorecard.md`'s "VS-023
+Phase 1 live verification" section.
+
+Getting this run to execute at all required first fixing an unrelated
+harness bug: `scripts/install-opencode.sh` and `run_opencode_acceptance.py`
+copied `runtime/tools/` but never `runtime/lib/`, so every tool importing
+`"../lib/..."` (starting with SEC-002's `safe-path.ts`) failed to resolve in
+every live run since SEC-002 landed. See the scorecard section and
+`scripts/run_opencode_acceptance.py`'s `copy_tools()` for the fix, and
+`tests/test_opencode_adapter.py::test_isolated_tool_copy_includes_sibling_lib_modules`
+for the regression test.
+
+Phase 2 (the five ecosystem-aware `inspect_*`/`discover_deployment_candidates`
+tools) remains deferred, not needed: the one observed wrong-glob/pattern
+near-miss did not produce a fabricated citation, which is the signal
+`focus.md` set for revisiting that decision.

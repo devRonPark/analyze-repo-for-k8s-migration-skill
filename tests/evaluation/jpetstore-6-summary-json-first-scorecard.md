@@ -115,3 +115,76 @@ This confirms VS-020's decision was correct without touching the renderer,
 template, or schema at all — the v2 architecture already had a channel for
 this information; the Agent just wasn't told to use it. `python scripts/run_quality_gate.py`
 stayed at 148/149 (unrelated VS-019) after this change.
+
+## VS-023 Phase 1 live verification (2026-08-07, `locate_evidence`)
+
+Three live runs via `scripts/run_opencode_acceptance.py --case
+slash-default-summary --repository-root <jpetstore-6 clone pinned to
+`e1dd9a31d1cef68793cd0933ae06898e6fcfa807`> --repeat 3`, all `PASS`,
+`Validation: passed`, target `git status`/`rev-parse` identical before and
+after all three.
+
+Before this run could execute at all, it surfaced and required fixing a
+harness bug unrelated to VS-023's own code: `scripts/install-opencode.sh` and
+`run_opencode_acceptance.py`'s isolated-mode setup copied `runtime/tools/`
+but never `runtime/lib/`, so `read.ts`/`glob.ts`/`locate_evidence.ts`
+(which import sibling modules via `"../lib/..."`, first introduced by
+SEC-002's `safe-path.ts`) failed to resolve and every live run since SEC-002
+landed would have failed identically. Fixed by extracting a `copy_tools()`
+helper that copies both directories together, plus adding
+`locate_evidence.ts` and the `lib/` copies to `install-opencode.sh` (which
+was also missing the new tool entirely). Regression test:
+`test_isolated_tool_copy_includes_sibling_lib_modules` in
+`tests/test_opencode_adapter.py`.
+
+| Run | `locate_evidence` calls | Fabricated `file:line` citation | `recommendation`-classified item (VS-021 regression) |
+| --- | ---: | --- | --- |
+| repeat 1 | 7 | None observed | None |
+| repeat 2 | 10 | None observed | None |
+| repeat 3 | 13 | None observed | None |
+
+All three runs independently reproduced the golden set's two highest-priority
+corrections with real, tool-computed evidence: the `tomcat90`/`tomcat9`
+profile conflict (`Dockerfile:21, pom.xml:337` in every run — matches
+golden's `pom.xml:334-363`, `Dockerfile:21`) and the `openjdk:25`/Java 17
+version mismatch (`Dockerfile:17, pom.xml:62(-64)` — matches golden's
+`pom.xml:60-64`, `Dockerfile:17`). The Secret-shaped seed-data finding also
+cited real, near-identical line ranges across all three runs
+(`jpetstore-hsqldb-dataload.sql:17-20/17-22/19-22` — golden: `:17-23`).
+
+One near-miss is worth recording: in repeat 1, a `locate_evidence` call for
+`pattern: "web.xml"` with a broad `glob: "**/*"` matched an unrelated Spanish
+documentation file (`src/site/es/xdoc/index.xml:98`) instead of the real
+`WEB-INF/web.xml`. The model did not cite this spurious match anywhere in
+the final report — it had already read the real `web.xml` directly via
+`read` and used that. This is the "wrong glob/pattern, not a wrong line
+number" failure class `focus.md` flagged as the signal for revisiting
+ADR-2026-08-07-003's deferred Phase 2 (the five ecosystem-aware tools) — but
+because it did not produce a fabricated citation in the rendered report,
+this single instance is not that signal. Worth re-checking if it recurs and
+does leak into a report.
+
+Separately, a latent (not newly introduced) inconsistency was observed but
+not fixed, since it did not block or corrupt any of the three runs: `read.ts`'s
+`trustedSkillRoots` hardcodes a singular `skill/analyze-repo-for-kubernetes`
+path, but both the acceptance harness and OpenCode's actual observed skill
+directory use the plural `skills/`. The model's two direct `read` attempts on
+skill reference files were denied by this mismatch in every run, but it always
+recovered using the `skill` tool's already-inlined file content instead, so
+report accuracy was unaffected. Worth a follow-up ticket if a future workflow
+needs `read` (not `skill`) to reach skill-internal files.
+
+**Evidence-calibration dimension re-score:** 9/10 per run (was 6/10 in the
+original 58/100 score, 8/10 after VS-020 — see the table above). Every
+citation checked across all three reports resolves to real, correct
+`file:line` content; no invented value; no `recommendation`-classified item.
+Not a full 10/10 because the `web.xml` near-miss above shows the underlying
+risk (a wrong tool-computed match) is not fully eliminated, only that it did
+not surface as user-visible fabrication in this sample.
+
+This satisfies VS-023 Phase 1's acceptance criterion ("repeated live runs
+... show a measurably lower citation-fabrication rate than the pre-change
+baseline") for the sample size run: 3/3 clean, 0 fabricated citations, versus
+the pre-change baseline's documented `file:17-268` for a 117-line file. Three
+runs against one repository is not a large sample; this is a real, direct
+result, not a statistical guarantee against rarer fabrication modes.

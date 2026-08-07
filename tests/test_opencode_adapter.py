@@ -40,6 +40,16 @@ class OpenCodeAdapterTests(unittest.TestCase):
             self.assertNotIn('"$HOME/.agents/skills', text)
             self.assertNotIn('"$HOME/.claude/skills', text)
 
+    def test_isolated_tool_copy_includes_sibling_lib_modules(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = Path(tmp) / "config"
+            adapter.copy_tools(ROOT, config_dir)
+            self.assertTrue((config_dir / "tools" / "read.ts").is_file())
+            self.assertTrue((config_dir / "tools" / "locate_evidence.ts").is_file())
+            self.assertTrue((config_dir / "lib" / "safe-path.ts").is_file())
+            self.assertTrue((config_dir / "lib" / "redact.ts").is_file())
+            self.assertTrue((config_dir / "lib" / "locate-evidence.ts").is_file())
+
     def test_discovery_audit_reports_stale_and_unexpected_skills(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
