@@ -104,3 +104,46 @@ boundary comparison. Check glob.ts for the same issue. Add a regression
 test using a real symlink, not a string argument. Do not touch the
 existing symlink-argument target-resolution gate.
 ```
+
+## Decision outcome (2026-08-07)
+
+Reproduced first: a Bun script that called the pre-fix `safePath()` against a
+worktree containing a directory junction pointing outside it returned a path
+string that passed `isWithin()` unchanged — confirming the gap by
+inspection and execution, not code reading alone.
+
+Fixed by extracting the boundary check into a new shared, dependency-free
+module, `runtime/lib/safe-path.ts` (`isWithin`, `realpathDeepest`,
+`isSafeWithin`), used by both `read.ts` and `glob.ts` instead of each
+duplicating its own `isWithin`. `isSafeWithin()` resolves symlinks/junctions
+on both the root and the candidate path via `realpathDeepest()` (which walks
+up to the deepest existing ancestor for a not-yet-existing final segment,
+so a target that doesn't exist yet still gets its existing symlinked
+ancestors dereferenced) before comparing realpath-to-realpath. `read.ts`'s
+`safePath()` and `glob.ts`'s `safeRoot()` are now `async` and both throw
+their existing, tool-specific error message unchanged. Placed the shared
+module at `runtime/lib/`, a sibling of `runtime/tools/`, rather than nesting
+it inside `runtime/tools/` — OpenCode's tool loader treats every file in
+that directory as a tool definition, and a non-tool module there risked
+being picked up incorrectly.
+
+**Environment constraint on the regression test:** this Windows machine
+cannot create real file symlinks without elevated privilege or Developer
+Mode (`fs.symlinkSync(..., "file")` fails with `EPERM`) — the same
+constraint VS-019 already documented for `ln -s`. The regression test in
+`runtime/lib/safe-path.test.ts` therefore exercises the escape with a
+directory **junction** (`fs.symlinkSync(..., "junction")`, which Windows
+allows without elevation) as its primary, always-run case, since that
+exercises the identical `isSafeWithin()` code path the fix relies on. A
+second test attempts the literal file-symlink case and self-skips with a
+logged reason if `EPERM` is thrown, rather than silently passing or
+pretending the file-symlink path was verified end-to-end. Both the
+junction-escape rejection and a plain in-bounds accept are covered
+unconditionally; 7/7 tests pass via `bun test runtime/lib/safe-path.test.ts`.
+
+`python scripts/run_quality_gate.py`: 154/155 (same pre-existing VS-019
+Windows-junction failure as baseline, unrelated to this change). The
+OpenCode acceptance suite and a live E2E rerun were **not** executed — the
+`opencode` CLI is not installed in this sandbox, and a live run against the
+configured provider requires escalated per-command permission this session
+did not request. This is a documented gap, not a claimed pass.

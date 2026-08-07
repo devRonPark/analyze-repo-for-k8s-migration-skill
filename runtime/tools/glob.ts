@@ -1,14 +1,10 @@
 import { tool } from "@opencode-ai/plugin"
-import { relative, resolve, sep } from "node:path"
+import { resolve } from "node:path"
+import { isSafeWithin } from "../lib/safe-path"
 
-function isWithin(root: string, path: string) {
-  const pathFromRoot = relative(root, path)
-  return pathFromRoot !== ".." && !pathFromRoot.startsWith(".." + sep)
-}
-
-function safeRoot(worktree: string, path?: string) {
+async function safeRoot(worktree: string, path?: string) {
   const value = resolve(worktree, path ?? ".")
-  if (!isWithin(worktree, value)) throw new Error("path is outside the target")
+  if (!(await isSafeWithin(worktree, value))) throw new Error("path is outside the target")
   return value
 }
 
@@ -19,7 +15,7 @@ export default tool({
     path: tool.schema.string().optional(),
   },
   async execute(args, context) {
-    const root = safeRoot(context.worktree, args.path)
+    const root = await safeRoot(context.worktree, args.path)
     const matches: string[] = []
     for await (const entry of new Bun.Glob(args.pattern).scan({ cwd: root })) {
       matches.push(entry)

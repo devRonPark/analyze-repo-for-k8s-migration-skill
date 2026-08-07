@@ -1,16 +1,12 @@
 import { tool } from "@opencode-ai/plugin"
 import { readFile, readdir, stat } from "node:fs/promises"
-import { relative, resolve, sep } from "node:path"
+import { resolve } from "node:path"
+import { isSafeWithin } from "../lib/safe-path"
 
 const SECRET = /((?i:password|passwd|token|api[_ -]?key)\s*[=:])\s*[^\s,;]+/g
 const SQL_LITERAL = /'(?:''|[^'])*'/g
 
-function isWithin(root: string, path: string) {
-  const pathFromRoot = relative(root, path)
-  return pathFromRoot !== ".." && !pathFromRoot.startsWith(".." + sep)
-}
-
-function safePath(worktree: string, path: string) {
+async function safePath(worktree: string, path: string) {
   const value = resolve(worktree, path)
   const configDir = process.env.OPENCODE_CONFIG_DIR
   const trustedSkillRoots = [
@@ -18,7 +14,7 @@ function safePath(worktree: string, path: string) {
     resolve(process.env.HOME ?? ".", ".config/opencode/skill/analyze-repo-for-kubernetes"),
     resolve(worktree, ".opencode/skill/analyze-repo-for-kubernetes"),
   ].filter((root): root is string => Boolean(root))
-  if (!isWithin(worktree, value) && !trustedSkillRoots.some(root => isWithin(root, value))) {
+  if (!(await isSafeWithin(worktree, value, trustedSkillRoots))) {
     throw new Error("path is outside the target or trusted Skill")
   }
   return value
@@ -37,7 +33,7 @@ export default tool({
     limit: tool.schema.number().optional(),
   },
   async execute(args, context) {
-    const path = safePath(context.worktree, args.path)
+    const path = await safePath(context.worktree, args.path)
     if ((await stat(path)).isDirectory()) return (await readdir(path)).join("\n")
     const lines = (await readFile(path, "utf8")).split(/\r?\n/)
     const offset = Math.max(0, args.offset ?? 0)
