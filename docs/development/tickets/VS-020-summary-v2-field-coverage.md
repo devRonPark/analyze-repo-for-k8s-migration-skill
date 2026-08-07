@@ -27,7 +27,7 @@ underlying evidence was accurate.
 
 ## Status and dependencies
 
-- **Status:** Ready — needs a decision before implementation (see Scope)
+- **Status:** Completed — decided neither Option A nor B as written; see Decision outcome below.
 - **Depends on:** DEL-002/DEL-003 (implemented 2026-08-07; this ticket found
   the gap through the JSON-first pipeline they introduced, not before)
 - **Blocks:** None
@@ -99,6 +99,30 @@ python scripts/render_summary.py tests/evaluation/.../payload.json
 
 - Commit only the files the chosen option touches.
 - Suggested commit: `feat: surface image/build/Secret fields in Summary v2` (A) or `docs: rescope the JPetStore golden set to Summary v2's compact contract` (B)
+
+## Decision outcome (2026-08-07)
+
+Neither Option A nor B as originally written. Re-reading
+ADR-2026-07-30-002 §2.3 showed adding component-table columns (Option A)
+would directly contradict a deliberate decision ("상세 빌드 명령", "전체 설정
+목록" are explicitly excluded from Summary output). But §2.5 of the same
+ADR already defines a `missing_inputs` channel for exactly this kind of
+information (`deployment_value` for Secret-shaped inputs,
+`hard_blocker`/`open_design_decision` for execution mismatches), and the
+v2 renderer already prints `missing_inputs` in full under `## 4. 열린 항목`
+— the Agent prompt just never told the model to route build/image-alignment
+risk and Secret exposure there instead of leaving them in unrendered
+`fields.*`.
+
+Fix: extended the prompt's `## Summary JSON contract` section with an
+explicit rule (route these three finding types to `missing_inputs`) and a
+worked-example `deployment_value` entry. No renderer, template, or schema
+change. Re-scored the same live scenario:
+`tests/evaluation/jpetstore-6-summary-json-first-scorecard.md`'s
+"VS-020 re-score" section — 58/100 → 84/100, with the two lowest-scoring
+dimensions (build/image precision, configuration/security risks) improving
+the most (12→17, 5→15). `python scripts/run_quality_gate.py`: 148/149
+(unrelated VS-019) both before and after.
 
 ## Codex execution instruction
 

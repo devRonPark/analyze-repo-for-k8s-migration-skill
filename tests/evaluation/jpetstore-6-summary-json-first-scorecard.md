@@ -66,14 +66,52 @@ this sample size, but it does confirm the residual risk ADR-2026-08-07-001
 already recorded: JSON emission is prompt-only, not schema-constrained at
 the engine level.
 
-## Follow-up candidates (not implemented)
+## Follow-up candidates (as of the original 58/100 score)
 
 1. Decide whether the v2 template should surface more `fields` per
    component (image, build/run commands, Secret) for Summary mode, or
    whether that's an intentional compactness trade-off the golden-set
-   rubric needs to be revised to match.
+   rubric needs to be revised to match. → resolved below as **VS-020**.
 2. The model still includes a `recommendation`-classified open item despite
    the prompt's explicit "no 권장 사항" rule for Summary — worth a targeted
-   prompt or validator check.
+   prompt or validator check. → still open, tracked as **VS-021**.
 3. `response_format` JSON-schema constraint (already tracked in
    ADR-2026-08-07-001) would address the attempt-3 failure mode directly.
+   → still open, tracked as **VS-022**.
+
+## VS-020 re-score: 84/100
+
+`docs/development/tickets/VS-020-summary-v2-field-coverage.md` decided
+against Option A (adding component-table columns) after reading
+ADR-2026-07-30-002 §2.3, which explicitly excludes verbose per-field detail
+(build commands, full config lists) from Summary — adding columns would
+have reopened a decision that ADR already made. §2.5 of that same ADR
+defines exactly where information like this belongs instead: `missing_inputs`
+with `hard_blocker` / `open_design_decision` / `deployment_value`
+classification, which the v2 renderer already prints in full under
+`## 4. 열린 항목`. The gap was that the Agent prompt never told the model to
+route build/image-alignment risk and Secret exposure there — it only had
+those facts sitting in unrendered `fields.*`.
+
+Fix (no renderer or schema change): extended `runtime/agents/kubernetes-migration-analyzer.md`'s
+`## Summary JSON contract` section with an explicit rule — a
+build/runtime mismatch, a Secret/credential-shaped data location, or a
+compatibility risk must also become a `missing_inputs` entry, with a
+worked-example addition showing a `deployment_value` Secret item — and
+re-ran the identical live scenario.
+
+| Dimension | Weight | Before (58/100 run) | After (this run) | Assessment |
+| --- | ---: | ---: | ---: | --- |
+| Scope, revision, deployable-unit | 10 | 10 | 10 | Unchanged, already correct. |
+| Build, image, runtime precision | 20 | 12 | 17 | Now explicitly names the `openjdk:25`/Java 17 alignment risk (`Dockerfile:17, pom.xml:63`) alongside the `tomcat90`/`tomcat9` conflict, both as `설계 차단` open items. |
+| Network and state dependencies | 15 | 12 | 12 | Unchanged — port/HSQLDB still correct, `/jpetstore/` context path still missing (model still didn't read `README.md`). |
+| Configuration, security, compatibility risks | 20 | 5 | 15 | Secret/credential-shaped seed data now appears as a `배포 입력` open item with precise location (`src/main/resources/database/jpetstore-hsqldb-data.sql:168-173`) — golden's #3 correction priority. Java EE/Jakarta compatibility still not evidenced. |
+| Kubernetes design-input gaps | 20 | 8 | 17 | Now individually covers workload.kind, HSQLDB persistence/lifecycle, and names Service/Ingress/probes/resources/security-context/autoscaling together — close to the full golden checklist, though the last six are consolidated into one bullet rather than six. |
+| Evidence calibration and report discipline | 10 | 6 | 8 | No false claims; no `recommendation`-classified item this run (VS-021 not yet implemented, so this isn't guaranteed on every run). |
+| Interactive completion and target safety | 5 | 5 | 5 | Completed, `Validation: passed`, target unchanged. |
+| **Total** | **100** | **58** | **84** | |
+
+This confirms VS-020's decision was correct without touching the renderer,
+template, or schema at all — the v2 architecture already had a channel for
+this information; the Agent just wasn't told to use it. `python scripts/run_quality_gate.py`
+stayed at 148/149 (unrelated VS-019) after this change.
