@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0",
+  "mode": "detailed",
+  "scope": {
+    "대상 유형": "Local path",
+    "Repository URL 또는 Local path": "/tmp/web",
+    "접근 방식": "read-only",
+    "확인된 저장소 루트": "/tmp/web",
+    "branch, tag 또는 commit": "main",
+    "분석 경로": ".",
+    "출력 모드": "detailed"
+  },
+  "components": [
+    {
+      "name": "web",
+      "evidence": [{"status": "확인됨", "reference": "Dockerfile:1"}],
+      "execution_info": {
+        "실행 형태": {"value": "HTTP 서버", "status": "확인됨", "reference": "Dockerfile:1"},
+        "경로": {"value": "/", "status": "확인됨", "reference": "Dockerfile:1"},
+        "언어": {"value": "Java", "status": "확인됨", "reference": "pom.xml:2"},
+        "프레임워크": {"value": "Spring", "status": "확인됨", "reference": "pom.xml:10"},
+        "런타임": {"value": "openjdk:25", "status": "확인됨", "reference": "Dockerfile:1"},
+        "패키지 관리자": {"value": "Maven", "status": "확인됨", "reference": "pom.xml:2"},
+        "설치 명령": {"value": "mvn install", "status": "확인됨", "reference": "pom.xml:2"},
+        "빌드 명령": {"value": "mvn package", "status": "확인됨", "reference": "pom.xml:2"},
+        "이미지 빌드 명령": {"value": "docker build .", "status": "확인됨", "reference": "Dockerfile:1"},
+        "운영 기동 명령": {"value": "./mvnw cargo:run", "status": "확인됨", "reference": "Dockerfile:21"},
+        "컨테이너화": {"value": "기존 컨테이너 정의 있음", "status": "확인됨", "reference": "Dockerfile:1"},
+        "프로토콜": {"value": "HTTP", "status": "확인됨", "reference": "docker-compose.yaml:12"},
+        "수신 포트": {"value": "8080", "status": "확인됨", "reference": "docker-compose.yaml:12"},
+        "상태 확인": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*health*,**/*probe*}, result=없음)"}
+      },
+      "configuration_state": {
+        "설정": {"value": "application.properties", "status": "확인됨", "reference": "src/main/resources/application.properties:1"},
+        "Secret": {"value": "credential-shaped demo seed data", "status": "확인됨", "reference": "src/main/resources/database/jpetstore-hsqldb-dataload.sql:19"},
+        "쓰기 상태 또는 영속성": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern=PersistentVolume, result=없음)"},
+        "적용 시점": {"value": "빌드 시점", "status": "확인됨", "reference": "Dockerfile:1"},
+        "종료와 복구": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern=preStop, result=없음)"},
+        "관찰 가능성": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*prometheus*,**/*actuator*}, result=없음)"}
+      },
+      "minimum_inputs": {
+        "workload.kind": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*}, result=없음)"},
+        "metadata.name": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*}, result=없음)"},
+        "image": {"value": "openjdk:25", "status": "확인됨", "reference": "Dockerfile:1"},
+        "command": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*}, result=없음)"},
+        "args": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*}, result=없음)"},
+        "containerPort": {"value": "8080", "status": "확인됨", "reference": "docker-compose.yaml:12"},
+        "Service": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*}, result=없음)"},
+        "Ingress": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*}, result=없음)"}
+      },
+      "missing_inputs": [
+        {
+          "key": "workload.kind",
+          "description": "Kubernetes workload 종류 미정의",
+          "범위": "web",
+          "결정": "open decision",
+          "status": "미확인",
+          "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*}, result=없음)"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "source": "web",
+      "target": "hsqldb",
+      "evidence": [{"status": "확인됨", "reference": "src/main/webapp/WEB-INF/applicationContext.xml:31"}],
+      "fields": {
+        "종류": "embedded database",
+        "protocol 또는 mechanism": "JDBC",
+        "endpoint 또는 configuration": "jdbc:hsqldb:mem",
+        "적용 시점": "프로세스 시작 시점",
+        "실행 위치": "동일 프로세스",
+        "기능 실행에 필요": "필요",
+        "확인된 실행 정의에서 사용 여부": "확인됨",
+        "공급 또는 관리 경계": "애플리케이션 내장",
+        "상태 또는 영속성": "휘발성"
+      }
+    }
+  ],
+  "excluded_items": [
+    {"name": "docs", "reason": "배포 대상 아님", "evidence": {"status": "확인됨", "reference": "README.md:1"}}
+  ],
+  "missing_inputs": [
+    {
+      "key": "workload.kind",
+      "category": "image",
+      "impact_scope": "전체",
+      "status": "미확인",
+      "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*}, result=없음)",
+      "description": "Kubernetes workload 종류 미정의"
+    }
+  ],
+  "evidence": [{"status": "확인됨", "reference": "Dockerfile:1"}],
+  "design_input_verdict": "추가 정보 필요",
+  "verdict_reason": "workload.kind 미확인",
+  "verdict_evidence": [{"status": "확인됨", "reference": "Dockerfile:1"}],
+  "deployment_basis": {
+    "확인된 배포 선언": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*,**/helm*}, result=없음)"},
+    "저장소에서 확인한 기동 정의": {"value": "docker-compose", "status": "확인됨", "reference": "docker-compose.yaml:1"},
+    "운영 환경 배포 기준 구성": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern=production, result=없음)"}
+  },
+  "configuration_details": [
+    {
+      "이름": "application.properties",
+      "연결 배포 대상": "web",
+      "목적": "런타임 설정",
+      "적용 시점": "빌드 시점",
+      "source 또는 injection 방식": "파일 포함",
+      "변경 효과": "재빌드 필요",
+      "Secret 여부": "아니오",
+      "쓰기 상태 또는 영속성": "미확인",
+      "종료와 복구": "미확인",
+      "관찰 가능성": "미확인",
+      "status": "확인됨",
+      "reference": "src/main/resources/application.properties:1"
+    }
+  ]
+}

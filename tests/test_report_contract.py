@@ -373,6 +373,40 @@ class ReportContractTests(unittest.TestCase):
         errors = report_contract.validate_json_payload(detailed)
         self.assertFalse(any("recommendation" in error for error in errors), errors)
 
+    def test_detailed_json_requires_scope_and_decision_for_unknown_missing_input(self):
+        detailed = json.loads((REPORT_FIXTURES / "valid-detailed.json").read_text(encoding="utf-8"))
+        detailed["components"][0]["missing_inputs"] = [{
+            "key": "Ingress",
+            "description": "Ingress 미정의",
+            "status": "미확인",
+            "reference": "검색(scope=., pattern=Ingress, result=없음)",
+        }]
+        errors = report_contract.validate_json_payload(detailed)
+        self.assertTrue(any("범위" in error and "결정" in error for error in errors), errors)
+
+    def test_detailed_json_rejects_incomplete_dependency_fields(self):
+        detailed = json.loads((REPORT_FIXTURES / "valid-detailed.json").read_text(encoding="utf-8"))
+        del detailed["dependencies"][0]["fields"]["공급 또는 관리 경계"]
+        errors = report_contract.validate_json_payload(detailed)
+        self.assertTrue(any("공급 또는 관리 경계" in error for error in errors), errors)
+
+    def test_detailed_json_rejects_invalid_blocker_category(self):
+        detailed = json.loads((REPORT_FIXTURES / "valid-detailed.json").read_text(encoding="utf-8"))
+        detailed["missing_inputs"][0]["category"] = "알수없음"
+        errors = report_contract.validate_json_payload(detailed)
+        self.assertTrue(any("범주" in error for error in errors), errors)
+
+    def test_detailed_json_requires_blocker_for_additional_information_verdict(self):
+        detailed = json.loads((REPORT_FIXTURES / "valid-detailed.json").read_text(encoding="utf-8"))
+        detailed["missing_inputs"] = []
+        errors = report_contract.validate_json_payload(detailed)
+        self.assertTrue(any("missing_inputs" in error for error in errors), errors)
+
+    def test_detailed_json_valid_fixture_has_no_detailed_specific_errors(self):
+        detailed = json.loads((REPORT_FIXTURES / "valid-detailed.json").read_text(encoding="utf-8"))
+        errors = report_contract.validate_json_payload(detailed)
+        self.assertEqual(errors, [])
+
     def test_schema_enums_match_runtime_contract(self):
         schema = json.loads((ROOT / "schemas/analysis-result.schema.json").read_text(encoding="utf-8"))
 

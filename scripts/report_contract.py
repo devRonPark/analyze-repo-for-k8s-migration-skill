@@ -118,4 +118,59 @@ def validate_json_payload(payload: Any, contract: dict[str, Any] = CONTRACT) -> 
                 errors.append(
                     f"missing_inputs[{index}] classification must not be recommendation in Summary mode: {label}"
                 )
+    if mode == "detailed":
+        errors.extend(detailed_json_errors(payload))
+    return errors
+
+
+DEPENDENCY_FIELD_KEYS = (
+    "종류", "protocol 또는 mechanism", "endpoint 또는 configuration", "적용 시점",
+    "실행 위치", "기능 실행에 필요", "확인된 실행 정의에서 사용 여부",
+    "공급 또는 관리 경계", "상태 또는 영속성",
+)
+BLOCKER_CATEGORIES = {
+    "image", "runtime", "secret", "external_dependency", "other",
+    "이미지", "Secret", "외부 의존성", "기타",
+}
+IMPACT_SCOPES = {"전체", "특정 배포 대상", "production 경로"}
+
+
+def detailed_json_errors(payload: dict[str, Any]) -> list[str]:
+    """Detailed-specific field checks, mirroring validate_report.py's Markdown-level
+    evidence_semantic_errors/readiness_blocker_errors rules at the JSON layer."""
+    errors: list[str] = []
+
+    for c_index, component in enumerate(payload.get("components") or []):
+        if not isinstance(component, dict):
+            continue
+        for m_index, item in enumerate(component.get("missing_inputs") or []):
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key", f"missing_inputs[{m_index}]")
+            status = item.get("status")
+            path = f"components[{c_index}].missing_inputs[{m_index}]"
+            if status == "추정됨":
+                errors.append(f"{path}.status에는 추정됨을 사용할 수 없습니다: {key}")
+            if status == "미확인" and (not item.get("범위") or not item.get("결정")):
+                errors.append(f"{path}에 범위/결정이 필요합니다 (미확인): {key}")
+
+    for d_index, dependency in enumerate(payload.get("dependencies") or []):
+        if not isinstance(dependency, dict):
+            continue
+        fields = dependency.get("fields") if isinstance(dependency.get("fields"), dict) else {}
+        for field in DEPENDENCY_FIELD_KEYS:
+            if not str(fields.get(field, "")).strip():
+                errors.append(f"dependencies[{d_index}].fields에 필수 키가 없습니다: {field}")
+
+    for b_index, blocker in enumerate(payload.get("missing_inputs") or []):
+        if not isinstance(blocker, dict):
+            continue
+        if blocker.get("category") not in BLOCKER_CATEGORIES:
+            errors.append(f"missing_inputs[{b_index}]에 유효한 범주(category)가 없습니다")
+        if blocker.get("impact_scope") not in IMPACT_SCOPES:
+            errors.append(f"missing_inputs[{b_index}]의 impact_scope 값이 유효하지 않습니다")
+
+    if payload.get("design_input_verdict") == "추가 정보 필요" and not payload.get("missing_inputs"):
+        errors.append("design_input_verdict가 추가 정보 필요이면 missing_inputs가 최소 1개 필요합니다")
+
     return errors

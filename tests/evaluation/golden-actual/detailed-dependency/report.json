@@ -2,7 +2,22 @@
   "schema_version": "1.0",
   "mode": "detailed",
   "components": [{"name": "web", "evidence": [{"status": "확인됨", "reference": "README.md:1"}]}],
-  "dependencies": [{"source": "web", "target": "postgres", "evidence": [{"status": "추정됨", "reference": "README.md:1"}]}],
+  "dependencies": [{
+    "source": "web",
+    "target": "postgres",
+    "evidence": [{"status": "추정됨", "reference": "README.md:1"}],
+    "fields": {
+      "종류": "데이터베이스",
+      "protocol 또는 mechanism": "미확인",
+      "endpoint 또는 configuration": "미확인",
+      "적용 시점": "실행 중",
+      "실행 위치": "클러스터 외부",
+      "기능 실행에 필요": "필요",
+      "확인된 실행 정의에서 사용 여부": "미확인",
+      "공급 또는 관리 경계": "미확인",
+      "상태 또는 영속성": "미확인"
+    }
+  }],
   "excluded_items": [],
   "missing_inputs": [],
   "evidence": [{"status": "확인됨", "reference": "README.md:1"}, {"status": "추정됨", "reference": "README.md:1"}],

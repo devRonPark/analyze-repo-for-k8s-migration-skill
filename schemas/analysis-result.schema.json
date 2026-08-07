@@ -18,7 +18,9 @@
     "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
     "design_input_verdict": {
       "enum": ["설계 입력 충분", "추가 정보 필요", "분석 불가"]
-    }
+    },
+    "deployment_basis": {"type": "object"},
+    "configuration_details": {"type": "array", "items": {"$ref": "#/$defs/configurationDetail"}}
   },
   "oneOf": [
     {
@@ -81,6 +83,68 @@
         "reference": {"type": "string", "minLength": 1}
       }
     },
+    "detailedField": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "value": {"type": "string"},
+        "status": {"$ref": "#/$defs/evidenceStatus"},
+        "reference": {"type": "string", "minLength": 1},
+        "reason": {"type": "string"}
+      }
+    },
+    "detailedMissingInput": {
+      "type": "object",
+      "required": ["key", "status", "reference"],
+      "properties": {
+        "key": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "범위": {"type": "string"},
+        "결정": {"type": "string"},
+        "status": {"enum": ["확인됨", "미확인", "상충됨"]},
+        "reference": {"type": "string", "minLength": 1},
+        "reason": {"type": "string"}
+      },
+      "if": {"properties": {"status": {"const": "미확인"}}},
+      "then": {"required": ["범위", "결정"]}
+    },
+    "designBlocker": {
+      "type": "object",
+      "required": ["category", "impact_scope", "status", "reference"],
+      "properties": {
+        "key": {"type": "string"},
+        "description": {"type": "string"},
+        "category": {
+          "enum": [
+            "image", "runtime", "secret", "external_dependency", "other",
+            "이미지", "Secret", "외부 의존성", "기타"
+          ]
+        },
+        "impact_scope": {"enum": ["전체", "특정 배포 대상", "production 경로"]},
+        "status": {"$ref": "#/$defs/evidenceStatus"},
+        "reference": {"type": "string", "minLength": 1},
+        "reason": {"type": "string"}
+      }
+    },
+    "configurationDetail": {
+      "type": "object",
+      "required": ["이름", "status", "reference"],
+      "properties": {
+        "이름": {"type": "string", "minLength": 1},
+        "연결 배포 대상": {"type": "string"},
+        "목적": {"type": "string"},
+        "적용 시점": {"$ref": "#/$defs/configurationTiming"},
+        "source 또는 injection 방식": {"type": "string"},
+        "변경 효과": {"type": "string"},
+        "Secret 여부": {"type": "string"},
+        "쓰기 상태 또는 영속성": {"type": "string"},
+        "종료와 복구": {"type": "string"},
+        "관찰 가능성": {"type": "string"},
+        "status": {"$ref": "#/$defs/evidenceStatus"},
+        "reference": {"type": "string", "minLength": 1},
+        "reason": {"type": "string"}
+      }
+    },
     "component": {
       "type": "object",
       "required": ["name"],
@@ -88,7 +152,51 @@
         "name": {"type": "string", "minLength": 1},
         "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
         "containerization": {"$ref": "#/$defs/containerization"},
-        "configuration_timing": {"$ref": "#/$defs/configurationTiming"}
+        "configuration_timing": {"$ref": "#/$defs/configurationTiming"},
+        "execution_info": {
+          "type": "object",
+          "properties": {
+            "실행 형태": {"$ref": "#/$defs/detailedField"},
+            "경로": {"$ref": "#/$defs/detailedField"},
+            "언어": {"$ref": "#/$defs/detailedField"},
+            "프레임워크": {"$ref": "#/$defs/detailedField"},
+            "런타임": {"$ref": "#/$defs/detailedField"},
+            "패키지 관리자": {"$ref": "#/$defs/detailedField"},
+            "설치 명령": {"$ref": "#/$defs/detailedField"},
+            "빌드 명령": {"$ref": "#/$defs/detailedField"},
+            "이미지 빌드 명령": {"$ref": "#/$defs/detailedField"},
+            "운영 기동 명령": {"$ref": "#/$defs/detailedField"},
+            "컨테이너화": {"$ref": "#/$defs/detailedField"},
+            "프로토콜": {"$ref": "#/$defs/detailedField"},
+            "수신 포트": {"$ref": "#/$defs/detailedField"},
+            "상태 확인": {"$ref": "#/$defs/detailedField"}
+          }
+        },
+        "configuration_state": {
+          "type": "object",
+          "properties": {
+            "설정": {"$ref": "#/$defs/detailedField"},
+            "Secret": {"$ref": "#/$defs/detailedField"},
+            "쓰기 상태 또는 영속성": {"$ref": "#/$defs/detailedField"},
+            "적용 시점": {"$ref": "#/$defs/detailedField"},
+            "종료와 복구": {"$ref": "#/$defs/detailedField"},
+            "관찰 가능성": {"$ref": "#/$defs/detailedField"}
+          }
+        },
+        "minimum_inputs": {
+          "type": "object",
+          "properties": {
+            "workload.kind": {"$ref": "#/$defs/detailedField"},
+            "metadata.name": {"$ref": "#/$defs/detailedField"},
+            "image": {"$ref": "#/$defs/detailedField"},
+            "command": {"$ref": "#/$defs/detailedField"},
+            "args": {"$ref": "#/$defs/detailedField"},
+            "containerPort": {"$ref": "#/$defs/detailedField"},
+            "Service": {"$ref": "#/$defs/detailedField"},
+            "Ingress": {"$ref": "#/$defs/detailedField"}
+          }
+        },
+        "missing_inputs": {"type": "array", "items": {"$ref": "#/$defs/detailedMissingInput"}}
       }
     },
     "dependency": {
@@ -97,7 +205,21 @@
       "properties": {
         "source": {"type": "string", "minLength": 1},
         "target": {"type": "string", "minLength": 1},
-        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+        "fields": {
+          "type": "object",
+          "properties": {
+            "종류": {"type": "string"},
+            "protocol 또는 mechanism": {"type": "string"},
+            "endpoint 또는 configuration": {"type": "string"},
+            "적용 시점": {"$ref": "#/$defs/configurationTiming"},
+            "실행 위치": {"type": "string"},
+            "기능 실행에 필요": {"enum": ["필요", "불필요", "미확인"]},
+            "확인된 실행 정의에서 사용 여부": {"enum": ["확인됨", "미확인"]},
+            "공급 또는 관리 경계": {"type": "string"},
+            "상태 또는 영속성": {"type": "string"}
+          }
+        }
       }
     }
   }
