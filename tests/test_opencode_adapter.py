@@ -254,6 +254,82 @@ class OpenCodeAdapterTests(unittest.TestCase):
                     ROOT / "tests/fixtures/repos/sample",
                 )
 
+    def test_repair_fixes_invalid_json_using_the_same_session(self):
+        payload_text = (ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8")
+
+        def runner(command, **kwargs):
+            self.assertIn("--session", command)
+            self.assertIn("ses_test123", command)
+            event = {"type": "text", "text": payload_text}
+            return subprocess.CompletedProcess(command, 0, json.dumps(event) + "\n", "")
+
+        trace = {"final_output": "이건 JSON이 아닙니다.", "session_id": "ses_test123"}
+        with tempfile.TemporaryDirectory() as tmp:
+            report = adapter.retain_summary_markdown_with_repair(
+                trace,
+                Path(tmp),
+                ROOT / "tests/fixtures/repos/sample",
+                executable=sys.executable,
+                target=ROOT / "tests/fixtures/repos/sample",
+                environment={},
+                agent_id="kubernetes-migration-analyzer",
+                runner=runner,
+                timeout=5,
+                pure=True,
+            )
+        self.assertTrue(report.startswith("# Kubernetes 설계 입력 요약\n"))
+        self.assertEqual(len(trace["repair_attempts"]), 1)
+
+    def test_repair_gives_up_without_a_session_id(self):
+        trace = {"final_output": "이건 JSON이 아닙니다.", "session_id": None}
+
+        def runner(command, **kwargs):
+            raise AssertionError("should not attempt a repair without a session_id")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "not valid JSON"):
+                adapter.retain_summary_markdown_with_repair(
+                    trace,
+                    Path(tmp),
+                    ROOT / "tests/fixtures/repos/sample",
+                    executable=sys.executable,
+                    target=ROOT / "tests/fixtures/repos/sample",
+                    environment={},
+                    agent_id="kubernetes-migration-analyzer",
+                    runner=runner,
+                    timeout=5,
+                    pure=True,
+                )
+        self.assertEqual(trace["repair_attempts"], ["Summary output is not valid JSON: Expecting value: line 1 column 1 (char 0)"])
+
+    def test_repair_exhausts_its_budget_and_raises(self):
+        call_count = 0
+
+        def runner(command, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            event = {"type": "text", "text": "여전히 JSON이 아닙니다."}
+            return subprocess.CompletedProcess(command, 0, json.dumps(event) + "\n", "")
+
+        trace = {"final_output": "이건 JSON이 아닙니다.", "session_id": "ses_test123"}
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                adapter.retain_summary_markdown_with_repair(
+                    trace,
+                    Path(tmp),
+                    ROOT / "tests/fixtures/repos/sample",
+                    executable=sys.executable,
+                    target=ROOT / "tests/fixtures/repos/sample",
+                    environment={},
+                    agent_id="kubernetes-migration-analyzer",
+                    runner=runner,
+                    timeout=5,
+                    pure=True,
+                    max_repairs=2,
+                )
+        self.assertEqual(call_count, 2)
+        self.assertEqual(len(trace["repair_attempts"]), 3)
+
     def test_evaluator_uses_direct_summary_markdown(self):
         case = {
             "id": "summary",

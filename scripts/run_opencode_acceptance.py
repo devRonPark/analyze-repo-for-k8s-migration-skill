@@ -575,6 +575,96 @@ def retain_summary_markdown(raw_output: str, output_dir: Path, repository_root: 
     return report.read_text(encoding="utf-8")
 
 
+def continue_session(
+    session_id: str,
+    message: str,
+    executable: str,
+    target: Path,
+    environment: dict[str, str],
+    agent_id: str,
+    runner: CommandRunner = subprocess.run,
+    timeout: float = 180,
+    pure: bool = True,
+) -> str:
+    """Send a follow-up message in an existing session and return its final text output."""
+    command = [executable, "run", "--format", "json", "--agent", agent_id, "--dir", str(target), "--session", session_id, "--print-logs", "--log-level", "DEBUG"]
+    if pure:
+        command.insert(1, "--pure")
+    if message.startswith("-"):
+        command.append("--")
+    command.append(message)
+    result = runner(
+        command,
+        cwd=target,
+        env=environment,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+        timeout=timeout,
+    )
+    events = event_lines(result.stdout)
+    final_output = "\n".join(
+        event_content(event) for event in events if event.get("type") in {"text", "message", "assistant"}
+    ).strip()
+    return final_output or result.stdout.strip()
+
+
+def retain_summary_markdown_with_repair(
+    trace: dict[str, Any],
+    output_dir: Path,
+    repository_root: Path,
+    *,
+    executable: str,
+    target: Path,
+    environment: dict[str, str],
+    agent_id: str,
+    runner: CommandRunner = subprocess.run,
+    timeout: float = 180,
+    pure: bool = True,
+    max_repairs: int = 2,
+) -> str:
+    """Render/validate the Agent's Summary JSON, asking it to fix a specific,
+    named validation error in the same session up to max_repairs times before
+    giving up. A session that never emitted parseable JSON, or one with no
+    captured session_id, gets exactly one attempt -- there is nothing to
+    continue."""
+    raw_output = str(trace["final_output"])
+    attempts: list[str] = []
+    for attempt in range(max_repairs + 1):
+        try:
+            markdown = retain_summary_markdown(raw_output, output_dir, repository_root)
+            if attempts:
+                trace["repair_attempts"] = attempts
+            return markdown
+        except ValueError as error:
+            attempts.append(str(error))
+            session_id = trace.get("session_id")
+            if attempt >= max_repairs or not session_id:
+                trace["repair_attempts"] = attempts
+                raise
+            repair_message = (
+                "방금 만든 JSON 응답에 문제가 있습니다: "
+                f"{error}\n\n"
+                "필요한 파일을 다시 확인해 해당 부분만 정확히 고친 뒤, Summary JSON 계약"
+                "(schema_version, mode, scope, components, dependencies, excluded_items, "
+                "missing_inputs, evidence, design_input_verdict)을 그대로 유지한 전체 JSON "
+                "객체 하나만 다시 출력하세요. Markdown이나 설명, 코드 펜스 없이 JSON만 "
+                "출력합니다."
+            )
+            raw_output = continue_session(
+                session_id,
+                repair_message,
+                executable,
+                target,
+                environment,
+                agent_id,
+                runner=runner,
+                timeout=timeout,
+                pure=pure,
+            )
+
+
 def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
     candidates: list[str] = [str(trace.get("final_output", ""))]
     for event in trace.get("events", []):
@@ -967,6 +1057,7 @@ def run_case(
     )
     trace.update({"case_id": case["id"], "query": case["query"]})
     trace["elapsed_seconds"] = elapsed_seconds
+    trace["session_id"] = next((event.get("sessionID") for event in events if event.get("sessionID")), None)
     report = extract_report(trace)
     if report is not None:
         trace["report_file"] = "report.json"
@@ -1190,8 +1281,16 @@ def main() -> int:
                 ):
                     try:
                         summary_target = fixed_target or (ROOT / case["repository_fixture"]).resolve()
-                        trace["final_output"] = retain_summary_markdown(
-                            str(trace["final_output"]), case_dir, summary_target
+                        trace["final_output"] = retain_summary_markdown_with_repair(
+                            trace,
+                            case_dir,
+                            summary_target,
+                            executable=executable,
+                            target=summary_target,
+                            environment=environment,
+                            agent_id=AGENT_ID,
+                            timeout=args.timeout,
+                            pure=isolated or args.pure,
                         )
                         trace["report_file"] = "report.md"
                     except ValueError as error:
