@@ -13,7 +13,7 @@ class ContextMeasurementTests(unittest.TestCase):
             skill = root / "skill"
             skill.mkdir()
             loaded = skill / "SKILL.md"
-            loaded.write_text("one\ntwo\n", encoding="utf-8")
+            loaded.write_bytes(b"one\ntwo\n")
             trace_dir = root / "traces" / "case"
             trace_dir.mkdir(parents=True)
             trace = {

@@ -15,7 +15,7 @@ test-fixture Unix-path assumptions).
 
 ## Status and dependencies
 
-- **Status:** Ready
+- **Status:** Completed
 - **Depends on:** VS-014, VS-015 (established the current 14-failure baseline this ticket narrows)
 - **Blocks:** None
 

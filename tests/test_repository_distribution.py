@@ -13,6 +13,24 @@ from scripts import install_distribution
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _msys_posix_path(path: Path) -> str:
+    """Render a Windows path the way MSYS bash resolves it via $PATH."""
+    drive = path.drive.rstrip(":").lower()
+    return f"/{drive}{path.as_posix()[2:]}"
+
+
+# The installer scripts require python3 on PATH. The tests sandbox PATH to
+# "/usr/bin:/bin" so they exercise only what install-opencode.sh/install-qwen.sh
+# actually need. On Unix, that already contains a working python3, so the
+# sandbox is left untouched there; on Windows, the interpreter running this
+# suite is rarely on /usr/bin or /bin, so its directory must be added
+# explicitly, translated to the form MSYS bash's $PATH search understands.
+if sys.platform == "win32":
+    SANDBOX_PATH = f"/usr/bin:/bin:{_msys_posix_path(Path(sys.executable).parent)}"
+else:
+    SANDBOX_PATH = "/usr/bin:/bin"
+
+
 class RepositoryDistributionTests(unittest.TestCase):
     def test_public_repository_files_exist(self):
         for rel in [
@@ -48,7 +66,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             result = subprocess.run(
                 ["bash", str(ROOT / "scripts/install-qwen.sh")],
                 cwd=ROOT,
-                env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+                env={"HOME": str(home), "PATH": SANDBOX_PATH},
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -136,7 +154,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             result = subprocess.run(
                 ["bash", str(ROOT / "scripts/install-opencode.sh")],
                 cwd=ROOT,
-                env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+                env={"HOME": str(home), "PATH": SANDBOX_PATH},
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -185,7 +203,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             result = subprocess.run(
                 ["bash", str(ROOT / "scripts/install-opencode.sh"), "--project-local", str(project)],
                 cwd=ROOT,
-                env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+                env={"HOME": str(home), "PATH": SANDBOX_PATH},
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -209,7 +227,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             result = subprocess.run(
                 ["bash", str(ROOT / "scripts/install-opencode.sh")],
                 cwd=ROOT,
-                env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+                env={"HOME": str(home), "PATH": SANDBOX_PATH},
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -234,7 +252,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             result = subprocess.run(
                 ["bash", str(source / "scripts/install-opencode.sh")],
                 cwd=source,
-                env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+                env={"HOME": str(home), "PATH": SANDBOX_PATH},
                 capture_output=True,
                 text=True,
                 encoding="utf-8",

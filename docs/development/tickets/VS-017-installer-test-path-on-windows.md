@@ -21,7 +21,7 @@ PATH, same as documented in `README.md`.
 
 ## Status and dependencies
 
-- **Status:** Ready
+- **Status:** Completed for its declared scope (4/5 targeted tests pass; 5th is a distinct issue tracked as VS-019)
 - **Depends on:** VS-014, VS-015 (established the current 14-failure baseline this ticket narrows)
 - **Blocks:** None
 
@@ -66,6 +66,15 @@ PATH, same as documented in `README.md`.
 - All 5 previously failing installer tests pass on this Windows/Git Bash environment.
 - The sandboxed `PATH` still excludes the full host PATH — only the directories the install script actually needs are added.
 - No change to `scripts/install-opencode.sh` or `scripts/install-qwen.sh`.
+
+### Result
+
+4 of the 5 targeted tests now pass with the PATH extension. The 5th,
+`test_install_script_creates_qwen_skill_symlink`, now gets past the
+`python3` failure (script exits 0) but fails a different, unrelated
+assertion: `installed.is_symlink()` is `False` even though the script ran
+`ln -s` successfully. This is a distinct Windows limitation (see VS-019),
+not a PATH problem, and is out of this ticket's scope.
 
 ## Verification commands
 

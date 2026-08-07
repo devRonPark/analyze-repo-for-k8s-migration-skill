@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -368,7 +369,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             trace = adapter.run_case(
                 case,
                 ROOT / "runtime/opencode.json",
-                "/bin/echo",
+                sys.executable,
                 ROOT,
                 home,
                 config_dir,
@@ -387,7 +388,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             trace = adapter.run_case(
                 case,
                 ROOT / "runtime/opencode.json",
-                "/bin/echo",
+                sys.executable,
                 ROOT,
                 Path(tmp),
                 Path(tmp),
@@ -417,7 +418,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             trace = adapter.run_case(
                 case,
                 ROOT / "runtime/opencode.json",
-                "/bin/echo",
+                sys.executable,
                 ROOT,
                 home,
                 config_dir,
@@ -443,7 +444,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             trace = adapter.run_case(
                 case,
                 None,
-                "/bin/echo",
+                sys.executable,
                 ROOT,
                 home,
                 home / ".config" / "opencode",
@@ -482,7 +483,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             trace = adapter.run_case(
                 case,
                 ROOT / "runtime/opencode.json",
-                "/bin/echo",
+                sys.executable,
                 ROOT,
                 home,
                 config_dir,
@@ -494,16 +495,20 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertTrue(trace["command_agent_matches"])
 
     def test_debug_probes_preserve_stdout_and_stderr_outside_target(self):
+        def runner(command, **kwargs):
+            return subprocess.CompletedProcess(command, 0, "debug ok\n", "")
+
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             target = root / "application"
             target.mkdir()
             output = root / "debug"
             result = adapter.run_debug_probes(
-                "/bin/echo",
+                sys.executable,
                 target,
                 {"HOME": str(root / "home")},
                 output,
+                runner=runner,
                 timeout=1,
             )
             self.assertEqual(result["status"], "PASS")
@@ -512,17 +517,21 @@ class OpenCodeAdapterTests(unittest.TestCase):
             self.assertFalse((target / ".opencode").exists())
 
     def test_interactive_probe_uses_application_dir_and_preserves_logs(self):
+        def runner(command, **kwargs):
+            return subprocess.CompletedProcess(command, 0, "interactive ok\n", "")
+
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             target = root / "application"
             target.mkdir()
             output = root / "interactive"
             result = adapter.run_interactive_probe(
-                "/bin/echo",
+                sys.executable,
                 target,
                 {"HOME": str(root / "home")},
                 output,
                 pure=True,
+                runner=runner,
                 timeout=1,
             )
             self.assertTrue(Path(result["stdout_file"]).is_file())
@@ -545,7 +554,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             trace = adapter.run_case(
                 case,
                 ROOT / "runtime/opencode.json",
-                "/bin/echo",
+                sys.executable,
                 ROOT,
                 Path(tmp),
                 Path(tmp),

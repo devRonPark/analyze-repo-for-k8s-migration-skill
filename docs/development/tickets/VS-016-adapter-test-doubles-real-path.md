@@ -16,7 +16,7 @@ here.
 
 ## Status and dependencies
 
-- **Status:** Ready
+- **Status:** Completed (all 8 cases pass; see Correction found during implementation)
 - **Depends on:** VS-014, VS-015 (established the current 14-failure baseline this ticket narrows)
 - **Blocks:** None
 
@@ -46,6 +46,21 @@ here.
 1. Grep `tests/test_opencode_adapter.py` for `/bin/echo` and any other literal Unix path used as a placeholder executable.
 2. Replace each with `sys.executable` (already proven safe elsewhere in this codebase after VS-015) or another cross-platform-existing path, keeping the fake `runner` injection unchanged.
 3. Re-run `python scripts/run_quality_gate.py` and confirm these 7 cases move from `UNAVAILABLE` to `PASS` with no change to unrelated tests.
+
+### Correction found during implementation
+
+Two of the eight `/bin/echo` occurrences (`test_debug_probes_preserve_stdout_and_stderr_outside_target`,
+`test_interactive_probe_uses_application_dir_and_preserves_logs`) do **not**
+inject a fake `runner` — they call `adapter.run_debug_probes`/
+`run_interactive_probe` with the default real `subprocess.run`, relying on
+`/bin/echo` actually executing and trivially succeeding for arbitrary
+trailing args (`debug config --print-logs ...`). Swapping only the
+executable to `sys.executable` made the real subprocess call fail (`python
+debug ...` is not a valid invocation), turning `UNAVAILABLE` into `FAIL`.
+Fix: give both tests a fake `runner` returning a canned successful
+`CompletedProcess`, matching the other six tests' pattern — this tests the
+adapter's own log/stdout-stderr-preservation plumbing, which is what the
+test names describe, without depending on real process semantics.
 
 ## Acceptance criteria
 
