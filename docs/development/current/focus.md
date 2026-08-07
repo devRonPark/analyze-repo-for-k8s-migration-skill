@@ -86,7 +86,25 @@ which inlines everything), so this went unnoticed across all three live
 runs. Worth a follow-up ticket only if a future workflow needs direct `read`
 access to skill-internal files.
 
-Other reasonable candidates if VS-024 is not picked up next, in no
+New candidates from comparing this project against a sibling repo's
+architecture review (2026-08-07), prioritized:
+- **P0 — [VS-025](../tickets/VS-025-summary-workload-boundary.md)**:
+  `references/workload-boundary.md` is only loaded for Detailed
+  (`kubernetes-migration-analyzer.md:161`), but Summary's `components` array
+  makes the same split/merge judgment unaided. Highest priority because it is
+  the direct gap in the mode the sibling-repo comparison was asked about.
+- **P1 — [VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md)**:
+  re-open `ADR-2026-08-07-003`'s VS-023 Phase 2 deferral given two
+  evidence-sourcing gaps since: the wrong-file `docker-compose.yaml`
+  citation above, and `locate_evidence`'s documented first-match imprecision
+  (`VS-023`'s "Citation-sourcing enforcement follow-up" section). A
+  scoping/decision ticket, not a build-it ticket.
+- **P1 — [VS-027](../tickets/VS-027-workload-boundary-golden-fixtures.md)**:
+  `references/workload-boundary.md` has no fixture or golden-set coverage —
+  JPetStore 6 never presents a multi-process split. Adds a must-split and a
+  must-not-split fixture to verify the rule actually decides correctly.
+
+Other reasonable candidates if none of the above is picked up next, in no
 particular priority order:
 - `DET-010`–`DET-014` (see "Deferred, still open" below) — re-triage against
   VS-024 first if VS-024 has landed by the time these are picked up; they
