@@ -111,4 +111,11 @@ def validate_json_payload(payload: Any, contract: dict[str, Any] = CONTRACT) -> 
                     errors.append(f"{path}.{field} is required")
             if "evidence" in dependency:
                 errors.extend(_validate_evidence(dependency["evidence"], f"{path}.evidence", contract))
+    if mode == "summary" and isinstance(payload.get("missing_inputs"), list):
+        for index, item in enumerate(payload["missing_inputs"]):
+            if isinstance(item, dict) and item.get("classification") == "recommendation":
+                label = item.get("description") or item.get("key") or f"missing_inputs[{index}]"
+                errors.append(
+                    f"missing_inputs[{index}] classification must not be recommendation in Summary mode: {label}"
+                )
     return errors

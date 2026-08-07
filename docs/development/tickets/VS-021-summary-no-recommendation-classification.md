@@ -27,7 +27,7 @@ unreliable for `DET-010`–`DET-014`.
 
 ## Status and dependencies
 
-- **Status:** Ready
+- **Status:** Completed — enforced at the JSON-payload validation layer (see Decision outcome).
 - **Depends on:** DEL-002/DEL-003 (this ticket's evidence comes from that pipeline)
 - **Blocks:** None
 
@@ -95,6 +95,31 @@ python -m unittest tests.test_report_contract tests.test_summary_renderer -v
 
 - Commit only the validator/prompt change and its tests.
 - Suggested commit: `fix: reject a recommendation-classified open item in Summary output`
+
+## Decision outcome (2026-08-07)
+
+Enforced at the JSON-payload layer, per the ticket's stated preference:
+`scripts/report_contract.py`'s `validate_json_payload` now rejects any
+`missing_inputs[]` entry with `classification == "recommendation"` when
+`mode == "summary"`, with an error naming the index and description/key.
+This runs before rendering (both `render_summary()` and
+`_render_summary_v1()` call `validate_json_payload` first), so a
+`recommendation` item now fails fast instead of silently rendering as
+`권장 사항`. Detailed mode is untouched — the check is gated on
+`mode == "summary"` and a dedicated test confirms Detailed accepts the same
+payload shape unchanged.
+
+Also updated `runtime/agents/kubernetes-migration-analyzer.md`'s
+`## Summary JSON contract` section to state the three valid Summary
+classifications explicitly (dropping `recommendation` from the list) and
+added an explicit "the validator rejects it" line, so a compliant model has
+one fewer classification to reach for by mistake — though the enforcement
+is what actually guarantees this, not the instruction.
+
+Added `test_summary_rejects_a_recommendation_classified_open_item` and
+`test_detailed_recommendation_classification_is_unaffected` to
+`tests/test_report_contract.py`. `python scripts/run_quality_gate.py`:
+148/149 (unrelated VS-019), unchanged.
 
 ## Codex execution instruction
 

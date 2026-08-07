@@ -342,6 +342,35 @@ class ReportContractTests(unittest.TestCase):
         detailed["mode"] = "detailed"
         self.assertIn("dependencies", " ".join(report_contract.validate_json_payload(detailed)))
 
+    def test_summary_rejects_a_recommendation_classified_open_item(self):
+        summary = json.loads((REPORT_FIXTURES / "valid-summary.json").read_text(encoding="utf-8"))
+        summary["missing_inputs"] = [{
+            "classification": "recommendation",
+            "description": "내장 HSQLDB를 외부 데이터베이스로 전환할지 결정 필요",
+            "impact_scope": "특정 배포 대상",
+            "status": "미확인",
+            "reference": "Dockerfile:1",
+        }]
+        errors = report_contract.validate_json_payload(summary)
+        self.assertTrue(
+            any("recommendation" in error and "missing_inputs" in error for error in errors),
+            errors,
+        )
+
+    def test_detailed_recommendation_classification_is_unaffected(self):
+        detailed = json.loads((REPORT_FIXTURES / "valid-summary.json").read_text(encoding="utf-8"))
+        detailed["mode"] = "detailed"
+        detailed["dependencies"] = []
+        detailed["missing_inputs"] = [{
+            "classification": "recommendation",
+            "description": "내장 HSQLDB를 외부 데이터베이스로 전환할지 결정 필요",
+            "impact_scope": "특정 배포 대상",
+            "status": "미확인",
+            "reference": "Dockerfile:1",
+        }]
+        errors = report_contract.validate_json_payload(detailed)
+        self.assertFalse(any("recommendation" in error for error in errors), errors)
+
     def test_schema_enums_match_runtime_contract(self):
         schema = json.loads((ROOT / "schemas/analysis-result.schema.json").read_text(encoding="utf-8"))
 
