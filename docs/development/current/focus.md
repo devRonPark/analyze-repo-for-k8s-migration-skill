@@ -1,17 +1,64 @@
 # Current Focus
 
-## Active priority (start here — 2026-08-07 late-evening handoff)
+## Active priority (start here — 2026-08-07 late-night handoff #2)
 
-**VS-023 Phase 1 (`locate_evidence`) is now live-verified and DONE.** This
-session cloned `jpetstore-6` (pinned to the golden set's revision
-`e1dd9a31d1cef68793cd0933ae06898e6fcfa807`) and ran
+**[VS-024](../tickets/VS-024-detailed-json-first-pipeline.md) (port Detailed
+mode to the JSON-first render/validate/repair pipeline) is scoped, not
+started — pick this up first.** A same-day Detailed-mode measurement
+(`tests/evaluation/jpetstore-6-detailed-timing-and-citation-2026-08-07.md`)
+ran the current free-written-Markdown Detailed path 4 times (3 batch, 1
+interactive `--interactive`) against `jpetstore-6` pinned to the golden
+set's revision. Timing was fine (209–311s) and citation content was mostly
+accurate in the 3 batch runs, but **structural contract compliance was
+bad in all four**: `validate_report.py --mode detailed` failure counts of
+32/18/20/36, none matching the required literal section headings or
+`- 판정:` verdict line, one run even emitting an English heading and
+Markdown tables the template forbids. This is the exact failure class
+Summary mode already solved via DEL-002/DEL-003/ADR-2026-08-07-001 (JSON +
+a deterministic renderer instead of free-written Markdown); Detailed never
+got the same treatment. VS-024 is that port, fully scoped with a schema gap
+analysis, an implementation-step list, and explicit out-of-scope boundaries
+(it does **not** attempt to fix the wrong-file citation problem the
+interactive run also found — see below).
+
+**Read first, in this order, if picking up VS-024:**
+1. [VS-024](../tickets/VS-024-detailed-json-first-pipeline.md) in full — it
+   is self-contained and lists its own "Read first" set
+   (`assets/migration-assessment-template.md`, `scripts/render_summary.py`,
+   `schemas/analysis-result.schema.json`, `scripts/report_contract.py`,
+   `scripts/validate_report.py`, the agent prompt, and
+   `run_opencode_acceptance.py`'s repair-loop functions).
+2. [tests/evaluation/jpetstore-6-detailed-timing-and-citation-2026-08-07.md](../../../tests/evaluation/jpetstore-6-detailed-timing-and-citation-2026-08-07.md) —
+   the measurement that motivated the ticket, including the exact validator
+   failure lists and the wrong-file-citation evidence.
+
+**A second, separate, more concerning finding from the same measurement,
+explicitly out of VS-024's scope:** the one interactive (`--interactive`,
+not batch) run cited `docker-compose.yaml:17`/`docker-compose.yaml:21` (a
+Compose schema-version string and a `container_name` line — real content,
+wrong file) for two different blocker-level claims that were actually
+sourced from `Dockerfile:17`/`Dockerfile:21`, repeated 3× and 4× in the same
+report. This is a content/evidence-sourcing problem, not a format problem —
+a JSON-first renderer (VS-024) cannot catch it. It is the same risk class
+VS-023's `locate_evidence` targets; worth checking whether these specific
+wrong-file citations were `locate_evidence`-sourced or hand-written before
+deciding whether new work is needed, or whether VS-023's existing
+"every citation must come from `locate_evidence`" enforcement already
+covers it and just wasn't followed this one time (n=1, not yet a trend).
+
+### Prior handoff, still valid context (2026-08-07 late-evening, VS-023 Phase 1)
+
+**VS-023 Phase 1 (`locate_evidence`) is live-verified and DONE for Summary
+mode.** This session cloned `jpetstore-6` (pinned to the golden set's
+revision `e1dd9a31d1cef68793cd0933ae06898e6fcfa807`) and ran
 `scripts/run_opencode_acceptance.py --case slash-default-summary --repeat 3`
 against it three times, all `PASS`, target unchanged. Full detail in
 `tests/evaluation/jpetstore-6-summary-json-first-scorecard.md`'s "VS-023
 Phase 1 live verification" section and [VS-023](../tickets/VS-023-migration-evidence-sensor-tools.md)'s
 "Live verification outcome" section — short version: 0 fabricated citations
 across 30 checked, evidence-calibration dimension re-scored 9/10, Phase 2
-(the deferred five ecosystem-aware tools) still not needed.
+(the deferred five ecosystem-aware tools) still not needed. **Not yet
+confirmed for Detailed mode** — see the wrong-file-citation finding above.
 
 Getting the live run to execute at all required fixing an unrelated,
 previously-undetected harness bug first: `scripts/install-opencode.sh` and
@@ -23,7 +70,7 @@ SEC-002 landed (`18915ed`) would have failed the same way. Fixed via a new
 (`test_isolated_tool_copy_includes_sibling_lib_modules`); see the scorecard
 section for why this was in-scope to fix rather than just flag.
 
-One unfixed, low-priority finding from this session, not blocking anything:
+One unfixed, low-priority finding from that session, not blocking anything:
 `read.ts`'s `trustedSkillRoots` hardcodes a singular `skill/` path segment,
 but the actual installed/observed directory is plural `skills/`. The model
 never actually needs this path (it reads skill content via the `skill` tool,
@@ -31,17 +78,18 @@ which inlines everything), so this went unnoticed across all three live
 runs. Worth a follow-up ticket only if a future workflow needs direct `read`
 access to skill-internal files.
 
-**Next session has no forced starting point.** Reasonable candidates, in no
+Other reasonable candidates if VS-024 is not picked up next, in no
 particular priority order:
-- `DET-010`–`DET-014` (see "Deferred, still open" below) — the longest-
-  standing open item, previously deferred only because VS-023 took priority.
+- `DET-010`–`DET-014` (see "Deferred, still open" below) — re-triage against
+  VS-024 first if VS-024 has landed by the time these are picked up; they
+  target the free-written Detailed path VS-024 may make moot.
 - A follow-up on the `skill/`-vs-`skills/` mismatch noted above, if it turns
   out to matter for some workflow.
 - Confirming SEC-002's symlink-escape fix with a dedicated live attempt
   (status.md notes it was only incidentally exercised, not deliberately
   attacked, during VS-023's live runs).
 
-**Read first, in this order, if picking up VS-023-adjacent work:**
+**Read first, in this order, if picking up VS-023-adjacent work instead:**
 1. [tests/evaluation/jpetstore-6-summary-json-first-scorecard.md](../../../tests/evaluation/jpetstore-6-summary-json-first-scorecard.md)'s "VS-023 Phase 1 live verification" section — the actual result.
 2. [VS-023](../tickets/VS-023-migration-evidence-sensor-tools.md)'s "Live verification outcome" section.
 3. [ADR-2026-08-07-003](../daily/2026-08-07/ADR-2026-08-07-003-vs-023-sensor-tool-scoping.md) — why Phase 1 is narrower than the ticket's original proposal, and what would justify Phase 2.
