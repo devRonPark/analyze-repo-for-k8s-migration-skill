@@ -1,7 +1,15 @@
 import { readFile } from "node:fs/promises"
-import { relative, resolve } from "node:path"
+import { relative, resolve, sep } from "node:path"
 import { isSafeWithin } from "./safe-path"
 import { redact } from "./redact"
+
+// `node:path`'s relative() returns OS-native separators (backslash on
+// Windows); every citation/scope in this contract is repository-relative
+// using forward slashes only, so this normalizes before the value ever
+// reaches a reference string.
+function toPosixRelative(path: string): string {
+  return path.split(sep).join("/")
+}
 
 export type Fact =
   | { status: "found"; value: string; reference: string }
@@ -29,7 +37,7 @@ export async function locateEvidence(options: {
   pattern?: string
 }): Promise<Fact> {
   const { worktree, root, glob, pattern } = options
-  const scope = relative(worktree, root) || "."
+  const scope = toPosixRelative(relative(worktree, root)) || "."
 
   const candidates: string[] = []
   for await (const entry of new Bun.Glob(glob).scan({ cwd: root })) {
@@ -42,7 +50,7 @@ export async function locateEvidence(options: {
 
   for (const match of candidates) {
     const absolute = resolve(root, match)
-    const reportPath = relative(worktree, absolute)
+    const reportPath = toPosixRelative(relative(worktree, absolute))
     if (!regex) {
       return { status: "found", value: match, reference: `${reportPath}:1` }
     }

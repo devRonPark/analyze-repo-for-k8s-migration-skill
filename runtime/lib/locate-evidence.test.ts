@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, sep } from "node:path"
+import { join } from "node:path"
 import { locateEvidence, resolveRoot } from "./locate-evidence"
 
 function makeFixture() {
@@ -63,7 +63,22 @@ describe("locateEvidence: found", () => {
       writeFileSync(join(worktree, "service-a", "Dockerfile"), "FROM openjdk:25\n")
       const root = await resolveRoot(worktree, "service-a")
       const fact = await locateEvidence({ worktree, root, glob: "Dockerfile" })
-      expect(fact).toEqual({ status: "found", value: "Dockerfile", reference: `service-a${sep}Dockerfile:1` })
+      expect(fact).toEqual({ status: "found", value: "Dockerfile", reference: "service-a/Dockerfile:1" })
+    } finally {
+      rmSync(worktree, { recursive: true, force: true })
+    }
+  })
+
+  test("reference uses forward slashes for a deeply nested pattern match, even on Windows", async () => {
+    const worktree = makeFixture()
+    try {
+      mkdirSync(join(worktree, "src", "main", "webapp", "WEB-INF"), { recursive: true })
+      writeFileSync(
+        join(worktree, "src", "main", "webapp", "WEB-INF", "web.xml"),
+        "<web-app>\n<servlet/>\n</web-app>\n",
+      )
+      const fact = await locateEvidence({ worktree, root: worktree, glob: "**/web.xml", pattern: "<servlet" })
+      expect(fact).toEqual({ status: "found", value: "<servlet/>", reference: "src/main/webapp/WEB-INF/web.xml:2" })
     } finally {
       rmSync(worktree, { recursive: true, force: true })
     }
@@ -92,6 +107,21 @@ describe("locateEvidence: not_found returns the literal search, not an invented 
       expect(fact).toEqual({
         status: "not_found",
         searched: { scope: ".", glob: "Dockerfile", pattern: "^EXPOSE" },
+      })
+    } finally {
+      rmSync(worktree, { recursive: true, force: true })
+    }
+  })
+
+  test("scope uses forward slashes for a subdirectory root, even on Windows", async () => {
+    const worktree = makeFixture()
+    try {
+      mkdirSync(join(worktree, "service-a"), { recursive: true })
+      const root = await resolveRoot(worktree, "service-a")
+      const fact = await locateEvidence({ worktree, root, glob: "Dockerfile" })
+      expect(fact).toEqual({
+        status: "not_found",
+        searched: { scope: "service-a", glob: "Dockerfile", pattern: null },
       })
     } finally {
       rmSync(worktree, { recursive: true, force: true })
