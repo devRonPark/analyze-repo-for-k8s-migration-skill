@@ -141,12 +141,12 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertNotIn("| 연결 workload |", template)
         self.assertIn("Detailed output must not use Markdown tables", agent)
 
-    def test_detailed_final_output_uses_the_verbatim_markdown_contract(self):
+    def test_detailed_final_output_uses_the_json_first_contract(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        normalized = agent.replace("\n", " ")
-        self.assertIn("must begin exactly with `# Kubernetes 설계 입력 상세 평가`", agent)
-        self.assertIn("all eight `##` headings from the Detailed template verbatim", normalized)
-        self.assertIn("report-contract=1.0", agent)
+        self.assertIn("Detailed output, the final assistant response must be exactly", agent)
+        self.assertIn('"mode": "detailed"', agent)
+        self.assertIn("eight-section `# Kubernetes 설계 입력 상세 평가` Markdown report", agent)
+        self.assertNotIn("must begin exactly with `# Kubernetes 설계 입력 상세 평가`", agent)
 
     def test_agent_requires_high_signal_runtime_conflict_and_seed_checks(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
@@ -360,6 +360,76 @@ class OpenCodeAdapterTests(unittest.TestCase):
                     pure=True,
                 )
         self.assertIn("repair session timed out", trace["repair_attempts"][-1])
+
+    def _minimal_detailed_payload_text(self) -> str:
+        return json.dumps({
+            "schema_version": "1.0",
+            "mode": "detailed",
+            "scope": {"출력 모드": "detailed"},
+            "components": [{"name": "web", "evidence": [{"status": "확인됨", "reference": "Dockerfile:1"}]}],
+            "dependencies": [],
+            "excluded_items": [],
+            "missing_inputs": [],
+            "evidence": [{"status": "확인됨", "reference": "Dockerfile:1"}],
+            "design_input_verdict": "설계 입력 충분",
+        })
+
+    def test_renders_and_finalizes_a_valid_detailed_json_payload(self):
+        payload_text = self._minimal_detailed_payload_text()
+        with tempfile.TemporaryDirectory() as tmp:
+            report = adapter.retain_detailed_markdown(
+                payload_text,
+                Path(tmp),
+                ROOT / "tests/fixtures/repos/sample",
+            )
+            self.assertTrue((Path(tmp) / "payload.json").is_file())
+
+        self.assertTrue(report.startswith("# Kubernetes 설계 입력 상세 평가\n"))
+
+    def test_retains_detailed_json_wrapped_in_a_stray_code_fence(self):
+        raw_output = "```json\n" + self._minimal_detailed_payload_text() + "\n```"
+        with tempfile.TemporaryDirectory() as tmp:
+            report = adapter.retain_detailed_markdown(
+                raw_output,
+                Path(tmp),
+                ROOT / "tests/fixtures/repos/sample",
+            )
+        self.assertTrue(report.startswith("# Kubernetes 설계 입력 상세 평가\n"))
+
+    def test_rejects_detailed_output_that_is_not_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "not valid JSON"):
+                adapter.retain_detailed_markdown(
+                    "분석 중입니다.",
+                    Path(tmp),
+                    ROOT / "tests/fixtures/repos/sample",
+                )
+
+    def test_detailed_repair_fixes_invalid_json_using_the_same_session(self):
+        payload_text = self._minimal_detailed_payload_text()
+
+        def runner(command, **kwargs):
+            self.assertIn("--session", command)
+            self.assertIn("ses_test123", command)
+            event = {"type": "text", "text": payload_text}
+            return subprocess.CompletedProcess(command, 0, json.dumps(event) + "\n", "")
+
+        trace = {"final_output": "이건 JSON이 아닙니다.", "session_id": "ses_test123"}
+        with tempfile.TemporaryDirectory() as tmp:
+            report = adapter.retain_detailed_markdown_with_repair(
+                trace,
+                Path(tmp),
+                ROOT / "tests/fixtures/repos/sample",
+                executable=sys.executable,
+                target=ROOT / "tests/fixtures/repos/sample",
+                environment={},
+                agent_id="kubernetes-migration-analyzer",
+                runner=runner,
+                timeout=5,
+                pure=True,
+            )
+        self.assertTrue(report.startswith("# Kubernetes 설계 입력 상세 평가\n"))
+        self.assertEqual(len(trace["repair_attempts"]), 1)
 
     def test_evaluator_uses_direct_summary_markdown(self):
         case = {

@@ -161,16 +161,89 @@ For an explicit Detailed request, load
 scoped unknown, synthesize the Summary immediately for Summary mode and do not
 seek completeness with another discovery pass.
 
-Immediately after identifying Detailed deployment candidates, create the
-internal eight-section report skeleton. Close every required evidence slot as
-`확인됨`, `상충됨`, or a scoped `미확인`; `추정됨` is an inference, not an
-evidence-slot terminal state. For an unknown minimum input, name its candidate
-or shared `범위:` and the `결정:` it leaves open, then complete the report
-instead of reading low-signal files.
+Immediately after identifying Detailed deployment candidates, populate every
+field of the Detailed JSON contract's eight-section structure below. Close
+every required evidence slot as `확인됨`, `상충됨`, or a scoped `미확인`;
+`추정됨` is an inference, not an evidence-slot terminal state. For an unknown
+minimum input, name its candidate or shared `범위:` and the `결정:` it leaves
+open in the `missing_inputs` entry, then finish the object instead of reading
+low-signal files.
 
-Every Detailed report line uses one of these three shapes character-for-shape.
-The validator rejects free-form prose after `—`, and `근거:` never takes a bare
-`없음`:
+## Detailed JSON contract
+
+Emit an object matching `schemas/analysis-result.schema.json`
+(`schema_version: "1.0"`, `mode: "detailed"`) with these top-level keys:
+`scope`, `components`, `dependencies`, `excluded_items`, `missing_inputs`
+(design-blocker entries with `category`/`impact_scope`), `evidence`,
+`design_input_verdict`, `deployment_basis`, `configuration_details`.
+
+- `scope`: same shape as Summary's, `출력 모드` always `"detailed"`.
+- `components[]`: `name`, `evidence`; `execution_info` (object keyed by
+  `실행 형태`, `경로`, `언어`, `프레임워크`, `런타임`, `패키지 관리자`,
+  `설치 명령`, `빌드 명령`, `이미지 빌드 명령`, `운영 기동 명령`,
+  `컨테이너화`, `프로토콜`, `수신 포트`, `상태 확인`); `configuration_state`
+  (keyed by `설정`, `Secret`, `쓰기 상태 또는 영속성`, `적용 시점`,
+  `종료와 복구`, `관찰 가능성`); `minimum_inputs` (keyed by `workload.kind`,
+  `metadata.name`, `image`, `command`, `args`, `containerPort`, `Service`,
+  `Ingress`); each value is `{value, status, reference, reason?}`.
+- `components[].missing_inputs`: array of `{key, description, 범위, 결정,
+  status, reference, reason?}` — every `상태: 미확인` entry must carry
+  non-empty `범위`/`결정`; `추정됨` is never a valid status here.
+- `dependencies[]`: `{source, target, evidence: [{status, reference}],
+  fields: {종류, "protocol 또는 mechanism", "endpoint 또는 configuration",
+  적용 시점, 실행 위치, "기능 실행에 필요", "확인된 실행 정의에서 사용
+  여부", "공급 또는 관리 경계", "상태 또는 영속성"}}` — one edge renders as
+  one Dependency matrix bullet AND one Text dependency graph line, both
+  mechanically derived from the same edge by the renderer; do not author
+  graph text yourself.
+- `missing_inputs` (top level, drives `### 설계 차단 항목`): array of
+  `{category, impact_scope, status, reference, description}`, `category`
+  one of `image`, `runtime`, `secret`, `external_dependency`, `other`
+  (their Korean labels also accepted; the renderer maps them). If
+  `design_input_verdict` is `추가 정보 필요`, this array must be non-empty.
+- `deployment_basis`: object with `확인된 배포 선언` / `저장소에서 확인한
+  기동 정의` / `운영 환경 배포 기준 구성`, each `{value, status, reference}`
+  — renders as `## 5. 운영 환경 배포 근거`.
+- `configuration_details`: array of `{이름, "연결 배포 대상", 목적, "적용
+  시점", "source 또는 injection 방식", "변경 효과", "Secret 여부", "쓰기
+  상태 또는 영속성", "종료와 복구", "관찰 가능성", status, reference}` —
+  renders as `## 6. 설정과 상태 상세`.
+
+Worked example (illustrative shape only — your own final message is the raw
+JSON object itself, never wrapped in a fence like this):
+
+```json
+{
+  "schema_version": "1.0", "mode": "detailed",
+  "scope": {
+    "대상 유형": "Local path", "Repository URL 또는 Local path": "/path/to/repo",
+    "접근 방식": "read-only", "확인된 저장소 루트": "/path/to/repo",
+    "branch, tag 또는 commit": "main@abcdef1", "분석 경로": ".", "출력 모드": "detailed"
+  },
+  "components": [{
+    "name": "web",
+    "evidence": [{"status": "확인됨", "reference": "Dockerfile:1"}],
+    "execution_info": {"실행 형태": {"value": "HTTP 서버", "status": "확인됨", "reference": "Dockerfile:1"}},
+    "configuration_state": {"Secret": {"value": "없음", "status": "확인됨", "reference": "검색(scope=., pattern=SECRET, result=없음)"}},
+    "minimum_inputs": {"image": {"value": "openjdk:25", "status": "확인됨", "reference": "Dockerfile:1"}},
+    "missing_inputs": [{"key": "Ingress", "description": "Ingress 미정의", "범위": "web", "결정": "open decision", "status": "미확인", "reference": "검색(scope=., pattern=Ingress, result=없음)"}]
+  }],
+  "dependencies": [{
+    "source": "web", "target": "postgres",
+    "evidence": [{"status": "상충됨", "reference": "docker-compose.yaml:12, Dockerfile:5"}],
+    "fields": {"종류": "데이터베이스", "protocol 또는 mechanism": "미확인", "endpoint 또는 configuration": "미확인", "적용 시점": "실행 중", "실행 위치": "클러스터 외부", "기능 실행에 필요": "필요", "확인된 실행 정의에서 사용 여부": "미확인", "공급 또는 관리 경계": "미확인", "상태 또는 영속성": "미확인"}
+  }],
+  "excluded_items": [], "evidence": [{"status": "확인됨", "reference": "Dockerfile:1"}],
+  "missing_inputs": [{"category": "image", "impact_scope": "전체", "status": "확인됨", "reference": "Dockerfile:1", "description": "없음"}],
+  "design_input_verdict": "설계 입력 충분",
+  "deployment_basis": {"확인된 배포 선언": {"value": "미확인", "status": "미확인", "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*,**/helm*}, result=없음)"}},
+  "configuration_details": [{"이름": "APP_MODE", "status": "확인됨", "reference": "pom.xml:1"}]
+}
+```
+
+For reference, the renderer turns each field object into exactly one of
+these Markdown line shapes — matching these shapes is what
+`validate_report.py` checks, not something you write directly:
 
 ```text
 - 키: 값 — 상태: 확인됨|추정됨|미확인|상충됨 / 근거: <file:line 또는 검색(...)>
@@ -178,11 +251,9 @@ The validator rejects free-form prose after `—`, and `근거:` never takes a b
 - 차단 항목: <내용> — 범주: 이미지|Secret|외부 의존성|runtime|기타 / 영향 범위: 전체|특정 배포 대상|production 경로 / 상태: 확인됨|추정됨|미확인|상충됨 / 근거: <file:line 또는 검색(...)>
 ```
 
-Keep `범위:` and `결정:` before the `—`, separated by `;`. After the `—` write
-only `상태:` then `근거:`. Put any extra explanation inside the value, never
-after `근거:`. `추정됨` additionally requires `/ 판단: <이유>`.
-
-`미확인` and `상충됨` take these evidence forms exactly:
+`추정됨` additionally requires a `reason` string (rendered as `/ 판단: <이유>`).
+Every `reference` string follows the same format as the rendered `근거:`
+value below:
 
 ```text
 - 키: 미확인 — 상태: 미확인 / 근거: 검색(scope=<저장소 상대 경로>, pattern=<glob 또는 검색식>, result=없음)
@@ -235,39 +306,36 @@ Every `미확인` entry under `#### 최소 입력 누락` keeps `범위:` and `�
 the `—`, including probes, `metadata.name`, and persistence decisions; an unknown
 without both keys is an incomplete evidence slot.
 
-For Detailed output, use the template's `### 핵심 요약` under the scope section
-for the verdict, candidate, top blocker, and missing-input snapshot. Keep later
-sections to distinct evidence and required detail. Do not expose planning,
-progress, tool errors, or step-limit messages; return report content only. Never
+The rendered `### 핵심 요약` (verdict, candidate, top blocker, missing-input
+snapshot) is derived automatically from `design_input_verdict`, `components`,
+and `missing_inputs` — do not add separate values for it, and do not repeat
+those facts elsewhere in the JSON. Do not expose planning, progress, tool
+errors, or step-limit messages; the JSON object is the entire response. Never
 turn Kubernetes defaults or examples into facts: use `미확인` for unsupported
 workload kind, name, Service, Ingress, image, command, or args.
-For the dependency matrix, retain only application runtime edges and build or
-startup dependencies that affect the executable image; do not add CI, site, or
-package-publishing edges. A profile or version conflict is an unresolved
-application-server dependency edge. Keep the Detailed report compact: one card,
-one row per material dependency, and one blocker per distinct decision so the
-final report is emitted before the step limit.
-Detailed output must not use Markdown tables. Represent every dependency-matrix
-row as the template's single bullet with labeled fields; use bullets for any
-other repeated Detailed findings as well.
-Detailed has a hard output budget: at most 70 lines and 1,200 Korean words.
-Use one candidate card, one dependency bullet, one configuration bullet, and
-at most three blocker bullets. Keep each required field to one short line;
-write `미확인` instead of explaining absent evidence. Do not repeat facts from
-`### 핵심 요약` in later sections. Finish all eight headings before adding any
-optional detail.
+For `dependencies`, retain only application runtime edges and build or
+startup dependencies that affect the executable image; do not add CI, site,
+or package-publishing edges. A profile or version conflict is an unresolved
+application-server dependency edge (an `evidence.status` of `상충됨`).
+Detailed has a hard output budget, enforced by the renderer: one
+`components` entry, one `dependencies` entry, one `configuration_details`
+entry, and at most three top-level `missing_inputs` blocker entries. Keep
+every field value to one short phrase; write `미확인` instead of explaining
+absent evidence in prose. Populate every key of the JSON contract above
+before adding any optional detail — an incomplete object is a failed run,
+the same as a missing Summary field.
 
 Do not inspect lockfiles by default; follow `SKILL.md`'s conditional policy.
 Maven starts with `pom.xml`, wrapper/build/package settings, and runtime
 configuration.
 
-When producing a Detailed report, return only the requested report content. It
-must begin exactly with `# Kubernetes 설계 입력 상세 평가`, include
-`<!-- analyze-repo-for-kubernetes: report-contract=1.0 -->`, and use all eight
-`##` headings from the Detailed template verbatim, including
-`## 6. 설정과 상태 상세`, which is easy to drop after a long candidate card. Count
-the eight `##` headings before sending. Do not omit `#` or `##`
-Markdown heading markers. Before sending the final response, replace every
+When producing Detailed output, the final assistant response must be exactly
+one JSON object matching the Detailed contract above and nothing else — no
+Markdown, no code fence, no prose before or after it, no progress or
+tool-error text. A finalizer outside this session renders your JSON into the
+eight-section `# Kubernetes 설계 입력 상세 평가` Markdown report; emitting
+Markdown yourself skips that renderer and is treated as a failed run, the
+same as Summary. Before sending the final response, replace every
 credential literal with `[REDACTED]`; for seed data, write only
 `credential-shaped demo seed data` and its path/lines. Never output a username,
 password, token, API key, or any value from an `INSERT` statement.

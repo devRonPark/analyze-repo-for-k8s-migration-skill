@@ -207,6 +207,59 @@ python scripts/validate_report.py <rendered report.md> --mode detailed --repo-ro
 - Do not bundle with `DET-010`–`DET-014` retriage or any VS-023 follow-up;
   those are separate decisions per "Out of scope" above.
 
+## Decision outcome (partial — implementation landed, live verification deferred)
+
+Both commits landed on `worktree-review-main`, TDD throughout (failing test
+written before each implementation):
+
+- Commit 1 (`8dce923`): extended `schemas/analysis-result.schema.json`'s
+  Detailed `$defs` (`detailedField`, `detailedMissingInput`, `designBlocker`,
+  `configurationDetail`; `component.execution_info`/`configuration_state`/
+  `minimum_inputs`/`missing_inputs`; `dependency.fields`); added
+  `scripts/render_detailed.py` (pure function, reuses
+  `render_summary.py`'s evidence/reference helpers, single-pass
+  dependency-matrix/text-graph derivation so they cannot diverge); added
+  `report_contract.py`'s `detailed_json_errors` (missing-input scope/decision,
+  dependency field completeness, blocker category/impact enums,
+  verdict/blocker consistency) wired into `validate_json_payload`. Updated the
+  pre-existing `tests/evaluation/golden-actual/detailed-dependency/report.json`
+  fixture to the now-enforced `dependencies[].fields` shape (it predated this
+  ticket's schema and was Summary-shaped).
+- Commit 2: replaced the agent prompt's free-written-Markdown-shape
+  instructions with a "## Detailed JSON contract" section (kept all
+  `locate_evidence`/citation/release-gate/redaction rules unchanged, per the
+  VS-023 boundary); generalized `run_opencode_acceptance.py`'s
+  `retain_summary_markdown[_with_repair]` into a shared
+  `retain_report_markdown[_with_repair]` (`mode` parameter) with
+  `retain_detailed_markdown[_with_repair]` wrappers, keeping the existing
+  Summary function signatures unchanged (`test_opencode_adapter.py` calls
+  them positionally); generalized the call-site branch from
+  `report_mode == "summary"` to `report_mode in {"summary", "detailed"}`.
+  Also found and fixed a real gap surfaced by this generalization:
+  `scripts/validate_target_report.py`'s `finalize()` hardcoded
+  `--mode summary` and required a `"Validation: pending"` receipt line that
+  only the Summary v2 template has — Detailed's template has no such field
+  (by design; out of scope to add one). Added a `mode` parameter that skips
+  the receipt-flip for non-summary modes.
+- Updated one now-stale literal-prose-locking test
+  (`test_detailed_final_output_uses_the_verbatim_markdown_contract` →
+  `..._uses_the_json_first_contract`) for the same contractual reason —
+  Detailed no longer authors Markdown headings directly.
+- `python scripts/run_quality_gate.py` and `python -m pytest tests/`: 178
+  tests, 1 pre-existing unrelated failure
+  (`test_install_script_creates_qwen_skill_symlink`, VS-019, confirmed via
+  `git stash` to predate this change — Windows junction vs. symlink).
+
+**Live verification (ticket's acceptance criteria: 3+ `slash-detailed` repeats
+against `jpetstore-6` @ `e1dd9a31d1cef68793cd0933ae06898e6fcfa807`, before/after
+validator-failure counts and rubric score) is deferred, not done.** The local
+OpenCode provider (`http://172.16.4.249:30000/v1`) is not reachable from this
+session; the user will provide the means to run it separately. Until that
+happens, this ticket's structural acceptance criteria (render_detailed.py
+output passes `validate_report.py --mode detailed` with zero failures on
+well-formed input) are verified by unit test only, not by a live model-authored
+JSON payload.
+
 ## Codex execution instruction
 
 ```text

@@ -1,10 +1,18 @@
 # Current Focus
 
-## Active priority (start here — 2026-08-07 late-night handoff #2)
+## Active priority (start here — 2026-08-07, VS-024 implementation landed, live verification still open)
 
 **[VS-024](../tickets/VS-024-detailed-json-first-pipeline.md) (port Detailed
-mode to the JSON-first render/validate/repair pipeline) is scoped, not
-started — pick this up first.** A same-day Detailed-mode measurement
+mode to the JSON-first render/validate/repair pipeline) has both commits
+landed on `worktree-review-main` (schema/renderer/tests, then
+prompt/harness wiring) — TDD throughout, 178 tests passing (1 pre-existing
+unrelated VS-019 failure). Live verification (3+ `slash-detailed` repeats
+against `jpetstore-6`, before/after validator counts and rubric score) is
+deferred: the local OpenCode provider was not reachable this session. Read
+the ticket's "Decision outcome (partial)" section before resuming — pick
+this up next once the provider is reachable, or continue with other work
+in the meantime.** The same-day Detailed-mode measurement that motivated
+this ticket:
 (`tests/evaluation/jpetstore-6-detailed-timing-and-citation-2026-08-07.md`)
 ran the current free-written-Markdown Detailed path 4 times (3 batch, 1
 interactive `--interactive`) against `jpetstore-6` pinned to the golden

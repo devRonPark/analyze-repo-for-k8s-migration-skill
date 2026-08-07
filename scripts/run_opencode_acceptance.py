@@ -19,10 +19,12 @@ from typing import Any, Callable
 try:
     from scripts.project_metadata import ProjectMetadata, load as load_project_metadata
     from scripts.render_summary import render_summary
+    from scripts.render_detailed import render_detailed
     from scripts.validate_target_report import finalize as finalize_receipt
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
     from project_metadata import ProjectMetadata, load as load_project_metadata
     from render_summary import render_summary
+    from render_detailed import render_detailed
     from validate_target_report import finalize as finalize_receipt
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -550,28 +552,33 @@ def extract_json_object(raw_output: str) -> str:
     return text
 
 
-def retain_summary_markdown(raw_output: str, output_dir: Path, repository_root: Path) -> str:
-    """Render, validate, and finalize the Agent's Summary JSON.
+RENDERERS = {"summary": render_summary, "detailed": render_detailed}
 
-    Per ADR-2026-07-30-004 / ADR-2026-08-07-001: the Agent returns JSON only;
-    this is the pipeline's only producer of user-facing Summary Markdown.
+
+def retain_report_markdown(raw_output: str, output_dir: Path, repository_root: Path, *, mode: str = "summary") -> str:
+    """Render, validate, and finalize the Agent's Summary or Detailed JSON.
+
+    Per ADR-2026-07-30-004 / ADR-2026-08-07-001 (Summary) and VS-024
+    (Detailed): the Agent returns JSON only; this is the pipeline's only
+    producer of user-facing Markdown for either mode.
     """
+    label = mode.capitalize()
     payload_text = extract_json_object(raw_output)
     try:
         payload = json.loads(payload_text)
     except json.JSONDecodeError as error:
-        raise ValueError(f"Summary output is not valid JSON: {error}") from error
+        raise ValueError(f"{label} output is not valid JSON: {error}") from error
     (output_dir / "payload.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     try:
-        markdown = render_summary(payload)
+        markdown = RENDERERS[mode](payload)
     except ValueError as error:
-        raise ValueError(f"Summary JSON failed to render: {error}") from error
+        raise ValueError(f"{label} JSON failed to render: {error}") from error
     report = output_dir / "report.md"
     report.write_text(markdown, encoding="utf-8")
     result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/validate_report.py"), str(report), "--mode", "summary", "--repo-root", str(repository_root)],
+        [sys.executable, str(ROOT / "scripts/validate_report.py"), str(report), "--mode", mode, "--repo-root", str(repository_root)],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -579,11 +586,19 @@ def retain_summary_markdown(raw_output: str, output_dir: Path, repository_root: 
         check=False,
     )
     if result.returncode:
-        raise ValueError(result.stdout.strip() or result.stderr.strip() or "Summary Markdown validation failed")
-    finalize_returncode = finalize_receipt(report, repository_root)
+        raise ValueError(result.stdout.strip() or result.stderr.strip() or f"{label} Markdown validation failed")
+    finalize_returncode = finalize_receipt(report, repository_root, mode=mode)
     if finalize_returncode:
-        raise ValueError("Summary Markdown receipt finalization failed")
+        raise ValueError(f"{label} Markdown receipt finalization failed")
     return report.read_text(encoding="utf-8")
+
+
+def retain_summary_markdown(raw_output: str, output_dir: Path, repository_root: Path) -> str:
+    return retain_report_markdown(raw_output, output_dir, repository_root, mode="summary")
+
+
+def retain_detailed_markdown(raw_output: str, output_dir: Path, repository_root: Path) -> str:
+    return retain_report_markdown(raw_output, output_dir, repository_root, mode="detailed")
 
 
 def continue_session(
@@ -621,11 +636,20 @@ def continue_session(
     return final_output or result.stdout.strip()
 
 
-def retain_summary_markdown_with_repair(
+REPAIR_CONTRACT_FIELDS = {
+    "summary": "schema_version, mode, scope, components, dependencies, excluded_items, "
+    "missing_inputs, evidence, design_input_verdict",
+    "detailed": "schema_version, mode, scope, components, dependencies, excluded_items, "
+    "missing_inputs, evidence, design_input_verdict, deployment_basis, configuration_details",
+}
+
+
+def retain_report_markdown_with_repair(
     trace: dict[str, Any],
     output_dir: Path,
     repository_root: Path,
     *,
+    mode: str = "summary",
     executable: str,
     target: Path,
     environment: dict[str, str],
@@ -635,16 +659,17 @@ def retain_summary_markdown_with_repair(
     pure: bool = True,
     max_repairs: int = 2,
 ) -> str:
-    """Render/validate the Agent's Summary JSON, asking it to fix a specific,
-    named validation error in the same session up to max_repairs times before
-    giving up. A session that never emitted parseable JSON, or one with no
-    captured session_id, gets exactly one attempt -- there is nothing to
-    continue."""
+    """Render/validate the Agent's Summary or Detailed JSON, asking it to fix
+    a specific, named validation error in the same session up to max_repairs
+    times before giving up. A session that never emitted parseable JSON, or
+    one with no captured session_id, gets exactly one attempt -- there is
+    nothing to continue."""
+    label = mode.capitalize()
     raw_output = str(trace["final_output"])
     attempts: list[str] = []
     for attempt in range(max_repairs + 1):
         try:
-            markdown = retain_summary_markdown(raw_output, output_dir, repository_root)
+            markdown = retain_report_markdown(raw_output, output_dir, repository_root, mode=mode)
             if attempts:
                 trace["repair_attempts"] = attempts
             return markdown
@@ -657,9 +682,8 @@ def retain_summary_markdown_with_repair(
             repair_message = (
                 "방금 만든 JSON 응답에 문제가 있습니다: "
                 f"{error}\n\n"
-                "필요한 파일을 다시 확인해 해당 부분만 정확히 고친 뒤, Summary JSON 계약"
-                "(schema_version, mode, scope, components, dependencies, excluded_items, "
-                "missing_inputs, evidence, design_input_verdict)을 그대로 유지한 전체 JSON "
+                f"필요한 파일을 다시 확인해 해당 부분만 정확히 고친 뒤, {label} JSON 계약"
+                f"({REPAIR_CONTRACT_FIELDS[mode]})을 그대로 유지한 전체 JSON "
                 "객체 하나만 다시 출력하세요. Markdown이나 설명, 코드 펜스 없이 JSON만 "
                 "출력합니다."
             )
@@ -679,6 +703,14 @@ def retain_summary_markdown_with_repair(
                 attempts.append(f"repair session timed out: {timeout_error}")
                 trace["repair_attempts"] = attempts
                 raise ValueError(f"repair session timed out: {timeout_error}") from timeout_error
+
+
+def retain_summary_markdown_with_repair(trace: dict[str, Any], output_dir: Path, repository_root: Path, **kwargs: Any) -> str:
+    return retain_report_markdown_with_repair(trace, output_dir, repository_root, mode="summary", **kwargs)
+
+
+def retain_detailed_markdown_with_repair(trace: dict[str, Any], output_dir: Path, repository_root: Path, **kwargs: Any) -> str:
+    return retain_report_markdown_with_repair(trace, output_dir, repository_root, mode="detailed", **kwargs)
 
 
 def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
@@ -1291,18 +1323,17 @@ def main() -> int:
                     use_command=not args.no_command,
                     pure=isolated or args.pure,
                 )
-                if (
-                    trace["status"] == "PASS"
-                    and case.get("expected_behavior", {}).get("report_mode") == "summary"
-                ):
+                report_mode = case.get("expected_behavior", {}).get("report_mode")
+                if trace["status"] == "PASS" and report_mode in {"summary", "detailed"}:
                     try:
-                        summary_target = fixed_target or (ROOT / case["repository_fixture"]).resolve()
-                        trace["final_output"] = retain_summary_markdown_with_repair(
+                        report_target = fixed_target or (ROOT / case["repository_fixture"]).resolve()
+                        trace["final_output"] = retain_report_markdown_with_repair(
                             trace,
                             case_dir,
-                            summary_target,
+                            report_target,
+                            mode=report_mode,
                             executable=executable,
-                            target=summary_target,
+                            target=report_target,
                             environment=environment,
                             agent_id=AGENT_ID,
                             timeout=args.timeout,
@@ -1312,7 +1343,7 @@ def main() -> int:
                     except ValueError as error:
                         trace["markdown_error"] = str(error)
                         trace["status"] = "FAIL"
-                        trace["reason"] = "Summary Markdown validation failed"
+                        trace["reason"] = f"{report_mode.capitalize()} Markdown validation failed"
                 (case_dir / "trace.json").write_text(
                     json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                     encoding="utf-8",

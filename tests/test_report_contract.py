@@ -70,6 +70,12 @@ class ReportContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("설계 차단 항목", result.stdout)
 
+    def test_detailed_instructions_emit_json_not_markdown(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        self.assertIn("## Detailed JSON contract", agent)
+        self.assertIn('"mode": "detailed"', agent)
+        self.assertIn("Detailed output, the final assistant response must be exactly", agent)
+
     def test_detailed_instructions_pin_report_line_shapes(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
