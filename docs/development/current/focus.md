@@ -96,19 +96,23 @@ architecture review (2026-08-07), prioritized:
   against JPetStore 6 via the `upstage/solar-pro2` provider (the local
   `local-sglang` endpoint was unreachable this session) — see the ticket's
   "Decision outcome" for the full result.
-- **P0 — [VS-028](../tickets/VS-028-prose-only-process-discovery.md) — NEW
-  (2026-08-07), read before starting VS-027**: live-verifying VS-025 against
-  a real must-split fixture (`github.com/miguelgrinberg/flask-celery-example`
-  — Flask app + Celery worker, distinct start commands documented only in
-  README prose, no Dockerfile/Compose) found the Celery worker never becomes
-  a candidate at all; the model reads the README line naming its start
-  command but folds it into the Flask component's fields instead of
-  surfacing it, so `workload-boundary.md` is never even loaded. This is
-  upstream of VS-025's routing fix and of the boundary rule itself — it's a
-  candidate-discovery gap when the only evidence is prose, not a
-  declarative artifact. See the ticket's "Why this is a vertical slice" for
-  the full trace evidence (not preserved elsewhere; the run went to a
-  scratch directory outside this repo).
+- **P0 — [VS-028](../tickets/VS-028-prose-only-process-discovery.md) — NEW,
+  rescoped (2026-08-07), read before starting VS-027**: live-verifying
+  VS-025 against a real must-split fixture
+  (`github.com/miguelgrinberg/flask-celery-example` — Flask app + Celery
+  worker, distinct start commands documented only in README prose, no
+  Dockerfile/Compose) found the Celery worker never becomes a candidate at
+  all. Root cause traced to two authoritative sections, not a missing
+  weighting rule: `SKILL.md:97-98`'s `## Analysis contract` lists
+  Dockerfile/Compose/CI as inventory evidence but never README/docs prose,
+  and `references/workflow.md:47-51` gates `workload-boundary.md`
+  consultation behind "the corresponding finding exists" — circular, since
+  the file's own job is partly to surface a split, not just adjudicate one
+  already noticed. Detailed mode's pre-existing wiring has the identical
+  circular gate (VS-025 copied it from Detailed), so this ticket now covers
+  both modes, not just Summary. See the ticket's "Why this is a vertical
+  slice" for full detail; the raw run artifacts were not preserved (scratch
+  directory outside this repo).
 - **P1 — [VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md)**:
   re-open `ADR-2026-08-07-003`'s VS-023 Phase 2 deferral given two
   evidence-sourcing gaps since: the wrong-file `docker-compose.yaml`
