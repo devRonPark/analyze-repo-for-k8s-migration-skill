@@ -97,22 +97,24 @@ architecture review (2026-08-07), prioritized:
   `local-sglang` endpoint was unreachable this session) — see the ticket's
   "Decision outcome" for the full result.
 - **P0 — [VS-028](../tickets/VS-028-prose-only-process-discovery.md) — NEW,
-  rescoped (2026-08-07), read before starting VS-027**: live-verifying
+  rescoped twice (2026-08-07), read before starting VS-027**: live-verifying
   VS-025 against a real must-split fixture
   (`github.com/miguelgrinberg/flask-celery-example` — Flask app + Celery
-  worker, distinct start commands documented only in README prose, no
-  Dockerfile/Compose) found the Celery worker never becomes a candidate at
-  all. Root cause traced to two authoritative sections, not a missing
-  weighting rule: `SKILL.md:97-98`'s `## Analysis contract` lists
-  Dockerfile/Compose/CI as inventory evidence but never README/docs prose,
-  and `references/workflow.md:47-51` gates `workload-boundary.md`
-  consultation behind "the corresponding finding exists" — circular, since
-  the file's own job is partly to surface a split, not just adjudicate one
-  already noticed. Detailed mode's pre-existing wiring has the identical
-  circular gate (VS-025 copied it from Detailed), so this ticket now covers
-  both modes, not just Summary. See the ticket's "Why this is a vertical
-  slice" for full detail; the raw run artifacts were not preserved (scratch
-  directory outside this repo).
+  worker, both defined in one `app.py`, distinct start commands) found the
+  Celery worker never becomes a candidate at all. Two earlier root-cause
+  guesses were checked against the fixture's actual source and ruled out
+  ("model ignores README prose"; "`SKILL.md`'s Analysis contract restricts
+  evidence to declarative artifacts" — `script` was already in scope and
+  `app.py` was read in full, `celery = Celery(...)` and two `@celery.task`
+  decorators included). **Actual defect:** candidate identification defaults
+  to file/module-level granularity — two distinct start commands sharing one
+  file get merged into one candidate — and `references/workflow.md:47-51`
+  gates `workload-boundary.md` consultation behind "the corresponding
+  finding exists," which is circular since surfacing exactly this kind of
+  split is part of that file's own job. Detailed mode's pre-existing wiring
+  has the identical circular gate (VS-025 copied it from Detailed), so this
+  ticket covers both modes. See the ticket's "Why this is a vertical slice"
+  for the full trace, including both superseded framings kept as a record.
 - **P1 — [VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md)**:
   re-open `ADR-2026-08-07-003`'s VS-023 Phase 2 deferral given two
   evidence-sourcing gaps since: the wrong-file `docker-compose.yaml`
