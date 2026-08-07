@@ -16,6 +16,19 @@
           }
         }
       }
+    },
+    "upstage": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Upstage Solar",
+      "options": {
+        "baseURL": "https://api.upstage.ai/v1",
+        "apiKey": "{env:UPSTAGE_API_KEY}"
+      },
+      "models": {
+        "solar-pro2": {
+          "name": "solar-pro2"
+        }
+      }
     }
   },
   "command": {
