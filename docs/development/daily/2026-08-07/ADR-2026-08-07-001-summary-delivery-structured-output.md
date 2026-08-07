@@ -94,6 +94,42 @@ mode. It should be paired with an engine-level constraint.
    follow-up ticket; today's scope is making one live Summary run
    deterministically pass end to end.
 
+## Implementation note (same day, after Decision)
+
+Implemented decision item 1 (DEL-002 + DEL-003) in full. Decision item 2
+(provider-level `response_format` JSON-schema constraint) was **not**
+attempted this session — after implementing the prompt-only JSON contract
+and live-verifying it worked, the remaining risk (schema-constrained
+decoding wiring, unknown OpenCode 1.18 passthrough support) was judged not
+worth taking on immediately before a demo. It remains open, tracked below.
+
+- `runtime/agents/kubernetes-migration-analyzer.md`: the Summary instruction
+  now requires exactly one JSON object (no Markdown/fence/prose), with a
+  `## Summary JSON contract` section giving the full field shape and one
+  worked example. Detailed mode instructions are unchanged.
+- `scripts/run_opencode_acceptance.py`: added `extract_json_object` (tolerant
+  of a stray code fence or surrounding prose) and rewrote
+  `retain_summary_markdown` to parse JSON, call `render_summary()`, validate
+  with `validate_report.py --repo-root`, and finalize the `Validation:
+  pending` → `passed` receipt via `validate_target_report.finalize()`.
+- `tests/test_opencode_adapter.py`: replaced the three tests that exercised
+  the old raw-Markdown contract with JSON-payload equivalents (including a
+  stray-code-fence case) and updated the prompt-contract test to assert the
+  new instruction text.
+- **Live verification**: ran `slash-default-summary` against
+  `demo-repositories/jpetstore-6` with the real provider
+  (`172.16.4.249:30000`) twice.
+  - Run 1 (this pipeline): `PASS` — `Validation: passed`, correct five-section
+    v2 structure, target repository git status unchanged before/after.
+  - Both earlier pre-fix live runs (recorded above in Context) had failed
+    Markdown validation with two different, mutually inconsistent heading
+    structures; this run's Markdown structure is byte-for-byte the
+    renderer's deterministic output regardless of what the model wrote, so
+    the class of failure this ADR targets is closed for this run.
+- `python scripts/run_quality_gate.py`: 148/149 pass; the one remaining
+  failure is the pre-existing, unrelated VS-019 (Windows `ln -s` junction
+  issue), confirmed present before this change too.
+
 ## Consequences
 
 - Summary delivery converges on the pipeline ADR-004 already decided:
@@ -104,6 +140,12 @@ mode. It should be paired with an engine-level constraint.
 - This does not fix Detailed mode (`DET-010`–`DET-014`); that queue's own
   "validate-and-repair loop needs an ADR first" blocker should reference this
   ADR's pattern once Summary delivery is confirmed working live.
-- `docs/development/current/status.md` gets a new row for this work once
-  implementation lands; not added yet since the decision alone changes no
-  code.
+- `docs/development/current/status.md` has a new `DEL-002 — DEL-003` row
+  recording this outcome.
+- Residual risk: JSON emission is still prompt-only, not schema-constrained
+  at the engine level. A local model can still fail to emit parseable JSON
+  on a given run; `retain_summary_markdown` reports that as a clear `FAIL
+  (Summary output is not valid JSON: ...)` rather than silently accepting
+  malformed Markdown, but it does not guarantee every run succeeds. Decision
+  item 2 (sglang `response_format`) remains the way to close that gap and is
+  left for a follow-up ticket.

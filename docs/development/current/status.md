@@ -17,6 +17,7 @@
 | SEC-001 — safe evidence boundary | IN_PROGRESS | The trusted `read`, `glob`, and `git_metadata` tools loaded in the JPetStore E2E with no `grep`, `list`, or `bash` call and no credential literal in the report. | Adapter unit and canary E2E coverage are not implemented. |
 | TKT-001 through TKT-005 | DEFERRED | Urgent-plan slices remain recorded in the prior ticket list. | Not the active queue. |
 | Initial OpenCode-only milestone | INTERRUPTED | Original progress ledger is preserved in [`../archive/initial-opencode-milestone/status.md`](../archive/initial-opencode-milestone/status.md). | Superseded by the urgent priority. |
+| DEL-002 — DEL-003 — deterministic Summary delivery | DONE | Implemented per [ADR-2026-08-07-001](../daily/2026-08-07/ADR-2026-08-07-001-summary-delivery-structured-output.md): Summary Agent is JSON-only; `run_opencode_acceptance.py`'s `retain_summary_markdown` renders via `render_summary.py`, validates, and finalizes the receipt. Live-verified against `demo-repositories/jpetstore-6` with the real provider: `isolated/repeat-01/slash-default-summary: PASS`, target repository unchanged. | DEL-004 (permanent E2E gate/artifact retention) and the sglang `response_format` schema constraint remain open; JSON emission is still prompt-only, not engine-enforced. |
 
 Allowed status values: `TODO`, `IN_PROGRESS`, `DONE`, `PARTIAL`, `BLOCKED`,
 `DEFERRED`, `NEEDS_TICKET`, `INTERRUPTED`.

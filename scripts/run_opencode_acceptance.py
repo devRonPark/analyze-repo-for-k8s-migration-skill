@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Run OpenCode acceptance cases and retain their direct Markdown output."""
+"""Run OpenCode acceptance cases. Summary cases return Agent JSON, which this
+harness renders, validates, and finalizes into the retained Markdown output."""
 from __future__ import annotations
 
 import argparse
@@ -17,8 +18,12 @@ from typing import Any, Callable
 
 try:
     from scripts.project_metadata import ProjectMetadata, load as load_project_metadata
+    from scripts.render_summary import render_summary
+    from scripts.validate_target_report import finalize as finalize_receipt
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
     from project_metadata import ProjectMetadata, load as load_project_metadata
+    from render_summary import render_summary
+    from validate_target_report import finalize as finalize_receipt
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = load_project_metadata(ROOT)
@@ -515,12 +520,43 @@ def normalize_trace(
     return trace
 
 
-def retain_summary_markdown(markdown: str, output_dir: Path, repository_root: Path) -> str:
-    marker = "# Kubernetes 설계 입력 요약\n"
-    start = markdown.rfind(marker)
-    if start < 0:
-        raise ValueError("Summary output does not contain the report heading")
-    markdown = markdown[start:]
+def extract_json_object(raw_output: str) -> str:
+    """Recover a JSON object from the Agent's final message.
+
+    The Agent is instructed to return raw JSON with no fence, but this stays
+    tolerant of a stray ```json fence or surrounding whitespace/prose so a
+    close-but-imperfect response still gets a precise parse error instead of
+    an opaque one.
+    """
+    text = raw_output.strip()
+    fence = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
+    if fence:
+        return fence.group(1).strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return text[start : end + 1]
+    return text
+
+
+def retain_summary_markdown(raw_output: str, output_dir: Path, repository_root: Path) -> str:
+    """Render, validate, and finalize the Agent's Summary JSON.
+
+    Per ADR-2026-07-30-004 / ADR-2026-08-07-001: the Agent returns JSON only;
+    this is the pipeline's only producer of user-facing Summary Markdown.
+    """
+    payload_text = extract_json_object(raw_output)
+    try:
+        payload = json.loads(payload_text)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Summary output is not valid JSON: {error}") from error
+    (output_dir / "payload.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    try:
+        markdown = render_summary(payload)
+    except ValueError as error:
+        raise ValueError(f"Summary JSON failed to render: {error}") from error
     report = output_dir / "report.md"
     report.write_text(markdown, encoding="utf-8")
     result = subprocess.run(
@@ -533,7 +569,10 @@ def retain_summary_markdown(markdown: str, output_dir: Path, repository_root: Pa
     )
     if result.returncode:
         raise ValueError(result.stdout.strip() or result.stderr.strip() or "Summary Markdown validation failed")
-    return markdown
+    finalize_returncode = finalize_receipt(report, repository_root)
+    if finalize_returncode:
+        raise ValueError("Summary Markdown receipt finalization failed")
+    return report.read_text(encoding="utf-8")
 
 
 def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:

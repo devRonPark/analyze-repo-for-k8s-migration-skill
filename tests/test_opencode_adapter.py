@@ -108,13 +108,15 @@ class OpenCodeAdapterTests(unittest.TestCase):
             self.assertIn(reference, agent)
         self.assertIn("Do not inspect lockfiles by default", agent)
 
-    def test_summary_prompt_requires_direct_markdown_contract(self):
+    def test_summary_prompt_requires_json_only_contract(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("final assistant response must be the completed Markdown report", agent)
+        self.assertIn("final assistant response must be exactly one JSON object", agent)
+        self.assertIn("no Markdown, no code fence", agent)
         self.assertIn("progress updates are allowed", agent)
-        self.assertIn("# Kubernetes 설계 입력 요약", agent)
-        self.assertIn("Korean 열린 항목 labels", agent)
-        self.assertNotIn("For renderer input JSON", agent)
+        self.assertIn('"schema_version": "1.0"', agent)
+        self.assertIn('"mode": "summary"', agent)
+        self.assertIn("design_input_verdict", agent)
+        self.assertNotIn("final assistant response must be the completed Markdown report", agent)
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("progress\nupdates are allowed", skill)
 
@@ -207,31 +209,45 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertIn("assets/migration-summary-template.md", trace["supporting_reads"])
         self.assertTrue(trace["permission_denials"])
 
-    def test_retains_only_a_valid_direct_summary_markdown(self):
-        markdown = (ROOT / "tests/fixtures/reports/valid-summary.md").read_text(encoding="utf-8")
+    def test_renders_and_finalizes_a_valid_summary_json_payload(self):
+        payload_text = (ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory() as tmp:
             report = adapter.retain_summary_markdown(
-                markdown,
+                payload_text,
                 Path(tmp),
                 ROOT / "tests/fixtures/repos/sample",
             )
+            self.assertTrue((Path(tmp) / "payload.json").is_file())
 
         self.assertTrue(report.startswith("# Kubernetes 설계 입력 요약\n"))
+        self.assertIn("Validation: passed", report)
 
-    def test_retains_the_final_summary_after_interactive_progress(self):
-        report = (ROOT / "tests/fixtures/reports/valid-summary.md").read_text(encoding="utf-8")
-        markdown = "분석 중입니다.\n" + report
+    def test_retains_the_final_summary_after_interactive_progress_prose(self):
+        payload_text = (ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8")
+        raw_output = "분석 중입니다.\n" + payload_text + "\n완료했습니다."
         with tempfile.TemporaryDirectory() as tmp:
-            retained = adapter.retain_summary_markdown(
-                markdown,
+            report = adapter.retain_summary_markdown(
+                raw_output,
                 Path(tmp),
                 ROOT / "tests/fixtures/repos/sample",
             )
-        self.assertEqual(retained, report)
+        self.assertTrue(report.startswith("# Kubernetes 설계 입력 요약\n"))
+        self.assertIn("Validation: passed", report)
 
-    def test_rejects_summary_without_a_final_report_heading(self):
+    def test_retains_json_wrapped_in_a_stray_code_fence(self):
+        payload_text = (ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8")
+        raw_output = "```json\n" + payload_text + "\n```"
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaisesRegex(ValueError, "does not contain"):
+            report = adapter.retain_summary_markdown(
+                raw_output,
+                Path(tmp),
+                ROOT / "tests/fixtures/repos/sample",
+            )
+        self.assertTrue(report.startswith("# Kubernetes 설계 입력 요약\n"))
+
+    def test_rejects_summary_output_that_is_not_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "not valid JSON"):
                 adapter.retain_summary_markdown(
                     "분석 중입니다.",
                     Path(tmp),
