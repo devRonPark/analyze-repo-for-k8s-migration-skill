@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -15,10 +16,11 @@ EVALUATOR = ROOT / "scripts/evaluate_scenarios.py"
 class ScenarioEvaluatorTests(unittest.TestCase):
     def run_evaluator(self, cases: Path = CASES, actual: Path = GOLDEN):
         return subprocess.run(
-            ["python3", str(EVALUATOR), "--cases", str(cases), "--actual-dir", str(actual)],
+            [sys.executable, str(EVALUATOR), "--cases", str(cases), "--actual-dir", str(actual)],
             cwd=ROOT,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
 

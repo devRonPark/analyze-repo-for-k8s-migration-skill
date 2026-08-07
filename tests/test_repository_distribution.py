@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -35,6 +36,7 @@ class RepositoryDistributionTests(unittest.TestCase):
                 ["bash", "-n", str(ROOT / rel)],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -49,6 +51,7 @@ class RepositoryDistributionTests(unittest.TestCase):
                 env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -58,10 +61,11 @@ class RepositoryDistributionTests(unittest.TestCase):
 
     def run_builder(self, output: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["python3", str(ROOT / "scripts/build_dist.py"), "--output", str(output)],
+            [sys.executable, str(ROOT / "scripts/build_dist.py"), "--output", str(output)],
             cwd=ROOT,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
 
@@ -98,9 +102,10 @@ class RepositoryDistributionTests(unittest.TestCase):
             build = self.run_builder(output)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             result = subprocess.run(
-                ["python3", str(ROOT / "scripts/validate_skill.py"), str(output)],
+                [sys.executable, str(ROOT / "scripts/validate_skill.py"), str(output)],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -134,6 +139,7 @@ class RepositoryDistributionTests(unittest.TestCase):
                 env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -182,6 +188,7 @@ class RepositoryDistributionTests(unittest.TestCase):
                 env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -205,6 +212,7 @@ class RepositoryDistributionTests(unittest.TestCase):
                 env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -229,6 +237,7 @@ class RepositoryDistributionTests(unittest.TestCase):
                 env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

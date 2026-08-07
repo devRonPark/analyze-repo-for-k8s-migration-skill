@@ -45,6 +45,7 @@ def source_revision(source_root: Path) -> str:
             cwd=source_root,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=True,
         )
     except (OSError, subprocess.CalledProcessError):
@@ -145,4 +146,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     raise SystemExit(main())

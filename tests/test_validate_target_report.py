@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -12,7 +13,7 @@ class ValidateTargetReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "summary.md"
             shutil.copy(ROOT / "tests/fixtures/reports/valid-summary.md", report)
-            result = subprocess.run(["python3", str(ROOT / "scripts/validate_target_report.py"), str(report)], check=False)
+            result = subprocess.run([sys.executable, str(ROOT / "scripts/validate_target_report.py"), str(report)], check=False)
             self.assertEqual(result.returncode, 0)
             self.assertIn("Validation: passed", report.read_text(encoding="utf-8"))
 

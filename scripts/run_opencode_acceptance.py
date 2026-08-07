@@ -75,7 +75,7 @@ def git_probe(repository_root: Path) -> dict[str, Any]:
         "branch": ["git", "-C", str(repository_root), "symbolic-ref", "--short", "HEAD"],
     }.items():
         try:
-            result = subprocess.run(args, capture_output=True, text=True, check=False)
+            result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", check=False)
         except OSError as error:
             probes[name] = {"returncode": 127, "stdout": "", "stderr": str(error)}
             continue
@@ -528,6 +528,7 @@ def retain_summary_markdown(markdown: str, output_dir: Path, repository_root: Pa
         cwd=ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
     )
     if result.returncode:
@@ -607,6 +608,7 @@ def run_debug_probe(
             env=environment,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
             timeout=timeout,
         )
@@ -710,6 +712,7 @@ def run_interactive_probe(
             input=query + "\n",
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
             timeout=timeout,
         )
@@ -864,6 +867,7 @@ def run_case(
             env=environment,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
             timeout=timeout,
         )
@@ -1173,4 +1177,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     raise SystemExit(main())

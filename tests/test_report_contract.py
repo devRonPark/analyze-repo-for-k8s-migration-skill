@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -15,9 +16,10 @@ REPORT_FIXTURES = ROOT / "tests/fixtures/reports"
 class ReportContractTests(unittest.TestCase):
     def run_validator(self, report: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["python3", str(REPORT_VALIDATOR), str(report), *arguments],
+            [sys.executable, str(REPORT_VALIDATOR), str(report), *arguments],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
 
