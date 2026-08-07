@@ -41,6 +41,23 @@ class TargetAndSafetyContractTests(unittest.TestCase):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         self.assertIn("workload-boundary.md", agent)
 
+    def test_summary_routes_workload_boundary_via_missing_inputs(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        summary_start = agent.index("## Summary JSON contract")
+        detailed_start = agent.index("## Detailed JSON contract")
+        summary_section = agent[summary_start:detailed_start]
+
+        self.assertIn("workload-boundary.md", summary_section)
+        self.assertIn(
+            "unresolved component split/merge boundary",
+            summary_section.replace("\n", " "),
+        )
+        self.assertIn("open_design_decision", summary_section)
+        self.assertIn(
+            '"classification": "open_design_decision", "key": "workload-boundary"',
+            summary_section,
+        )
+
     def test_current_workspace_and_access_rules_are_in_workflow(self):
         self.assertIn("현재 저장소", self.workflow)
         self.assertIn("current Git root", self.workflow)

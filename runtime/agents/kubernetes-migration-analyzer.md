@@ -38,10 +38,17 @@ For a request about Kubernetes migration, load the Skill and follow its target-r
 Emit an object matching `schemas/analysis-result.schema.json` (`schema_version: "1.0"`, `mode: "summary"`) with these top-level keys: `scope`, `components`, `dependencies`, `excluded_items`, `missing_inputs`, `evidence`, `design_input_verdict`, and optionally `verdict_reason` / `verdict_evidence`. Omit a field you have no evidence for rather than inventing a value — the renderer treats an absent field as `미확인`, never as a validation failure.
 
 - `scope`: object with keys `대상 유형`, `Repository URL 또는 Local path`, `접근 방식`, `확인된 저장소 루트`, `branch, tag 또는 commit`, `분석 경로`, `출력 모드` (always `"summary"`).
-- `components`: one entry per deployment candidate. Each has `name`; `repository_classification` (exactly one of `배포 대상 후보`, `저장소에 정의된 런타임 의존성`, `외부 런타임 의존성`, `배포 대상 후보에서 제외한 항목`); `kubernetes_interpretation` (free text, or `미확인` when no Kubernetes config exists); `evidence` (array of `{status, reference}`); `fields` — an object keyed by exactly these Korean labels, each value `{value, status, reference, reason?}`: `실행 형태`, `런타임`, `빌드 명령`, `운영 기동 명령`, `이미지 빌드 명령`, `컨테이너화`, `프로토콜`, `수신 포트`, `설정`, `Secret`, `쓰기 상태 또는 영속성`, `런타임 의존성`; and `minimum_inputs` — same `{value, status, reference, reason?}` shape, keyed by `image`, `command`, `args`, `containerPort`.
+- `components`: one entry per deployment candidate. When more than one runtime
+  process or start command is plausible, decide the candidate boundary with
+  `references/workload-boundary.md`'s primary rule (distinct start command AND
+  independent operational lifecycle, both required) before counting
+  components; never split or merge candidates from directory, package, or
+  module names alone. If the signal is insufficient to decide, keep the
+  narrower component count and record the open boundary in `missing_inputs`
+  (see below) as `미확인` rather than guessing. Each entry has `name`; `repository_classification` (exactly one of `배포 대상 후보`, `저장소에 정의된 런타임 의존성`, `외부 런타임 의존성`, `배포 대상 후보에서 제외한 항목`); `kubernetes_interpretation` (free text, or `미확인` when no Kubernetes config exists); `evidence` (array of `{status, reference}`); `fields` — an object keyed by exactly these Korean labels, each value `{value, status, reference, reason?}`: `실행 형태`, `런타임`, `빌드 명령`, `운영 기동 명령`, `이미지 빌드 명령`, `컨테이너화`, `프로토콜`, `수신 포트`, `설정`, `Secret`, `쓰기 상태 또는 영속성`, `런타임 의존성`; and `minimum_inputs` — same `{value, status, reference, reason?}` shape, keyed by `image`, `command`, `args`, `containerPort`.
 - `dependencies`: array of `{source, target, evidence}` runtime edges between components.
 - `excluded_items`: array of `{name, evidence: {status, reference}}`.
-- `missing_inputs` (top level, drives 열린 항목): array of `{classification, key or description, impact_scope, status, reference}`, where `classification` for Summary is exactly one of `hard_blocker`, `open_design_decision`, `deployment_value` (never their Korean display label — the renderer maps them). **Never use `recommendation` in Summary mode** — the validator rejects it; Summary reports repository facts and design inputs, not operational advice. Summary's rendered report shows one compact line per component (역할/Kubernetes 해석/포트/상태/주요 의존성/근거) and never prints `fields.*` values directly — per-component fields exist only as your own supporting evidence and for Detailed mode. Anything a user needs to see to act — a build/runtime version or profile mismatch, a Secret/credential-shaped data location, a platform-compatibility risk — must also appear as a `missing_inputs` entry or it will not reach the report: an execution-blocking mismatch (e.g. an invoked launch profile that does not match any defined profile) is `hard_blocker`; a version-alignment or compatibility risk that does not block a first design pass is `open_design_decision`; a value the user must supply at deploy time, including where a Secret needs to be created, is `deployment_value`. Never leave one of these findings only inside a component's `fields` object.
+- `missing_inputs` (top level, drives 열린 항목): array of `{classification, key or description, impact_scope, status, reference}`, where `classification` for Summary is exactly one of `hard_blocker`, `open_design_decision`, `deployment_value` (never their Korean display label — the renderer maps them). **Never use `recommendation` in Summary mode** — the validator rejects it; Summary reports repository facts and design inputs, not operational advice. Summary's rendered report shows one compact line per component (역할/Kubernetes 해석/포트/상태/주요 의존성/근거) and never prints `fields.*` values directly — per-component fields exist only as your own supporting evidence and for Detailed mode. Anything a user needs to see to act — a build/runtime version or profile mismatch, a Secret/credential-shaped data location, a platform-compatibility risk — must also appear as a `missing_inputs` entry or it will not reach the report: an execution-blocking mismatch (e.g. an invoked launch profile that does not match any defined profile) is `hard_blocker`; a version-alignment or compatibility risk that does not block a first design pass is `open_design_decision`; a value the user must supply at deploy time, including where a Secret needs to be created, is `deployment_value`; an unresolved component split/merge boundary (insufficient start-command or lifecycle evidence per `references/workload-boundary.md`) is `open_design_decision`. Never leave one of these findings only inside a component's `fields` object.
 - `evidence` (top level): a pool of `{status, reference}` used as a fallback citation; include at least one confirmed entry.
 - `design_input_verdict`: exactly one of `설계 입력 충분`, `추가 정보 필요`, `분석 불가`. If `추가 정보 필요`, `missing_inputs` must be non-empty.
 - Every `status` is one of `확인됨`, `추정됨`, `미확인`, `상충됨`, and every `reference` follows the same citation rules as `근거:` below: a single repository-root-relative `path:line` for `확인됨`/`추정됨`, two comma-separated `path:line` references for `상충됨`, and `검색(scope=<경로>, pattern=<glob 또는 검색식>, result=없음)` for `미확인`. `추정됨` additionally needs a `reason` string.
@@ -82,7 +89,8 @@ Worked example (illustrative shape only — your own final message is the raw JS
   "excluded_items": [],
   "missing_inputs": [
     {"classification": "hard_blocker", "key": "workload.kind", "description": "workload.kind", "impact_scope": "전체", "status": "미확인", "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*}, result=없음)"},
-    {"classification": "deployment_value", "key": "seed-data-secret", "description": "seed/data.sql의 credential-shaped demo seed data를 Kubernetes Secret으로 제공해야 함", "impact_scope": "특정 배포 대상", "status": "확인됨", "reference": "seed/data.sql:10"}
+    {"classification": "deployment_value", "key": "seed-data-secret", "description": "seed/data.sql의 credential-shaped demo seed data를 Kubernetes Secret으로 제공해야 함", "impact_scope": "특정 배포 대상", "status": "확인됨", "reference": "seed/data.sql:10"},
+    {"classification": "open_design_decision", "key": "workload-boundary", "description": "worker/ 디렉터리에 web과 구분되는 독립 시작 명령이나 생명주기 근거가 확인되지 않아 별도 Workload Unit 여부 미확인", "impact_scope": "특정 배포 대상", "status": "미확인", "reference": "검색(scope=worker, pattern={Dockerfile,Procfile,*.sh}, result=없음)"}
   ],
   "evidence": [{"status": "확인됨", "reference": "Dockerfile:1"}],
   "design_input_verdict": "추가 정보 필요",
@@ -97,8 +105,11 @@ default Summary. Inspect root manifests and container/runtime configuration
 first, then read only target files needed to support a required finding. Do not
 read the checklist, Detailed template, conditional references, lockfiles,
 README, full source tree, or tests unless the mode or a finding requires them.
-For Summary, read the template before target files for its field labels and
-evidence requirements. Do not add recommendations, remediation steps,
+When more than one runtime process or start command is plausible, this
+includes `references/workload-boundary.md`: read it before finalizing
+`components` and apply its primary rule, the same conditional signal Detailed
+uses. For Summary, read the template before target files for its field labels
+and evidence requirements. Do not add recommendations, remediation steps,
 alternative image/runtime names, or Detailed-only fields.
 When a container launch invokes a build-tool profile, use one compact pass to
 compare the invocation, profile definitions, and any documented launch command;

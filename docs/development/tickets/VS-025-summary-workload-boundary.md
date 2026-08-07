@@ -156,6 +156,24 @@ No `boundary_decision`/`reason_codes` object (the out-of-scope ADK-repo shape)
 is needed; the existing-channel routing above expresses both the resolved and
 unresolved cases.
 
+**Implementation status (2026-08-07):** the prompt/schema-scoping decision
+above is implemented — `runtime/agents/kubernetes-migration-analyzer.md`'s
+Summary contract now conditionally loads `references/workload-boundary.md`
+on the same signal Detailed uses, routes an unresolved boundary through
+`missing_inputs` (`open_design_decision`), and the worked example shows both.
+A new regression test
+(`test_summary_routes_workload_boundary_via_missing_inputs`) locks this.
+`python scripts/run_quality_gate.py`: 179/180 (same pre-existing VS-019
+Windows-junction failure as baseline) before and after.
+
+**Live verification (step 3/4) is deferred, not done:** the local OpenCode
+provider (`http://172.16.4.249:30000/v1`) was unreachable this session even
+with per-command escalation (`curl` timed out, exit 28, both sandboxed and
+escalated) — a genuine connectivity blocker, not a sandbox artifact. The
+JPetStore 6 Summary re-run and the multi-process-split fixture check
+(steps 3-4) still need to happen before this ticket can be marked fully
+Done; pick up from here once the provider is reachable.
+
 ## Codex execution instruction
 
 ```text
