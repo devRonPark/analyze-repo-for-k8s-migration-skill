@@ -30,7 +30,9 @@ speculative one.
 
 ## Status and dependencies
 
-- **Status:** Proposed — not yet scoped in detail or implemented.
+- **Status:** Done — scoped, implemented, and live-verified (see "Decision
+  outcome" below); VS-025's own acceptance criteria are met. A genuine
+  multi-process fixture to exercise the split path is VS-027's separate scope.
 - **Depends on:** `references/workload-boundary.md` (already landed).
 - **Blocks:** [VS-027](VS-027-workload-boundary-golden-fixtures.md) — its
   fixtures need something in Summary mode to measure against.
@@ -166,13 +168,39 @@ A new regression test
 `python scripts/run_quality_gate.py`: 179/180 (same pre-existing VS-019
 Windows-junction failure as baseline) before and after.
 
-**Live verification (step 3/4) is deferred, not done:** the local OpenCode
-provider (`http://172.16.4.249:30000/v1`) was unreachable this session even
-with per-command escalation (`curl` timed out, exit 28, both sandboxed and
-escalated) — a genuine connectivity blocker, not a sandbox artifact. The
-JPetStore 6 Summary re-run and the multi-process-split fixture check
-(steps 3-4) still need to happen before this ticket can be marked fully
-Done; pick up from here once the provider is reachable.
+**Step 3 live verification (2026-08-07, later same session), via Upstage
+Solar:** the local `local-sglang` provider (`http://172.16.4.249:30000/v1`)
+stayed unreachable even with per-command escalation, so this ran against the
+`upstage/solar-pro2` provider already configured in `runtime/opencode.json`
+(commit `1239c50`) instead — `UPSTAGE_API_KEY` sourced from an existing
+Upstage-targeted key in a sibling project's local env file (same
+`api.upstage.ai` account, confirmed via a direct `curl` `200` before use; not
+committed anywhere in this repo). Cloned `jpetstore-6` into the scratch
+directory, pinned to the golden set's revision
+(`e1dd9a31d1cef68793cd0933ae06898e6fcfa807`), and ran
+
+```
+python scripts/run_opencode_acceptance.py --config runtime/opencode.json \
+  --cases tests/evaluation/opencode-cases.json --case slash-default-summary \
+  --repository-root <scratch>/jpetstore-6 --repeat 3 --model upstage/solar-pro2 \
+  --output-dir <scratch>/vs025-summary-solar-verify
+```
+
+Result: 3/3 `PASS` (one repeat needed a `--timeout 300` retry after an
+initial 180s timeout; not a correctness failure). `git status --short
+--branch` on the clone was clean before and after every run. All three
+payloads produced exactly one `components` entry (`jpetstore`, `배포 대상
+후보`) — JPetStore 6 is a single WAR/Tomcat process, so no split was
+expected, and none occurred; no spurious `open_design_decision` boundary
+entry appeared either, matching the design (the conditional-load signal
+correctly did not fire for a single-process repository). This confirms no
+regression against the baseline component count/shape in
+`tests/evaluation/jpetstore-6-summary-json-first-scorecard.md`.
+
+**Step 4 (a genuine multi-process split/merge fixture) is still open** — that
+is VS-027's job (a dedicated must-split/must-not-split fixture pair); this
+session's live check only had JPetStore 6 available, which never exercises
+the split path. VS-025's own scope is otherwise complete.
 
 ## Codex execution instruction
 

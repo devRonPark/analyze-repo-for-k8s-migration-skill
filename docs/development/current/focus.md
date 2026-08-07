@@ -88,11 +88,15 @@ access to skill-internal files.
 
 New candidates from comparing this project against a sibling repo's
 architecture review (2026-08-07), prioritized:
-- **P0 — [VS-025](../tickets/VS-025-summary-workload-boundary.md)**:
-  `references/workload-boundary.md` is only loaded for Detailed
-  (`kubernetes-migration-analyzer.md:161`), but Summary's `components` array
-  makes the same split/merge judgment unaided. Highest priority because it is
-  the direct gap in the mode the sibling-repo comparison was asked about.
+- **P0 — [VS-025](../tickets/VS-025-summary-workload-boundary.md) — DONE
+  (2026-08-07)**: Summary now conditionally loads
+  `references/workload-boundary.md` on the same signal Detailed uses and
+  routes an unresolved split/merge decision through `missing_inputs`
+  (`open_design_decision`); no schema change. Live-verified 3/3 `PASS`
+  against JPetStore 6 via the `upstage/solar-pro2` provider (the local
+  `local-sglang` endpoint was unreachable this session) — see the ticket's
+  "Decision outcome" for the full result. A genuine multi-process fixture to
+  exercise the split path remains VS-027's job.
 - **P1 — [VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md)**:
   re-open `ADR-2026-08-07-003`'s VS-023 Phase 2 deferral given two
   evidence-sourcing gaps since: the wrong-file `docker-compose.yaml`
