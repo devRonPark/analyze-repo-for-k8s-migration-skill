@@ -189,3 +189,53 @@ Phase 2 (the five ecosystem-aware `inspect_*`/`discover_deployment_candidates`
 tools) remains deferred, not needed: the one observed wrong-glob/pattern
 near-miss did not produce a fabricated citation, which is the signal
 `focus.md` set for revisiting that decision.
+
+## Citation-sourcing enforcement follow-up (2026-08-07, same session)
+
+User-requested follow-up: the causal check above found the run's one
+inaccurate citation (`package.json:10`, a Node.js repo test outside this
+file) was hand-written from a `read` output rather than computed by
+`locate_evidence` — every `locate_evidence`-sourced citation, in contrast,
+was accurate. Per the user's explicit instruction, `runtime/agents/kubernetes-migration-analyzer.md`
+now requires every `reference`/`근거:` to be copied verbatim from a
+`locate_evidence` result, forbids hand-writing a `path:line` from a `read`
+output's line numbers, and (after a live run showed the model still
+hand-computing `path:start-end` ranges from a `read` despite an initial
+"join two `locate_evidence` calls" instruction) forbids ranges outright —
+`locate_evidence` returns one line, so every citation is now a single
+`path:line`.
+
+Live-verified over 4 additional runs against `jpetstore-6`: 3 PASS, 1
+UNAVAILABLE (300s timeout — see below). Zero hand-written ranges or
+citations observed in any of the 3 successful reports post-enforcement,
+versus 2 self-computed ranges (`Dockerfile:17-21`, `dataload.sql:17-29`)
+seen in the very first check of the "prefer locate_evidence" (non-forced)
+wording. One residual, non-fabrication precision gap remains and was
+directly observed: `locate_evidence` returns the *first* line matching its
+`pattern`, so an under-specific pattern (e.g. `INSERT INTO`, matching a
+non-credential `sequence` row before reaching the real `signon`/`account`
+credential rows) can still produce a real-but-imprecise citation. This is
+the same class of gap as the earlier `web.xml`/Spanish-doc near-miss — not
+addressed by this enforcement change, and not the "wrong glob, not a wrong
+line number" fabrication signal ADR-2026-08-07-003 defined for Phase 2,
+since the returned line is real, just not the best-matching one.
+
+Getting the live check to run at all surfaced and required fixing one more
+harness bug: `retain_summary_markdown_with_repair`'s `continue_session` call
+had no `subprocess.TimeoutExpired` handling (unlike `run_case`'s main path),
+so a repair-loop timeout crashed the whole acceptance script instead of
+recording that case as a graceful failure. Fixed by catching the timeout and
+re-raising `ValueError`, which `main()` already handles; regression test:
+`test_repair_session_timeout_raises_value_error_instead_of_crashing`.
+
+Forcing every citation through an extra `locate_evidence` call roughly
+doubled tool-call volume per run (7-13 calls pre-enforcement vs. up to ~30
+per run post-enforcement) and coincided with a higher timeout rate this
+session (2 of 6 post-enforcement attempts vs. 1 of 8 before). This is a
+plausible cost of the change, not confirmed as causal with this sample size
+— worth watching if timeouts keep increasing, but not acted on here since it
+would mean changing the agent's `steps: 32` budget or the provider timeout,
+which is a separate decision from what was asked.
+
+`python scripts/run_quality_gate.py`: 156/157 (same pre-existing VS-019
+Windows-junction failure only).

@@ -159,9 +159,11 @@ class ReportContractTests(unittest.TestCase):
     def test_detailed_instructions_require_read_line_numbers_and_all_sections(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
 
-        self.assertIn("line numbers that appeared in the `read`", agent)
+        self.assertIn("Every citation is computed by `locate_evidence`", agent)
+        self.assertIn("Never hand-write a `file:line`", agent)
         self.assertIn("## 6. 설정과 상태 상세", agent)
-        self.assertIn("never smaller than its start", agent)
+        self.assertIn("every citation is a single `path:line`", agent)
+        self.assertIn("never write a `path:start-end`", agent)
 
     def test_reversed_line_range_is_reported_as_reversed(self):
         with tempfile.TemporaryDirectory() as tmp:

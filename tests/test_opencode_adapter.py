@@ -340,6 +340,27 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertEqual(call_count, 2)
         self.assertEqual(len(trace["repair_attempts"]), 3)
 
+    def test_repair_session_timeout_raises_value_error_instead_of_crashing(self):
+        def runner(command, **kwargs):
+            raise subprocess.TimeoutExpired(command, kwargs.get("timeout"))
+
+        trace = {"final_output": "이건 JSON이 아닙니다.", "session_id": "ses_test123"}
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "repair session timed out"):
+                adapter.retain_summary_markdown_with_repair(
+                    trace,
+                    Path(tmp),
+                    ROOT / "tests/fixtures/repos/sample",
+                    executable=sys.executable,
+                    target=ROOT / "tests/fixtures/repos/sample",
+                    environment={},
+                    agent_id="kubernetes-migration-analyzer",
+                    runner=runner,
+                    timeout=5,
+                    pure=True,
+                )
+        self.assertIn("repair session timed out", trace["repair_attempts"][-1])
+
     def test_evaluator_uses_direct_summary_markdown(self):
         case = {
             "id": "summary",

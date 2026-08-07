@@ -663,17 +663,22 @@ def retain_summary_markdown_with_repair(
                 "객체 하나만 다시 출력하세요. Markdown이나 설명, 코드 펜스 없이 JSON만 "
                 "출력합니다."
             )
-            raw_output = continue_session(
-                session_id,
-                repair_message,
-                executable,
-                target,
-                environment,
-                agent_id,
-                runner=runner,
-                timeout=timeout,
-                pure=pure,
-            )
+            try:
+                raw_output = continue_session(
+                    session_id,
+                    repair_message,
+                    executable,
+                    target,
+                    environment,
+                    agent_id,
+                    runner=runner,
+                    timeout=timeout,
+                    pure=pure,
+                )
+            except subprocess.TimeoutExpired as timeout_error:
+                attempts.append(f"repair session timed out: {timeout_error}")
+                trace["repair_attempts"] = attempts
+                raise ValueError(f"repair session timed out: {timeout_error}") from timeout_error
 
 
 def extract_report(trace: dict[str, Any]) -> dict[str, Any] | None:
