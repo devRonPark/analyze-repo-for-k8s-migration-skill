@@ -1,6 +1,43 @@
 # Current Focus
 
-## Active priority (start here — 2026-08-07, VS-024 implementation landed, live verification still open)
+## Active priority (start here — updated 2026-08-07, explicit user directive)
+
+**Only [VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md),
+[VS-027](../tickets/VS-027-workload-boundary-golden-fixtures.md), and
+[VS-028](../tickets/VS-028-prose-only-process-discovery.md) are the active
+queue right now, in that order — the user explicitly said to ignore
+everything else and record these three as top priority.** Suggested order
+and why:
+
+1. **VS-028** — read first regardless of which you implement, since VS-027's
+   fixture design depends on its finding. Fourth revision, not yet
+   implemented: move `references/workload-boundary.md` into both Summary's
+   and Detailed's *unconditional*-load lists, and remove Detailed's stale
+   one-`components`-entry cap (`kubernetes-migration-analyzer.md:333-335`).
+   See the ticket's "Revision history" and "Independent review findings"
+   sections before touching anything — two earlier diagnoses were checked
+   and ruled out, and three independent reviews already found a differently-
+   scoped fix would not have worked.
+2. **VS-027** — golden-set fixtures (must-split Case B, must-not-split
+   Case A) for `references/workload-boundary.md`. Build Case B with its two
+   processes in genuinely separate files/directories (not sharing one file
+   like the `flask-celery-example` fixture VS-028 found the gap with) so
+   VS-027 does not have to wait on VS-028 landing first.
+3. **VS-026** — a scoping/decision ticket only (re-open `ADR-2026-08-07-003`'s
+   VS-023 Phase 2 deferral): decide whether the wrong-file `docker-compose.yaml`
+   citation finding and `locate_evidence`'s first-match imprecision justify
+   building the deferred five ecosystem-aware sensor tools. No implementation
+   expected from this one, just a decision recorded in the ticket.
+
+**Everything below this point (VS-024, VS-023-adjacent handoff notes,
+`DET-010`–`DET-014`, `SEC-001`, VS-019, etc.) is deprioritized as of this
+directive — kept for context and to resume later, not for the next session
+to pick up.**
+
+<details>
+<summary>Deprioritized context (click to expand — not the active queue)</summary>
+
+### VS-024 (deprioritized)
 
 **[VS-024](../tickets/VS-024-detailed-json-first-pipeline.md) (port Detailed
 mode to the JSON-first render/validate/repair pipeline) has both commits
@@ -87,8 +124,8 @@ runs. Worth a follow-up ticket only if a future workflow needs direct `read`
 access to skill-internal files.
 
 New candidates from comparing this project against a sibling repo's
-architecture review (2026-08-07), prioritized:
-- **P0 — [VS-025](../tickets/VS-025-summary-workload-boundary.md) — DONE
+architecture review (2026-08-07):
+- **[VS-025](../tickets/VS-025-summary-workload-boundary.md) — DONE
   (2026-08-07)**: Summary now conditionally loads
   `references/workload-boundary.md` on the same signal Detailed uses and
   routes an unresolved split/merge decision through `missing_inputs`
@@ -96,45 +133,8 @@ architecture review (2026-08-07), prioritized:
   against JPetStore 6 via the `upstage/solar-pro2` provider (the local
   `local-sglang` endpoint was unreachable this session) — see the ticket's
   "Decision outcome" for the full result.
-- **P0 — [VS-028](../tickets/VS-028-prose-only-process-discovery.md) — NEW,
-  rescoped 3x (2026-08-07), read before starting VS-027**: live-verifying
-  VS-025 against a real must-split fixture
-  (`github.com/miguelgrinberg/flask-celery-example` — Flask app + Celery
-  worker, both defined in one `app.py`, distinct start commands) found the
-  Celery worker never becomes a candidate at all, and `workload-boundary.md`
-  was never loaded. Two earlier root-cause guesses were ruled out ("model
-  ignores README prose"; "`SKILL.md` restricts evidence to declarative
-  artifacts" — `script` was already in scope and `app.py` was read in full).
-  Three independent fresh-session reviews (LLM-behavior, architecture/
-  regression, project-scope) then found the third revision's *fix* — reword
-  the conditional trigger a fourth time across `SKILL.md`/`workflow.md`/the
-  agent prompt — would not have worked: it's the same "more prose" pattern
-  that already failed 3x in this prompt, and critically, Detailed mode
-  separately caps `components` at exactly one entry
-  (`kubernetes-migration-analyzer.md:333-335`, a stale DET-001 artifact),
-  which would have silently defeated the fix for Detailed regardless. This
-  **fourth revision**'s fix is mechanical instead: move
-  `workload-boundary.md` into both modes' *unconditional*-load lists (like
-  `workflow.md` already is) rather than rewording the trigger again, plus
-  remove Detailed's stale one-component cap. Confidence in the underlying
-  diagnosis is also now explicitly caveated — the only supporting evidence
-  is 2 repeats on the `upstage/solar-pro2` fallback provider, not this
-  project's default, and the run artifacts were not preserved. See the
-  ticket's "Independent review findings" section for full detail.
-- **P1 — [VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md)**:
-  re-open `ADR-2026-08-07-003`'s VS-023 Phase 2 deferral given two
-  evidence-sourcing gaps since: the wrong-file `docker-compose.yaml`
-  citation above, and `locate_evidence`'s documented first-match imprecision
-  (`VS-023`'s "Citation-sourcing enforcement follow-up" section). A
-  scoping/decision ticket, not a build-it ticket.
-- **P1 — [VS-027](../tickets/VS-027-workload-boundary-golden-fixtures.md)**:
-  `references/workload-boundary.md` has no fixture or golden-set coverage —
-  JPetStore 6 never presents a multi-process split. Adds a must-split and a
-  must-not-split fixture to verify the rule actually decides correctly.
-  **Likely blocked by VS-028** in practice: a must-split fixture whose only
-  evidence is prose will hit VS-028's gap before it ever exercises the
-  boundary rule; either land VS-028 first or build Case B's second process
-  with declarative (Dockerfile/Compose/Procfile) evidence to sidestep it.
+- VS-026, VS-027, VS-028 (found via VS-025's live verification) are now the
+  sole active priority — see the top of this file, not this list.
 
 Other reasonable candidates if none of the above is picked up next, in no
 particular priority order:
@@ -185,6 +185,8 @@ whether to reuse or adapt its pattern for Detailed mode.
 Read [the Detailed verdict-consistency ADR](../daily/2026-07-30/ADR-2026-07-30-010-detailed-verdict-consistency.md)
 and [the secret-safe evidence boundary ADR](../daily/2026-07-30/ADR-2026-07-30-009-secret-safe-evidence-boundary.md)
 before implementation.
+
+</details>
 
 ## Deferred work
 
