@@ -120,6 +120,42 @@ python scripts/run_opencode_acceptance.py --config runtime/opencode.json --cases
 - Commit the prompt/schema change and its tests together; do not bundle with
   VS-026 or VS-027.
 
+## Decision outcome (2026-08-07)
+
+Step 1 (scoping) resolved before touching the prompt, per the commit-boundary
+note above.
+
+**Conditional-load signal:** reuse the same signal Detailed already uses —
+"more than one runtime process or start command is plausible" — rather than
+always loading the reference. `references/workflow.md:47-51` already states
+this policy in general terms for both modes; the gap is narrower than the
+ticket's "Why this is a vertical slice" section implies: only the operative
+`runtime/agents/kubernetes-migration-analyzer.md` prompt's explicit
+Detailed-only load sentence (line ~155-161) needed extending to Summary.
+
+**Routing:** the existing `missing_inputs` channel is sufficient; no schema
+change. `schemas/analysis-result.schema.json:17`'s top-level `missing_inputs`
+is already `{"type": "array", "items": {"type": "object"}}` — untyped, so it
+accepts a new `classification: "open_design_decision"` entry describing an
+unresolved boundary today, with zero schema edits. This is the same
+VS-020-style routing: extend the prompt's instructions, not the contract.
+
+- When the primary rule (distinct start command AND independent lifecycle)
+  resolves a split or a merge, no new channel is needed: each resulting
+  component's own `fields.운영 기동 명령` entry (and its `evidence`) already
+  carries the start-command citation the Summary contract requires per
+  component. The count of `components` entries *is* the evidenced decision.
+- When runtime-process or lifecycle evidence is insufficient to decide split
+  vs. merge, route it through `missing_inputs` as `classification:
+  open_design_decision`, `status: 미확인`, with a `검색(...)` reference
+  scoped to where a distinct start command or lifecycle signal was checked
+  for and not found. This mirrors how `references/workload-boundary.md`
+  itself defines the `미확인` case.
+
+No `boundary_decision`/`reason_codes` object (the out-of-scope ADK-repo shape)
+is needed; the existing-channel routing above expresses both the resolved and
+unresolved cases.
+
 ## Codex execution instruction
 
 ```text
