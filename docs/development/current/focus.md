@@ -1,23 +1,40 @@
 # Current Focus
 
-## Active priority (start here — 2026-08-07 handoff)
+## Active priority (start here — 2026-08-07 evening handoff)
 
-**Next session: [VS-023](../tickets/VS-023-migration-evidence-sensor-tools.md) — migration-evidence sensor tools.**
-Read it in full before starting; it is intentionally marked "needs a
-scoping decision before implementation" — the proposed tool set
-(`discover_deployment_candidates`, `inspect_build_runtime`,
-`inspect_network_contract`, `inspect_configuration`,
-`inspect_state_dependencies`) and their exact return shapes are a
-*proposal*, not yet accepted. Do the scoping pass (VS-023's Implementation
-step 1) before writing any tool code.
+**Next session: live-verify [VS-023](../tickets/VS-023-migration-evidence-sensor-tools.md) Phase 1 (`locate_evidence`) against `demo-repositories/jpetstore-6`.**
+This session (1) landed [SEC-002](../tickets/SEC-002-read-tool-symlink-escape.md)
+(`18915ed`) — `read.ts`/`glob.ts` now resolve symlinks/junctions before
+their worktree-boundary check, via new `runtime/lib/safe-path.ts`; (2)
+completed VS-023's step-1 scoping pass and, per user confirmation, narrowed
+it from the ticket's original five ecosystem-aware tools to one generic,
+judgment-free `locate_evidence` tool — see
+[ADR-2026-08-07-003](../daily/2026-08-07/ADR-2026-08-07-003-vs-023-sensor-tool-scoping.md);
+(3) implemented and unit-tested it (`565a016`, `runtime/lib/locate-evidence.ts`
++ `runtime/tools/locate_evidence.ts`, 16/16 `bun test runtime/lib`, wired
+into the agent's permission list and citation instructions).
+
+**What's unverified and is the next session's actual work:** everything
+above was checked with `bun test`/`bun build`/`python scripts/run_quality_gate.py`
+only — no live OpenCode run happened this session (`opencode` CLI isn't
+installed in this sandbox and a live run needs escalated per-command
+permission, which wasn't requested). VS-023's acceptance criterion
+("repeated live runs against `demo-repositories/jpetstore-6` show a
+measurably lower citation-fabrication rate") is still open. Concretely:
+
+1. Confirm `opencode` is installed and request escalated permission for
+   `http://172.16.4.249:30000/v1` (see `memory/opencode-e2e.md`).
+2. Run `python scripts/run_opencode_acceptance.py --config runtime/opencode.json --cases tests/evaluation/opencode-cases.json --case slash-default-summary --repository-root demo-repositories/jpetstore-6 --repeat 3-5 --output-dir <dir>` and check whether the model actually calls `locate_evidence` (it's only prompted to prefer it, not forced) and whether cited references are now consistently real.
+3. Compare against the 58/100 baseline in `tests/evaluation/jpetstore-6-summary-json-first-scorecard.md`'s "Evidence calibration and report discipline" dimension specifically — that's the dimension VS-023 targets.
+4. If citations are still fabricated because the model picked a wrong `glob`/`content_pattern` (not a wrong line number) — a class of error `locate_evidence`'s design does not fix — that's the signal to revisit ADR-003's deferred Phase 2 (the five ecosystem-aware tools), not to add more instruction text.
 
 **Read first, in this order:**
-1. [ADR-2026-08-07-001](../daily/2026-08-07/ADR-2026-08-07-001-summary-delivery-structured-output.md) and [ADR-2026-08-07-002](../daily/2026-08-07/ADR-2026-08-07-002-summary-validate-and-repair-loop.md) — same-day context: the Summary Agent is now JSON-only (DEL-002/DEL-003), and a bounded validate-and-repair loop already exists for output-*format* failures. VS-023 targets a different axis (evidence *accuracy* — citation fabrication), so don't re-solve what these two already cover.
-2. [tests/evaluation/jpetstore-6-summary-json-first-scorecard.md](../../../tests/evaluation/jpetstore-6-summary-json-first-scorecard.md) — the live evidence motivating VS-023 (a citation `file:17-268` against a 117-line file), and the 58→84/100 score history from VS-020/VS-021.
-3. [SEC-002](../tickets/SEC-002-read-tool-symlink-escape.md) — **VS-023 depends on this.** `read.ts`'s worktree-boundary check doesn't resolve symlinks; if sensor tools share that boundary logic (they should, per VS-023's scope), decide whether to land SEC-002 first or in the same pass.
-4. `runtime/agents/kubernetes-migration-analyzer.md`'s current `## Summary JSON contract` section (added 2026-08-07) — sensor tools would feed evidence into this same JSON contract, not change it.
+1. [ADR-2026-08-07-003](../daily/2026-08-07/ADR-2026-08-07-003-vs-023-sensor-tool-scoping.md) — the confirmed scoping decision and why it's narrower than the ticket's original proposal.
+2. [VS-023](../tickets/VS-023-migration-evidence-sensor-tools.md)'s "Decision outcome (2026-08-07)" section — what was actually built and tested vs. not.
+3. [ADR-2026-08-07-001](../daily/2026-08-07/ADR-2026-08-07-001-summary-delivery-structured-output.md) and [ADR-2026-08-07-002](../daily/2026-08-07/ADR-2026-08-07-002-summary-validate-and-repair-loop.md) — same-day context: the Summary Agent is JSON-only (DEL-002/DEL-003), and a bounded validate-and-repair loop exists for output-*format* failures. VS-023 targets a different axis (evidence *accuracy*), so don't re-solve what these two already cover.
+4. [tests/evaluation/jpetstore-6-summary-json-first-scorecard.md](../../../tests/evaluation/jpetstore-6-summary-json-first-scorecard.md) — the 58/100 baseline this session's live-verification step should compare against.
 
-**Do not start from `DET-010`–`DET-014` this session** (see "Deferred, still open" below) — VS-023 is the priority the previous session ended on, per this handoff.
+**Do not start from `DET-010`–`DET-014` this session** (see "Deferred, still open" below) — finishing VS-023 Phase 1's live verification is the priority this handoff sets.
 
 ## Deferred, still open (unrelated to VS-023, not this session's target)
 
