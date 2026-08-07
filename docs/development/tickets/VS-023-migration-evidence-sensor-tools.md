@@ -112,3 +112,52 @@ Kubernetes-resource-shaped judgment field in any return value. Add tests
 that verify returned evidence strings against real fixture file content,
 not just schema shape. Run the quality gate and report the result.
 ```
+
+## Decision outcome (2026-08-07)
+
+User confirmed [ADR-2026-08-07-003](../daily/2026-08-07/ADR-2026-08-07-003-vs-023-sensor-tool-scoping.md)'s
+narrower Phase 1: one generic, judgment-free `locate_evidence` tool instead
+of the five proposed ecosystem-aware tools. `discover_deployment_candidates`
+and the four `inspect_*` tools remain unimplemented, deferred to a possible
+later phase.
+
+Implemented as `runtime/lib/locate-evidence.ts` (`locateEvidence`,
+`resolveRoot` — the pure, tested logic) plus a thin `runtime/tools/locate_evidence.ts`
+wrapper (the `@opencode-ai/plugin` `tool()` binding, following the same
+split SEC-002 used for `runtime/lib/safe-path.ts`). It globs for files under
+a worktree-bounded root (reusing `isSafeWithin`), optionally matches a regex
+against their lines, and returns `{status: "found", value, reference}` with
+a `path:line` computed from that same read, or `{status: "not_found",
+searched: {scope, glob, pattern}}` with the literal search performed —
+either way, nothing for the agent to reconstruct from memory. Also
+extracted the credential-redaction regexes `read.ts` already had into a new
+shared `runtime/lib/redact.ts` (both `read.ts` and `locate-evidence.ts` now
+import it, rather than duplicating a security-sensitive regex a second
+time).
+
+Wired into `runtime/opencode.json`'s and `kubernetes-migration-analyzer.md`'s
+permission lists as `locate_evidence: allow`, and added two short prompt
+sentences pointing the agent at it for computing a `근거:`/`검색(...)` citation
+instead of recalling one — no change to `references/language-discovery-rules.md`
+or any other discovery/classification instruction, per the confirmed
+narrower scope.
+
+**Tests:** `runtime/lib/locate-evidence.test.ts` (9 cases: found via glob
+only, found via glob+pattern with the real matched line — not line 1,
+redaction applied to a matched credential-shaped line, sorted-order
+determinism across multiple candidates, worktree-relative reference from a
+subdirectory root, not-found for no glob match, not-found for glob-match-but-no-pattern-match,
+and two `resolveRoot` boundary cases) plus `runtime/lib/safe-path.test.ts`'s
+existing 7 — 16/16 pass via `bun test runtime/lib`. `bun build` (targeting
+Node, `@opencode-ai/plugin` external) compiles all four `runtime/tools/*.ts`
+files without error. `python scripts/run_quality_gate.py`: 154/155 (same
+pre-existing VS-019 Windows-junction failure, unrelated).
+
+**Not done, and not claimed:** the acceptance criterion "repeated live runs
+against `demo-repositories/jpetstore-6` show a measurably lower
+citation-fabrication rate" needs a live OpenCode rerun, which needs the
+`opencode` CLI (not installed in this sandbox) and escalated per-command
+network permission (not requested this session). The tool's own logic is
+unit-tested and verified against real fixture files, but whether the agent
+actually calls `locate_evidence` instead of citing from memory, and whether
+that measurably reduces the scored fabrication rate, is unverified.

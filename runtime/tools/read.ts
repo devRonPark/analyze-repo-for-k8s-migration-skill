@@ -2,9 +2,7 @@ import { tool } from "@opencode-ai/plugin"
 import { readFile, readdir, stat } from "node:fs/promises"
 import { resolve } from "node:path"
 import { isSafeWithin } from "../lib/safe-path"
-
-const SECRET = /((?i:password|passwd|token|api[_ -]?key)\s*[=:])\s*[^\s,;]+/g
-const SQL_LITERAL = /'(?:''|[^'])*'/g
+import { redact } from "../lib/redact"
 
 async function safePath(worktree: string, path: string) {
   const value = resolve(worktree, path)
@@ -18,11 +16,6 @@ async function safePath(worktree: string, path: string) {
     throw new Error("path is outside the target or trusted Skill")
   }
   return value
-}
-
-function redact(line: string, path: string) {
-  const credentialSafe = line.replace(SECRET, "$1 [REDACTED]")
-  return path.endsWith(".sql") ? credentialSafe.replace(SQL_LITERAL, "'[REDACTED]'") : credentialSafe
 }
 
 export default tool({

@@ -31,6 +31,7 @@
     "read": "allow",
     "glob": "allow",
     "git_metadata": "allow",
+    "locate_evidence": "allow",
     "grep": "deny",
     "list": "deny",
     "skill": {
