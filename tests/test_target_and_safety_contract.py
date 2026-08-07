@@ -21,6 +21,26 @@ class TargetAndSafetyContractTests(unittest.TestCase):
         )
         self.assertIn("Stop the turn after asking", self.workflow.replace("\n", " "))
 
+    def test_workload_boundary_reference_exists_and_is_routed(self):
+        boundary = (ROOT / "references/workload-boundary.md").read_text(encoding="utf-8")
+
+        self.assertIn("Workload Unit", boundary)
+        self.assertIn("distinct production start commands", boundary)
+        self.assertIn("independent operational lifecycle", boundary)
+        for phrase in [
+            "directory or package boundaries",
+            "listener ports",
+            "configuration or Secret names",
+        ]:
+            self.assertIn(phrase, boundary)
+        self.assertIn("미확인", boundary)
+        self.assertNotIn("StatefulSet` candidate", boundary)
+        self.assertNotIn("workload.kind", boundary)
+
+        self.assertIn("workload-boundary.md", self.workflow)
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        self.assertIn("workload-boundary.md", agent)
+
     def test_current_workspace_and_access_rules_are_in_workflow(self):
         self.assertIn("현재 저장소", self.workflow)
         self.assertIn("current Git root", self.workflow)

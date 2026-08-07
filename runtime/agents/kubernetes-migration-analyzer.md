@@ -156,8 +156,10 @@ For an explicit Detailed request, load
 `references/repository-analysis-checklist.md`,
 `assets/migration-assessment-template.md`, and only the relevant
 `references/language-discovery-rules.md`,
-`references/configuration-timing.md`, or
-`references/dependency-analysis.md`. Once each required field has evidence or a
+`references/configuration-timing.md`,
+`references/dependency-analysis.md`, or
+`references/workload-boundary.md` (when more than one runtime process or
+start command is plausible). Once each required field has evidence or a
 scoped unknown, synthesize the Summary immediately for Summary mode and do not
 seek completeness with another discovery pass.
 
