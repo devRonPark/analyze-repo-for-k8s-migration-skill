@@ -52,11 +52,11 @@ Resequence the work as follows:
 4. Treat the static fixture and golden-rubric portion of VS-027 as an input to
    the pipeline milestone. It is prepared before PIPE-005; only provider-backed
    repetitions remain in PIPE-005.
-5. Add an explicit PIPE-003 deletion budget. Once an injected stage contract
-   is enforced by the tool and covered by tests, its duplicate requirements
-   are removed from the public Skill and Agent prompt. The public Skill keeps
-   only invocation, target-safety, and final-output routing needed before the
-   pipeline starts.
+5. Add an explicit PIPE-003 deletion inventory, but defer all removal to the
+   terminal PIPE-006 no-op deletion test after PIPE-005 and VS-027 live
+   evaluation. The final public Skill keeps only invocation, target-safety,
+   active-stage routing, output routing, and rules not yet owned by a tested
+   runtime contract. ADR-2026-08-08-009 defines the deletion procedure.
 6. Specify `reopen()` with a closed transition matrix, structured reason, and
    deterministic invalidation of all derived later state. It must reject an
    illegal back-edge or stale submission; it must not become an open-ended
@@ -69,8 +69,8 @@ Resequence the work as follows:
 - PIPE-005 remains the provider-backed and interactive acceptance boundary;
   it is not the first place where tool integration is exercised.
 - Current linked Markdown references remain documented repository knowledge
-  until PIPE-003 replaces their runtime ownership. No behavior is removed
-  before a tool-owned contract and its tests exist.
+  until PIPE-003 replaces their runtime ownership. No public behaviour text is
+  removed before terminal PIPE-006 deletion tests complete.
 - The implementation may not begin until PIPE-000 is recorded as supported
   or blocked. A blocked result requires a revised ADR before PIPE-002.
 
@@ -84,3 +84,5 @@ Resequence the work as follows:
    vertical proof.
 4. Continue PIPE-002 through PIPE-004 as independently reviewable vertical
    increments, then run PIPE-005 using the detached interactive E2E procedure.
+5. Complete VS-027 live evaluation, then run PIPE-006 as the final no-op
+   deletion-test task.

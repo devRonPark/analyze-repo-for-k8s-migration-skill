@@ -15,7 +15,8 @@ Implement and commit each ticket independently in this order:
    bind that state machine to the supported runtime identity and verified
    target snapshot.
 4. [PIPE-003](../../tickets/PIPE-003-stage-contract-injection-and-agent-migration.md)
-   — inject canonical contracts and remove only proved duplicate prompt rules.
+   — inject canonical contracts and record the deletion inventory without
+   removing public text.
 5. [PIPE-004](../../tickets/PIPE-004-runtime-finalizer-and-deterministic-renderer.md)
    — produce a canonical report and receipt for content-oriented acceptance.
 6. [VS-027](../../tickets/VS-027-workload-boundary-golden-fixtures.md), static
@@ -26,6 +27,9 @@ Implement and commit each ticket independently in this order:
 8. [VS-027](../../tickets/VS-027-workload-boundary-golden-fixtures.md), live
    repetitions and scorecard — finish the ticket using PIPE-005's verified
    runtime path.
+9. [PIPE-006](../../tickets/PIPE-006-terminal-skill-pruning.md) — run measured
+   no-op deletion tests and remove only behaviour-preserving public text. This
+   is the final milestone task.
 
 ## Gates
 
@@ -35,7 +39,8 @@ Implement and commit each ticket independently in this order:
 - PIPE-005 may not begin provider-backed runs until VS-027's static fixtures
   and golden rubrics are committed.
 - The existing Markdown-directed workflow remains intact until PIPE-003 has
-  a tool-owned replacement and tests for each removed requirement.
+  a tool-owned replacement and PIPE-006 has completed the mapped deletion test
+  for each removed requirement.
 
 ## Commit discipline
 

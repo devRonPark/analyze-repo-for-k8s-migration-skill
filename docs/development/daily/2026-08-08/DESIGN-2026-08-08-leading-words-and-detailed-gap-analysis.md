@@ -136,6 +136,10 @@ enforce the same distinction.
 3. Agent/command routing and acceptance harness integration.
 4. Static and provider-backed evaluation, followed by prompt-pruning review.
 
+5. Terminal no-op deletion tests after all prior slices and VS-027 live
+   evaluation. Remove a public-skill sentence only when its mapped behaviour is
+   unchanged; ADR-2026-08-08-009 governs this final pruning slice.
+
 Stage-context isolation is delivered with the Agent/command routing slice. It
 must be in place before Leading Words are evaluated through a multi-stage E2E;
 otherwise later-stage knowledge can confound the observed behaviour.

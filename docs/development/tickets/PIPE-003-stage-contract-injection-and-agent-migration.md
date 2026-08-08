@@ -25,9 +25,8 @@ to drive `analysis_pipeline` through its six stages.
   submission rejection, no independent public stage command, and absence of
   future-stage leakage in `start`, failed `submit`, and `reopen` responses.
 - A deletion budget listing every public Skill or Agent-prompt requirement
-  replaced by an injected, tested stage contract. Remove only entries on that
-  list; retain invocation, target-safety, and final-output routing that the
-  pipeline does not yet own.
+  replaced by an injected, tested stage contract. Record every candidate for
+  terminal PIPE-006; do not remove public text in this ticket.
 
 ## Out of scope
 
@@ -43,8 +42,9 @@ to drive `analysis_pipeline` through its six stages.
   future-stage work.
 - A new signal found late forces a bounded, validated reopen rather than a
   silently inconsistent report.
-- The committed deletion budget has no duplicate normative rule remaining in
-  both an enforced stage contract and the public Skill/Agent prompt.
+- The committed deletion inventory maps every duplicate normative rule to its
+  tested runtime owner and PIPE-006 deletion test; it does not remove text
+  before the complete pipeline baseline exists.
 
 ## Commit boundary
 
