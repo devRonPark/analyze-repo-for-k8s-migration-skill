@@ -168,3 +168,35 @@ It also does not yet change the output contract. Current Summary mode explicitly
 forbids recommendations, while the requested direction contemplates
 improvement recommendations. That product-scope choice must be made before
 editing `SKILL.md`, report templates, schemas, or validators.
+
+## Addendum: prefer pretrained technical idioms over convenient labels
+
+The first candidate list used `runtime census`, `evidence chain`, `readiness
+gap`, and `decision gate` as useful explanatory labels. They must not be
+treated automatically as leading words. A leading word earns its place when it
+is a widely established technical idiom whose normal meaning already evokes the
+desired process for a model; newly coined labels would require the very prose
+they are meant to replace.
+
+| Established idiom | Intended behaviour in this Skill | Selection |
+| --- | --- | --- |
+| **Vertical Slice** | Complete one thin end-to-end path from mandatory-reference evidence through a Workload Unit decision before expanding exploration. | Primary execution anchor. It directly counters reading without producing a decision input. |
+| **Grounding** / **provenance** | Keep every material conclusion traceable to repository evidence, a conflict, or a scoped absence. | Primary evidence anchor. Prefer this over the more legalistic `chain of custody`, which can overemphasize handling and hashing. |
+| **Single Source of Truth** | Treat `SKILL.md` as the authoritative owner of evidence statuses and the named reference as the authoritative owner of its domain rule. | Ownership/routing anchor; not the main analysis action. |
+| **Workload Boundary** | Apply the local two-condition rule to decide the minimum deployable unit from runtime evidence. | Domain decision anchor. It is already a local term and has a Kubernetes basis. |
+| **Gap Analysis** | Translate grounded findings into an observed readiness difference and a scoped improvement input. | Candidate output anchor, pending the recommendation-scope decision. |
+| **Quality Gate** | Block completion until the vertical slice has grounding and a boundary result for every material runtime process. | Completion anchor; prefer this familiar term over the coined `decision gate`. |
+
+`Vertical Slice -> grounding -> Workload Boundary -> gap analysis -> Quality
+Gate` is the proposed behavioural path. It should be tested as one small
+end-to-end scenario, not introduced as a collection of independent prose
+rules.
+
+The cited background supports the semantic fit of these terms: Matt Pocock's
+guide explains why a compact pretrained concept can anchor a repeatable process;
+NIST defines chain of custody as evidence tracking across collection and
+analysis (the provenance analogue); Kubernetes documents Pods as tightly
+coupled, co-scheduled containers; and 12-Factor provides the portability
+expectations used by the eventual gap analysis. The sources do not demonstrate
+an LLM-specific effect size, so the final selection remains a testable design
+hypothesis rather than a universal claim.
