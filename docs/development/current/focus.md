@@ -8,6 +8,10 @@ state model. VS-026, VS-027, and VS-028 are retained historical evidence;
 they are not implementation targets unless a later explicit priority decision
 reactivates them.
 
+`feat/trusted-analysis-pipeline` is the single milestone branch for
+PIPE-001 through PIPE-006. Each ticket lands as its own focused commit;
+PIPE-001 remains the current active implementation start point.
+
 The PIPE milestone supersedes VS-028's prose-only mechanism under
 [ADR-2026-08-08-004](../daily/2026-08-08/ADR-2026-08-08-004-analysis-pipeline-orchestration.md).
 The approved review-driven reordering is recorded in

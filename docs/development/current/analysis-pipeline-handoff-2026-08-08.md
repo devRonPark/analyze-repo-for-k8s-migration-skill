@@ -14,18 +14,21 @@ independent reviews, and the next-session starting point.
 ## Working context
 
 - Implementation worktree:
-  `C:\Users\박병찬\Desktop\analyze-repo-for-k8s-migration-skill-worktrees\pipe-001-state-model`
-- Branch: `ticket/pipe-001-state-model`
+  `C:\Users\박병찬\Desktop\analyze-repo-for-k8s-migration-skill-worktrees\trusted-analysis-pipeline`
+- Branch: `feat/trusted-analysis-pipeline`
+- `feat/trusted-analysis-pipeline` is the single milestone branch for
+  PIPE-001 through PIPE-006. Each ticket lands as its own focused commit;
+  PIPE-001 remains the current active implementation start point.
 - Historical VS-028 worktree:
   `C:\Users\박병찬\Desktop\analyze-repo-for-k8s-migration-skill-worktrees\vs-028-history`
 - Completed VS-028 implementation commit: `524657e` (`fix: load workload-boundary unconditionally and drop Detailed's one-entry cap`)
 - PIPE-001 has no committed or tested implementation yet. Preserved untracked
   drafts exist at `.superpowers/sdd/pipe001-brief.md`,
   `runtime/lib/pipeline/state.ts`, and `runtime/lib/pipeline/state.test.ts`.
-- The current PIPE-001 worktree is not clean because it retains those
+- The current PIPE milestone worktree is not clean because it retains those
   untracked drafts. The historical VS-028 worktree was clean when this
   handoff was first drafted.
-- Write PIPE-001 changes only in the dedicated PIPE-001 worktree.
+- Write PIPE changes only in the dedicated PIPE milestone worktree.
 
 Read first on resume:
 
