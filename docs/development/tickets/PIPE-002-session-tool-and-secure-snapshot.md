@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Expose the single trusted `analysis_pipeline` tool through a Python MCP stdio
+Expose the explicit trusted analysis stage tools through a Python MCP stdio
 server and bind PIPE-001 state to a verified target, deterministic content
 snapshot, and one-process/one-analysis lifecycle boundary. Pipeline state
 remains outside the target.
@@ -20,7 +20,8 @@ remains outside the target.
 
 ## In scope
 
-- `start`, `submit`, `reopen`, and `finalize` dispatch that delegates all
+- `analysis_start`, stage-specific tools, `analysis_reopen`, and
+  `analysis_finalize` dispatch that delegates all
   validation to PIPE-001.
 - Runtime-private state lifecycle and cleanup.
 - Python MCP stdio server implementation, `initialize` handshake coverage, and

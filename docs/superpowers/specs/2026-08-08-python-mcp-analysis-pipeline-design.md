@@ -52,10 +52,14 @@ or retain module-global session state.
 
 `mcp_server.py` is the only transport boundary. It reads MCP JSON-RPC from
 stdin and writes valid MCP responses to stdout. Diagnostics go only to stderr.
-It exposes `analysis_pipeline` with the actions `start`, `submit`, `reopen`,
-and `finalize`, plus Python replacements for the existing trusted `read`,
-`glob`, `git_metadata`, and `locate_evidence` tools. Internal pipeline stages
-are neither public commands nor MCP tools.
+It exposes explicit stage tools (`analysis_start`, `analysis_discovery`,
+`analysis_execution`, `analysis_relationships`, `analysis_boundaries`,
+`analysis_contracts`, and `analysis_finalize`) plus lifecycle `analysis_reopen`
+and Python replacements for the existing trusted `read`, `glob`,
+`git_metadata`, and `locate_evidence` tools. Each tool has a closed schema and
+documents its reference inputs, receipt output, and rejection conditions.
+The server still owns process-private state; stage tools cannot expose future
+stage contracts or accept out-of-order submissions.
 
 The implementation uses a pinned Python MCP dependency. PIPE-002 must add an
 offline-reproducible installation path before a client configuration can launch

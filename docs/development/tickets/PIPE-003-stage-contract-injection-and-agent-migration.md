@@ -4,7 +4,7 @@
 
 Move required analysis instructions from optional Markdown reads into
 tool-provided stage contracts, then change the sole public Agent/command flow
-to drive the Python MCP `analysis_pipeline` through its six stages.
+to drive the explicit Python MCP stage tools through its six stages.
 
 ## Depends on
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json, sys
 from dataclasses import asdict
 from . import create_state, submit, reopen, finalize
-from .protocol import SERVER_INFO, TOOL, error, response, text_result
+from .protocol import SERVER_INFO, TOOLS, error, response, text_result
 
 class Server:
     def __init__(self): self.state = None
@@ -32,11 +32,17 @@ def handle(server, request):
     try:
         if method == "initialize": return response(rid, {"protocolVersion": request.get("params", {}).get("protocolVersion", "2024-11-05"), "capabilities": {"tools": {}}, "serverInfo": SERVER_INFO})
         if method == "notifications/initialized": return None
-        if method == "tools/list": return response(rid, {"tools": [TOOL]})
+        if method == "tools/list": return response(rid, {"tools": TOOLS})
         if method == "tools/call":
             params = request.get("params", {})
-            if params.get("name") != TOOL["name"]: raise ValueError("unknown tool")
-            return response(rid, text_result(server.call(params.get("arguments", {}))))
+            name, args = params.get("name"), params.get("arguments", {})
+            if name == "analysis_start": action_args = {"action":"start", **args}
+            elif name == "analysis_reopen": action_args = {"action":"reopen", **args}
+            elif name == "analysis_finalize": action_args = {"action":"finalize", **args}
+            elif name.startswith("analysis_") and name[9:] in ("discovery","execution","relationships","boundaries","contracts"):
+                action_args = {"action":"submit", "stage":name[9:], **args}
+            else: raise ValueError("unknown tool")
+            return response(rid, text_result(server.call(action_args)))
         raise ValueError("method not found")
     except (ValueError, TypeError, KeyError) as exc:
         return error(rid, -32602, str(exc))
