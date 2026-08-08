@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from analysis_pipeline.mcp_server import Server, catalog_changed_notification, handle
+from analysis_pipeline.protocol import text_result
 
 
 class MCPTests(unittest.TestCase):
@@ -31,10 +32,10 @@ class MCPTests(unittest.TestCase):
 
     def test_read_evidence_is_available_only_after_start(self):
         server = Server(target_root=Path(__file__).resolve().parents[1])
-        root = str(Path(__file__).resolve().parents[1])
         handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})
         result = handle(server, {"id": 2, "method": "tools/call", "params": {"name": "read_evidence", "arguments": {"path": "pyproject.toml"}}})
-        self.assertIn("trusted-analysis-pipeline", result["result"]["structuredContent"])
+        self.assertIn("trusted-analysis-pipeline", result["result"]["content"][0]["text"])
+        self.assertNotIn("structuredContent", result["result"])
 
     def test_start_tool_does_not_accept_model_owned_binding(self):
         server = Server()
@@ -42,6 +43,10 @@ class MCPTests(unittest.TestCase):
         start = result["result"]["tools"][0]
         self.assertEqual(start["inputSchema"]["required"], [])
         self.assertNotIn("binding", start["inputSchema"]["properties"])
+
+    def test_structured_content_is_reserved_for_object_results(self):
+        self.assertNotIn("structuredContent", text_result("plain text"))
+        self.assertEqual(text_result({"fact": "value"})["structuredContent"], {"fact": "value"})
 
     def test_unknown_method_is_error(self):
         self.assertIn("error", handle(Server(), {"id": 1, "method": "x"}))

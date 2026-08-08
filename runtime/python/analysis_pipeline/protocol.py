@@ -36,4 +36,7 @@ def error(request_id: Any, code: int, message: str) -> dict[str, Any]:
 
 
 def text_result(value: Any) -> dict[str, Any]:
-    return {"content": [{"type": "text", "text": json.dumps(value, ensure_ascii=False, sort_keys=True)}], "structuredContent": value}
+    result = {"content": [{"type": "text", "text": json.dumps(value, ensure_ascii=False, sort_keys=True)}]}
+    if isinstance(value, dict):
+        result["structuredContent"] = value
+    return result
