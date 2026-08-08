@@ -54,6 +54,20 @@ class MCPTests(unittest.TestCase):
         handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})
         self.assertIn("error", handle(server, {"id": 2, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}}))
 
+    def test_identical_submit_retry_returns_original_receipt_and_conflict_is_rejected(self):
+        server = Server(target_root=Path(__file__).resolve().parents[1])
+        started = server.call({"action": "start", "arguments": {}})
+        request = {
+            "action": "submit", "stage": "discovery", "payload": self._payload("discovery", started["binding"]),
+            "expected_revision": started["revision"], "expected_hash": started["state_hash"],
+            "transition_token": started["transition_token"],
+        }
+        first = server.call(request)
+        self.assertEqual(server.call(request), first)
+        changed = {**request, "payload": {**request["payload"], "signals": ["different"]}}
+        with self.assertRaisesRegex(ValueError, "replay conflict"):
+            server.call(changed)
+
     def test_five_stage_submissions_expose_finalize_without_submit_finalize(self):
         server = Server(target_root=Path(__file__).resolve().parents[1])
         started = handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})
@@ -61,14 +75,14 @@ class MCPTests(unittest.TestCase):
         for request_id, stage in enumerate(("discovery", "execution", "relationships", "boundaries", "contracts"), start=2):
             submitted = handle(server, {"id": request_id, "method": "tools/call", "params": {"name": f"submit_{stage}", "arguments": {
                 "payload": self._payload(stage, receipt["binding"]),
-                "expected_revision": receipt["revision"], "expected_hash": receipt["state_hash"],
+                "expected_revision": receipt["revision"], "expected_hash": receipt["state_hash"], "transition_token": receipt["transition_token"],
             }}})
             receipt = submitted["result"]["structuredContent"]
         tools = [tool["name"] for tool in handle(server, {"id": 8, "method": "tools/list"})["result"]["tools"]]
         self.assertIn("finalize_analysis", tools)
         self.assertNotIn("submit_finalize", tools)
         finalized = handle(server, {"id": 9, "method": "tools/call", "params": {"name": "finalize_analysis", "arguments": {
-            "expected_revision": receipt["revision"], "expected_hash": receipt["state_hash"],
+            "expected_revision": receipt["revision"], "expected_hash": receipt["state_hash"], "transition_token": receipt["transition_token"],
         }}})
         self.assertTrue(finalized["result"]["structuredContent"]["finalized"])
 

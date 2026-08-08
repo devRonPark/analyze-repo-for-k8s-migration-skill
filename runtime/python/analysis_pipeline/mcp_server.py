@@ -4,6 +4,7 @@ import hashlib, json, secrets, subprocess, sys
 from pathlib import Path
 from . import create_state, submit, reopen, finalize
 from .observations import ObservationRegistry, TargetSnapshot
+from .state import canonical_json
 from .protocol import LIFECYCLE_TOOLS, SERVER_INFO, STAGE_TOOL_BY_STAGE, STAGE_TOOLS, TRUSTED_TOOLS, error, response, text_result
 from .tools import git_metadata, glob_paths, locate_evidence, read
 
@@ -24,6 +25,8 @@ class Server:
         self.state = None
         self._target_root = Path(target_root or Path.cwd()).resolve()
         self._registry = None
+        self._transition_token = None
+        self._replay_ledger = {}
 
     def _binding(self):
         if not self._target_root.is_dir():
@@ -46,8 +49,19 @@ class Server:
             binding = self._binding()
             self.state = create_state(binding)
             self._registry = ObservationRegistry(self._target_root, binding)
+            self._transition_token = "tr_" + secrets.token_urlsafe(18)
+            self._replay_ledger = {}
             return self._state()
+        token = args.get("transition_token")
+        request_digest = hashlib.sha256(canonical_json(args).encode("utf-8")).hexdigest()
+        replay = self._replay_ledger.get(token)
+        if replay is not None:
+            if replay["digest"] == request_digest:
+                return replay["receipt"]
+            raise ValueError("replay conflict")
         if self.state is None: raise ValueError("analysis has not started")
+        if not isinstance(token, str) or token != self._transition_token:
+            raise ValueError("stale transition token")
         if TargetSnapshot.capture(self._target_root).digest != self.state.binding["target_snapshot_hash"]:
             raise ValueError("target snapshot changed")
         rev, digest = args.get("expected_revision"), args.get("expected_hash")
@@ -57,12 +71,17 @@ class Server:
             self._registry.invalidate_from(self.state.current_stage)
         elif action == "finalize":
             self.state = finalize(self.state, rev, digest)
-            result = self._state(); self.state = None; self._registry.clear(); self._registry = None
+            result = self._state()
+            self._replay_ledger[token] = {"digest": request_digest, "receipt": result}
+            self.state = None; self._registry.clear(); self._registry = None; self._transition_token = None
             return result
         else: raise ValueError("unknown action")
-        return self._state()
+        self._transition_token = "tr_" + secrets.token_urlsafe(18)
+        result = self._state()
+        self._replay_ledger[token] = {"digest": request_digest, "receipt": result}
+        return result
     def _state(self):
-        return {"binding": self.state.binding, "revision": self.state.revision, "current_stage": self.state.current_stage, "finalized": self.state.finalized, "state_hash": self.state.state_hash}
+        return {"binding": self.state.binding, "revision": self.state.revision, "current_stage": self.state.current_stage, "finalized": self.state.finalized, "state_hash": self.state.state_hash, "transition_token": self._transition_token}
     def target_root(self):
         if self.state is None:
             raise ValueError("verified target is unavailable")
