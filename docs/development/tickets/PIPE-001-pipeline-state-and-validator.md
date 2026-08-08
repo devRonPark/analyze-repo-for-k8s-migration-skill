@@ -2,12 +2,12 @@
 
 ## Outcome
 
-Create the closed internal state schema and pure TypeScript validator for the
-analysis pipeline. It must represent the six internal stages, state revisions,
-claims, evidence registry, mandatory-rule applications,
-discovery/process/graph/boundary/contract data, and
-the invariants in ADR-2026-08-08-004. No OpenCode tool binding, target read,
-or provider invocation is included.
+Create the closed internal state schema and pure Python validator for the
+analysis pipeline under `runtime/python/`. It must represent the six internal
+stages, state revisions, claims, evidence registry, mandatory-rule
+applications, discovery/process/graph/boundary/contract data, and the
+invariants in ADR-2026-08-08-004 and the approved Python MCP design. No MCP
+transport, target read, or provider invocation is included.
 
 ## Depends on
 
@@ -29,16 +29,16 @@ or provider invocation is included.
   `rule_id -> evidence_ids -> process_or_candidate_ids -> decision_id`.
   A scoped target absence uses the same relation and cannot stand in for a
   missing rule application.
-- TypeScript unit tests for every accepted and rejected transition.
+- Python unit tests for every accepted and rejected transition.
 - A deterministic vertical proof over the pure API: create a bound state,
   submit minimal valid data for all six stages in order, finalize it, and
   verify that skipped, stale, forged, and unfinalized variants fail. This is
-  not an OpenCode or provider invocation; PIPE-002 binds the same API to the
-  runtime later.
+  not an MCP transport or provider invocation; PIPE-002 binds the same API to
+  the stdio MCP server later.
 
 ## Out of scope
 
-- Filesystem access, session storage, OpenCode permission changes, Agent
+- Filesystem access, process lifecycle policy, client configuration, Agent
   prompt migration, Markdown rendering, and provider-backed E2E.
 
 ## Acceptance criteria
@@ -54,7 +54,9 @@ or provider invocation is included.
 - The vertical proof is the first consumer of the public pure state-machine
   API and proves that no valid path skips a stage or finalizes unvalidated
   data.
+- The implementation and tests are provider-free and package under
+  `runtime/python/` without requiring TypeScript, Node, or Bun.
 
 ## Commit boundary
 
-Commit schema, pure library, and their focused tests together.
+Commit schema, pure Python library, and focused tests together.

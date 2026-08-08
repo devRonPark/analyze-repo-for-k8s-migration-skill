@@ -3,8 +3,8 @@
 ## Outcome
 
 Make `analysis_pipeline.finalize()` validate completed pipeline state, project
-it to the existing public report contract, and return canonical deterministic
-Markdown plus a receipt. The acceptance adapter uses that result to assess
+it to the existing public report contract, and return canonical deterministic Markdown
+plus a receipt. The acceptance adapter uses that result to assess
 content integrity. A direct-TUI response may differ in presentation without
 being a pipeline-security failure, as recorded in ADR-2026-08-08-007.
 
@@ -19,7 +19,7 @@ Summary remains recommendation-free and rejects that field.
 
 ## In scope
 
-- Pure TypeScript public-report projector, renderer, validator, and receipt
+- Pure Python public-report projector, renderer, validator, and receipt
   generator equivalent to the existing supported Summary and Detailed
   contracts.
 - Canonical report/receipt comparison in the runtime-aware acceptance path.
@@ -29,6 +29,8 @@ Summary remains recommendation-free and rejects that field.
   `direction_kind`, status, and repository reference.
 - Tests for deterministic output, invalid projection rejection, and the rule
   that finalization cannot discover or mutate analysis data.
+- Final artifact scans proving the emitted report path and receipt path contain
+  no legacy TypeScript bridge dependency.
 
 ## Out of scope
 
@@ -46,8 +48,10 @@ Summary remains recommendation-free and rejects that field.
   out-of-enum/invented implementation direction.
 - Summary and Detailed existing report-contract tests remain covered through
   the runtime implementation.
+- The finalize path remains Python-only and does not require `.ts`, `.js`,
+  Node, or Bun at runtime.
 
 ## Commit boundary
 
-Commit the runtime projector/renderer, adapter migration, and focused tests
-together.
+Commit the Python runtime projector/renderer, adapter migration, and focused
+tests together.

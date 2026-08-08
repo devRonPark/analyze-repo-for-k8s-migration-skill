@@ -1,10 +1,11 @@
-# PIPE-002 — Add session-scoped pipeline tool and secure evidence snapshot
+# PIPE-002 — Add Python MCP pipeline tool and secure evidence snapshot
 
 ## Outcome
 
-Expose the single trusted `analysis_pipeline` tool and bind PIPE-001 state to a
-non-forgeable OpenCode caller/session identity, a verified target, and a
-deterministic content snapshot. Pipeline state remains outside the target.
+Expose the single trusted `analysis_pipeline` tool through a Python MCP stdio
+server and bind PIPE-001 state to a verified target, deterministic content
+snapshot, and one-process/one-analysis lifecycle boundary. Pipeline state
+remains outside the target.
 
 ## Depends on
 
@@ -14,8 +15,7 @@ deterministic content snapshot. Pipeline state remains outside the target.
 ## Read first
 
 - ADR-2026-08-08-004
-- `runtime/tools/read.ts`, `runtime/lib/safe-path.ts`, and
-  `runtime/lib/locate-evidence.ts`
+- the approved Python MCP design
 - `scripts/run_opencode_acceptance.py`'s tool-copy and isolated-install paths
 
 ## In scope
@@ -23,14 +23,20 @@ deterministic content snapshot. Pipeline state remains outside the target.
 - `start`, `submit`, `reopen`, and `finalize` dispatch that delegates all
   validation to PIPE-001.
 - Runtime-private state lifecycle and cleanup.
-- A provider-free host/tool lifecycle gate before persistent state: prove that
-  separate runtime sessions receive distinct stable `context.sessionID` values,
-  cannot cross-read state, and clean up on completion.
+- Python MCP stdio server implementation, `initialize` handshake coverage, and
+  stderr-only diagnostics. The delivered transport is a local stdio MCP server.
+- A provider-free lifecycle gate: prove that each supported client launches a
+  fresh server process per interactive analysis session, that one process
+  accepts one active analysis only, rejects a second `start`, clears state on
+  `finalize`, and leaves no state visible from a different server process.
 - Safe file-handle access; deterministic target Merkle hashing; per-evidence
   hash checks; final snapshot revalidation.
 - Rejection of symlinks/junctions/reparse points, target escape, state reuse,
   evidence forgery, and secret-bearing state or trace content.
-- Explicit runtime permission and isolated-adapter packaging changes.
+- Pinned Python MCP dependency, lock/hashes, wheelhouse provenance, and an
+  offline-reproducible clean-venv install path for supported clients.
+- Minimal configuration templates and smoke tests for OpenCode, Claude Code,
+  and Gemini CLI.
 
 ## Out of scope
 
@@ -39,14 +45,17 @@ deterministic content snapshot. Pipeline state remains outside the target.
 
 ## Acceptance criteria
 
-- Tests show state cannot be reused across sessions, targets, snapshots, or
+- Tests show state cannot be reused across processes, targets, snapshots, or
   manifest versions.
-- The host/tool lifecycle gate proves actual session separation and cleanup;
-  a TypeScript declaration alone is not accepted as host-identity proof.
+- The lifecycle gate proves actual process separation and cleanup for OpenCode,
+  Claude Code, and Gemini CLI; no model-supplied substitute identifier is
+  accepted.
 - All target access is handle-verified and target changes fail finalization.
 - State cleanup leaves no raw target content or secret literal on disk.
+- Offline package installation, MCP launch, `initialize`, tool schema, and
+  stderr-only diagnostics pass in provider-free smoke tests.
 
 ## Commit boundary
 
-Commit the binding, secure runtime support, packaging changes, and focused
-tests together.
+Commit the Python MCP server, secure runtime support, packaging changes, and
+focused tests together.

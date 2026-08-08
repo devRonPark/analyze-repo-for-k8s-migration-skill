@@ -25,6 +25,9 @@ preserving form. This is the final task of the trusted-pipeline milestone.
   retain/remove decision.
 - Removal only for units proven not to change routing, stage coverage, grounded
   evidence, Workload Boundary result, report contract, or target immutability.
+- Terminal artifact scans over the installed package, launchers, configuration,
+  harnesses, and copied runtime files to prove that no supported path still
+  references `.ts`, `.js`, Node, or Bun before legacy deletion.
 
 ## Out of scope
 
@@ -43,6 +46,8 @@ preserving form. This is the final task of the trusted-pipeline milestone.
   text removals that have no observed behaviour impact.
 - The final provider-backed acceptance comparison preserves target immutability
   and all required evidence and boundary findings.
+- The terminal artifact scan passes and proves TypeScript artifact deletion is
+  safe for every supported installation and acceptance path.
 
 ## Required deletion-test record
 

@@ -26,6 +26,9 @@ all required stage activity.
   packaging paths.
 - Golden sets and scorecards created from static target evidence before any
   provider run.
+- Provider-free smoke tests for OpenCode, Claude Code, and Gemini CLI covering
+  Python MCP launch, `initialize`, tool schema, one active analysis only,
+  post-finalize cleanup, and stderr-only diagnostics.
 - Detached `tmux` OpenCode E2E: Flask/Celery Summary and Detailed three times
   each; JPetStore Summary and Detailed; command aliases; independent role
   arguments; and unresolved-boundary cases.
@@ -57,6 +60,9 @@ all required stage activity.
 - Interrupted, step-limited, unfinalized, or canonically hash-mismatched
   sessions fail content-oriented acceptance.
 - Every recorded interactive run preserves the target repository unchanged.
+- Cross-client smoke tests confirm the same Python MCP tool schema and cleanup
+  behavior for OpenCode, Claude Code, and Gemini CLI before those clients are
+  considered supported.
 
 ## Commit boundary
 
