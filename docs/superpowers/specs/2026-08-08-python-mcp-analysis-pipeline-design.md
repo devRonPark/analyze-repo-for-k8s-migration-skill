@@ -166,3 +166,98 @@ git diff --check
 
 The MCP process and any client configuration are verified in PIPE-002, not in
 PIPE-001. Provider-backed and interactive acceptance remain PIPE-005 work.
+
+## Amendment: trusted observation references
+
+### Status
+
+Approved for implementation on 2026-08-08 following an independent
+high-reasoning review. This amendment replaces every contract in which a
+model supplies an evidence ID, source fingerprint, redaction flag, or evidence
+location as a stage-submission assertion.
+
+### Problem
+
+Canonical evidence IDs are derived from target snapshot data. A model cannot
+reliably calculate those IDs. More importantly, accepting a model-supplied
+observation and merely hashing it on the server would make a canonical ID a
+server-signed model claim, not verified repository evidence.
+
+### Trusted observation contract
+
+`read_evidence` and `locate_evidence` are the sole evidence issuers. After
+resolving a safe regular file and applying redaction, each returns an opaque,
+process-private `observation_ref` with redacted display text and a normalized
+repository-relative location/range. The server records the source file
+identity, content hash, bound snapshot, active stage, and redacted canonical
+evidence fields. A scoped absence returned by `locate_evidence` receives the
+same treatment.
+
+The model never provides `evidence_ids`, `evidence_inputs`, `content_fingerprint`,
+or `redacted`. Instead, each `submit_*` tool accepts only:
+
+```json
+{
+  "transition_token": "tr_server_issued",
+  "payload": {
+    "schema_version": 1,
+    "stage": "discovery",
+    "evidence": [{"alias": "docker_start", "observation_ref": "obs_server_issued"}],
+    "claims": [{"id": "claim_start", "status": "confirmed", "evidence_aliases": ["docker_start"]}],
+    "rule_applications": [],
+    "signals": ["signal_web"],
+    "candidate_ids": ["candidate_web"],
+    "decisions": ["decision_web"]
+  }
+}
+```
+
+Aliases are limited to one submission and are never persisted as authority.
+The server atomically resolves aliases to observations, verifies that each
+reference belongs to the current process, binding, active stage, and unchanged
+source snapshot, derives canonical evidence IDs, rewrites claim and rule
+references, validates the complete normalized payload, and only then replaces
+state. An invalid submission leaves state, revision, and the next transition
+token unchanged.
+
+The receipt returns the accepted stage, input/output revision, state hash,
+server-derived canonical evidence map, next active stage, and a newly issued
+transition token. Identical retries with the same token and normalized request
+digest return the original receipt; a different request using the same token is
+a replay conflict. A failed validation is not cached. Finalization retains a
+process-private completion receipt only long enough to answer an identical
+retry, then cleanup invalidates all observations and transition tokens.
+
+### Snapshot and lifecycle rules
+
+Start binds a Git target to its immutable `HEAD` plus a clean/dirty worktree
+fingerprint. For an allowed non-Git target, it binds a deterministic content
+manifest rather than a path-only hash. At observation issuance, submission,
+reopen, and finalize, the server verifies the target binding and source file
+identity again. Changed files, changed dirty state, symlink or reparse-point
+replacement, another server process, another stage, reopening, finalization,
+and process exit all invalidate stale observation references.
+
+### Stage isolation and tool schemas
+
+The active `submit_*` tool exposes a closed JSON Schema for that stage only:
+all nested objects set `additionalProperties: false`, required fields and
+bounded strings/arrays are declared, and its leading-word description states
+when to use server-issued observations. Future stage names, schemas, IDs,
+instructions, and goals remain absent from `tools/list`. After an accepted
+receipt, only the next active stage contract becomes visible.
+
+### Required verification additions
+
+1. A model submits aliases over tool-issued observations without calculating a
+   SHA-derived ID.
+2. Forged, modified, cross-process, cross-binding, cross-stage, reopened, and
+   finalized observation references are rejected.
+3. Secret literals never appear in tool output, state, receipts, errors, or
+   diagnostics; the model cannot submit a redaction or fingerprint field.
+4. Dirty worktree changes, source changes after observation, and symlink or
+   reparse-point replacement reject submission and finalization.
+5. Duplicate/missing aliases, undeclared references, and replay conflicts fail
+   without changing state; identical retries return the original receipt.
+6. OpenCode proves closed active-stage schemas, catalog refresh, MCP error
+   handling, final report rendering, and cleanup through a detached PTY run.
