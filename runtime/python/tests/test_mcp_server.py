@@ -76,8 +76,8 @@ class MCPTests(unittest.TestCase):
         server = Server(target_root=Path(__file__).resolve().parents[1])
         handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})
         result = handle(server, {"id": 2, "method": "tools/call", "params": {"name": "read_evidence", "arguments": {"path": "pyproject.toml"}}})
-        self.assertIn("trusted-analysis-pipeline", result["result"]["content"][0]["text"])
-        self.assertNotIn("structuredContent", result["result"])
+        self.assertIn("trusted-analysis-pipeline", result["result"]["structuredContent"]["text"])
+        self.assertTrue(result["result"]["structuredContent"]["observation_ref"].startswith("obs_"))
 
     def test_start_tool_does_not_accept_model_owned_binding(self):
         server = Server()

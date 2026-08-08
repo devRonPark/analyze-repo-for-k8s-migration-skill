@@ -28,11 +28,19 @@ def render_lines(lines, offset=0, limit=None):
     return "\n".join(output)
 
 
-def read(worktree,path,offset=0,limit=None,trusted_roots=()):
+def redact_text(value, suffix=""):
+    value = SECRET.sub(lambda m:m.group(1)+m.group(2)+'[REDACTED]', value)
+    return SQL.sub("'[REDACTED]'", value) if suffix.lower()=='.sql' else value
+
+
+def read(worktree,path,offset=0,limit=None,trusted_roots=(),observation_registry=None,stage=None):
     target=safe_path(worktree,path,trusted_roots)
     if target.is_dir(): return "\n".join(sorted(x.name for x in target.iterdir()))
     lines=target.read_text(encoding="utf-8").splitlines()
-    def clean(line):
-        value=SECRET.sub(lambda m:m.group(1)+m.group(2)+'[REDACTED]',line)
-        return SQL.sub("'[REDACTED]'",value) if target.suffix.lower()=='.sql' else value
-    return render_lines([clean(line) for line in lines], offset, limit)
+    rendered = render_lines([redact_text(line, target.suffix) for line in lines], offset, limit)
+    if observation_registry is None:
+        return rendered
+    start = max(0, int(offset or 0)) + 1
+    requested = DEFAULT_LINE_LIMIT if limit is None else int(limit)
+    end = min(len(lines), start + min(MAX_LINE_LIMIT, max(1, requested)) - 1)
+    return {"text": rendered, **observation_registry.issue_present(stage, target, start, end, rendered)}

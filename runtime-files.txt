@@ -21,6 +21,7 @@ runtime/python/analysis_pipeline/__init__.py
 runtime/python/analysis_pipeline/state.py
 runtime/python/analysis_pipeline/validation.py
 runtime/python/analysis_pipeline/transitions.py
+runtime/python/analysis_pipeline/observations.py
 runtime/python/analysis_pipeline/protocol.py
 runtime/python/analysis_pipeline/mcp_server.py
 runtime/python/analysis_pipeline/tools/__init__.py

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib, json, secrets, subprocess, sys
 from pathlib import Path
 from . import create_state, submit, reopen, finalize
+from .observations import ObservationRegistry, TargetSnapshot
 from .protocol import LIFECYCLE_TOOLS, SERVER_INFO, STAGE_TOOL_BY_STAGE, STAGE_TOOLS, TRUSTED_TOOLS, error, response, text_result
 from .tools import git_metadata, glob_paths, locate_evidence, read
 
@@ -22,19 +23,12 @@ class Server:
     def __init__(self, target_root=None):
         self.state = None
         self._target_root = Path(target_root or Path.cwd()).resolve()
+        self._registry = None
 
     def _binding(self):
         if not self._target_root.is_dir():
             raise ValueError("OpenCode workspace is unavailable")
-        try:
-            snapshot = subprocess.run(
-                ["git", "-C", str(self._target_root), "rev-parse", "HEAD"],
-                capture_output=True,
-                check=True,
-                text=True,
-            ).stdout.strip()
-        except (OSError, subprocess.CalledProcessError):
-            snapshot = "unversioned:" + hashlib.sha256(str(self._target_root).encode("utf-8")).hexdigest()
+        snapshot = TargetSnapshot.capture(self._target_root).digest
         return {
             "binding_id": "process_" + secrets.token_hex(16),
             "target_realpath": str(self._target_root),
@@ -49,15 +43,21 @@ class Server:
             if self.state is not None: raise ValueError("active analysis already exists")
             if args.get("arguments"):
                 raise ValueError("start_analysis accepts no model-supplied arguments")
-            self.state = create_state(self._binding())
+            binding = self._binding()
+            self.state = create_state(binding)
+            self._registry = ObservationRegistry(self._target_root, binding)
             return self._state()
         if self.state is None: raise ValueError("analysis has not started")
+        if TargetSnapshot.capture(self._target_root).digest != self.state.binding["target_snapshot_hash"]:
+            raise ValueError("target snapshot changed")
         rev, digest = args.get("expected_revision"), args.get("expected_hash")
         if action == "submit": self.state = submit(self.state, args.get("stage"), args.get("payload"), rev, digest)
-        elif action == "reopen": self.state = reopen(self.state, args.get("stage"), args.get("reason"), rev, digest)
+        elif action == "reopen":
+            self.state = reopen(self.state, args.get("stage"), args.get("reason"), rev, digest)
+            self._registry.invalidate_from(self.state.current_stage)
         elif action == "finalize":
             self.state = finalize(self.state, rev, digest)
-            result = self._state(); self.state = None
+            result = self._state(); self.state = None; self._registry.clear(); self._registry = None
             return result
         else: raise ValueError("unknown action")
         return self._state()
@@ -84,10 +84,10 @@ def handle(server, request):
             elif name in STAGE_TOOL_BY_STAGE.values():
                 stage = next(key for key, value in STAGE_TOOL_BY_STAGE.items() if value == name)
                 result = server.call({"action":"submit", "stage":stage, **args})
-            elif name == "read_evidence": result = read(server.target_root(), **args)
+            elif name == "read_evidence": result = read(server.target_root(), **args, observation_registry=server._registry, stage=server.state.current_stage)
             elif name == "list_target_paths": result = glob_paths(server.target_root(), **args)
             elif name == "get_target_git_metadata": result = git_metadata(server.target_root())
-            elif name == "locate_evidence": result = locate_evidence(server.target_root(), **args)
+            elif name == "locate_evidence": result = locate_evidence(server.target_root(), **args, observation_registry=server._registry, stage=server.state.current_stage)
             else: raise ValueError("unknown tool")
             return response(rid, text_result(result))
         raise ValueError("method not found")
