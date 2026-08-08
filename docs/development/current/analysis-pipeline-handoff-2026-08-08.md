@@ -18,7 +18,7 @@ next-session starting point.
 - Branch: `ticket/pipe-001-state-model`
 - Historical VS-028 worktree:
   `C:\Users\박병찬\Desktop\analyze-repo-for-k8s-migration-skill-worktrees\vs-028-history`
-- Current VS-028 commit: `524657e` (`fix: load workload-boundary unconditionally and drop Detailed's one-entry cap`)
+- Completed VS-028 implementation commit: `524657e` (`fix: load workload-boundary unconditionally and drop Detailed's one-entry cap`)
 - Worktree status when this handoff was written: clean.
 - Write PIPE-001 changes only in the dedicated PIPE-001 worktree.
 
