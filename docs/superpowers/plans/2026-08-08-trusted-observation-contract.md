@@ -386,3 +386,30 @@ and report-contract suites, `scripts/mcp_smoke.py`,
 distribution launcher smoke before any provider-backed run. The detached PTY
 E2E must then prove all active catalog transitions and a clean final report for
 all three golden-scored repositories.
+
+### Final review amendment: dependency, rules, and full stdio proof
+
+Before Task 0, amend the approved design contract to state: "The stdlib-only
+MCP protocol boundary supersedes the pinned-SDK and handwritten-JSON-RPC
+prohibition in the approved design. Protocol conformance is enforced by
+initialize, tools/list, tools/call, list-changed notification, tool-error,
+stdout purity, and OpenCode 1.18 integration tests." Do not introduce an MCP
+SDK or a Node/Bun bridge.
+
+Task 4 must add manifest-hashed stage contract and rule assets to the installed
+Skill, `runtime-files.txt`, and built-distribution tests. The server holds the
+full catalog privately; its start receipt and all static Skill/agent text omit
+future stages and rules. The active tool's closed schema and leading-word
+description expose only the current instruction and applicable `rule_id`s.
+Missing required current-stage rule applications reject submission, and
+finalization checks the full internal rule provenance. Add canary tests proving
+that start, failure, reopen, static Skill/agent, and distribution files contain
+no future rule or stage leakage.
+
+Replace Task 5's first protocol example with a complete provider-free stdio
+proof: issue fresh stage-scoped observations and submit all five stages,
+exercise one permitted reopen and resubmission, finalize, retry finalization,
+assert the active-only catalog after every transition, then launch a fresh MCP
+process and prove cleanup. Add a credential-shaped client `glob` or `pattern`
+input test proving it is bounded, redacted before any persisted absence record,
+and never echoed in state, output, error, or diagnostics.

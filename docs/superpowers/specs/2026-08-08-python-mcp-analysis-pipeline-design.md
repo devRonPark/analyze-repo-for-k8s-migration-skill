@@ -261,3 +261,18 @@ receipt, only the next active stage contract becomes visible.
    without changing state; identical retries return the original receipt.
 6. OpenCode proves closed active-stage schemas, catalog refresh, MCP error
    handling, final report rendering, and cleanup through a detached PTY run.
+
+### Amendment: stdlib MCP boundary and stage-contract injection
+
+The stdlib-only MCP protocol boundary supersedes the pinned-SDK and
+handwritten-JSON-RPC prohibition in this design. Protocol conformance is
+enforced by `initialize`, `tools/list`, `tools/call`, list-changed
+notification, tool-error, stdout purity, and OpenCode 1.18 integration tests.
+No runtime dependency, bridge, or subprocess outside Python 3.13 is required.
+
+The installed Skill includes a manifest-hashed stage contract and rule catalog.
+The server retains the complete catalog process-privately, while each active
+tool exposes only its current stage instruction and applicable `rule_id`s.
+Start and failure receipts, `SKILL.md`, and the static agent never expose a
+future stage or rule. Missing current-stage required rule applications reject
+submission; finalization validates the complete internal provenance catalog.
