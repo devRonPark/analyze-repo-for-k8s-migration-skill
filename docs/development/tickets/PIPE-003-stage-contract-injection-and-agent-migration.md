@@ -18,8 +18,12 @@ to drive `analysis_pipeline` through its six stages.
   `config/skills` installation path.
 - Agent and command instructions that start the pipeline, submit only the
   active stage, use restricted `reopen`, and relay only finalized output.
+- Runtime stage-context isolation per ADR-2026-08-08-008: expose only the
+  active contract and never a future-stage task, identifier, count, schema,
+  asset, or roadmap.
 - Tests for stage instruction identity, path mismatch handling, stale
-  submission rejection, and no independent public stage command.
+  submission rejection, no independent public stage command, and absence of
+  future-stage leakage in `start`, failed `submit`, and `reopen` responses.
 - A deletion budget listing every public Skill or Agent-prompt requirement
   replaced by an injected, tested stage contract. Remove only entries on that
   list; retain invocation, target-safety, and final-output routing that the
@@ -34,6 +38,9 @@ to drive `analysis_pipeline` through its six stages.
 
 - The model cannot complete a pipeline by voluntarily skipping an injected
   stage or an internal reference.
+- The model cannot obtain a later-stage contract until the active contract's
+  coverage and grounding invariants pass; errors and receipts do not disclose
+  future-stage work.
 - A new signal found late forces a bounded, validated reopen rather than a
   silently inconsistent report.
 - The committed deletion budget has no duplicate normative rule remaining in

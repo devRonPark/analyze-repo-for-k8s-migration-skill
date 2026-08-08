@@ -41,6 +41,11 @@ The primary-tier workflow in `SKILL.md` will use this compact sequence:
    a grounded boundary result and every readiness item is either grounded or
    scoped unknown.
 
+The active Vertical Slice is context-isolated. At runtime the Agent receives
+only its active contract and cannot inspect later-stage tasks, schemas, assets,
+or a stage roadmap. A newly active contract is disclosed only after the prior
+slice satisfies its Quality Gate. ADR-2026-08-08-008 defines this boundary.
+
 `workflow.md` and `workload-boundary.md` remain the detailed authoritative
 rules. `SKILL.md` retains only the ordered action and routing language. The
 same leading word is not repeated merely for emphasis; each occurrence must
@@ -130,6 +135,10 @@ enforce the same distinction.
    test-first development.
 3. Agent/command routing and acceptance harness integration.
 4. Static and provider-backed evaluation, followed by prompt-pruning review.
+
+Stage-context isolation is delivered with the Agent/command routing slice. It
+must be in place before Leading Words are evaluated through a multi-stage E2E;
+otherwise later-stage knowledge can confound the observed behaviour.
 
 The two areas are intentionally separable: leading words improve process
 selection, while the structured Detailed gap model keeps recommendations
