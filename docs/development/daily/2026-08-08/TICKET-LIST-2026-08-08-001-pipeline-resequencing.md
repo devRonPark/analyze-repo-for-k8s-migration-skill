@@ -1,6 +1,6 @@
 # TICKET-LIST-2026-08-08-001: Trusted pipeline resequencing
 
-- Status: Active
+- Status: PIPE-000 blocked; VS-027 static fixtures remain independently actionable
 - Decision: ADR-2026-08-08-005
 
 ## Queue

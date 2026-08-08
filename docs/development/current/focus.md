@@ -13,13 +13,13 @@ PIPE-000 first, an early deterministic vertical proof after PIPE-001, and
 VS-027 static fixtures before PIPE-005.
 Suggested order and why:
 
-1. **PIPE-000, then PIPE-001 through PIPE-005** — follow
-   [TICKET-LIST-2026-08-08-001](../daily/2026-08-08/TICKET-LIST-2026-08-08-001-pipeline-resequencing.md):
-   verify the non-forgeable runtime binding and final-response path first,
-   prove the pure six-stage path immediately after PIPE-001, and prepare
-   VS-027 static fixtures before PIPE-005. Read ADR-2026-08-08-004,
-   ADR-2026-08-08-005, and `analysis-pipeline-handoff-2026-08-08.md` first.
-   Do not make another prose-only change intended to force a reference read.
+1. **PIPE milestone: blocked at PIPE-000** —
+   [PIPE-000 completion](../daily/2026-08-08/PIPE-000-completion-2026-08-08.md)
+   found no verified host-issued identity or interactive final-response hook.
+   [ADR-2026-08-08-006](../daily/2026-08-08/ADR-2026-08-08-006-host-boundary-required-for-pipeline.md)
+   prohibits substitute IDs and holds PIPE-001 through PIPE-004 until a
+   supported host boundary is selected. Do not make another prose-only change
+   intended to force a reference read.
 2. **VS-027** — golden-set fixtures (must-split Case B, must-not-split
    Case A) for `references/workload-boundary.md`. Build Case B with its two
    processes in genuinely separate files/directories (not sharing one file
