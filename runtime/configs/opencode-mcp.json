@@ -1,1 +1,1 @@
-{"mcp":{"servers":{"analysis":{"type":"local","command":["python","-m","analysis_pipeline.mcp_server"],"cwd":"runtime/python"}}}}
+{"mcp":{"servers":{"analysis":{"type":"local","command":["{env:ANALYSIS_PIPELINE_PYTHON}","{env:ANALYSIS_PIPELINE_LAUNCHER}"]}}}}

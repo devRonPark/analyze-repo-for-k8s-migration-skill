@@ -20,8 +20,8 @@ remains outside the target.
 
 ## In scope
 
-- `analysis_start`, stage-specific tools, `analysis_reopen`, and
-  `analysis_finalize` dispatch that delegates all
+- `start_analysis`, stage-specific `submit_*` tools, `reopen_analysis`, and
+  `finalize_analysis` dispatch that delegates all
   validation to PIPE-001.
 - Runtime-private state lifecycle and cleanup.
 - Python MCP stdio server implementation, `initialize` handshake coverage, and

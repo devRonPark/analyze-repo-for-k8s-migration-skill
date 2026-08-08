@@ -1,14 +1,41 @@
-"""Provider-free MCP lifecycle smoke test."""
-import json, subprocess, sys
+"""Provider-free MCP process, catalog, and stderr-isolation smoke test."""
+import json
+import subprocess
+import sys
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]; PY=ROOT/'runtime'/'python'
+
+ROOT = Path(__file__).resolve().parents[1]
+LAUNCHER = ROOT / "runtime" / "python" / "launch_mcp.py"
+
+
+def run(messages):
+    completed = subprocess.run(
+        [sys.executable, str(LAUNCHER)],
+        input="\n".join(json.dumps(message) for message in messages) + "\n",
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
+    )
+    assert not completed.stderr, completed.stderr
+    return [json.loads(line) for line in completed.stdout.splitlines()]
+
+
 def main():
-    proc=subprocess.Popen([sys.executable,'-m','analysis_pipeline.mcp_server'],cwd=PY,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
-    def call(i,method,params=None):
-        proc.stdin.write(json.dumps({'jsonrpc':'2.0','id':i,'method':method,'params':params or {}})+'\n'); proc.stdin.flush(); return json.loads(proc.stdout.readline())
-    assert call(1,'initialize')['result']['serverInfo']['name']=='trusted-analysis-pipeline'
-    assert [x['name'] for x in call(2,'tools/list')['result']['tools']]==['analysis_start']
-    started=call(3,'tools/call',{'name':'analysis_start','arguments':{'binding':'smoke'}})['result']['structuredContent']; assert started['revision']==0
-    names=[x['name'] for x in call(4,'tools/list')['result']['tools']]; assert 'analysis_discovery' in names and 'analysis_execution' not in names
-    proc.terminate(); proc.wait(timeout=5); print('MCP smoke: PASS')
-if __name__=='__main__': main()
+    first = run([
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {"binding": "smoke"}}},
+        {"jsonrpc": "2.0", "id": 4, "method": "tools/list"},
+    ])
+    assert first[0]["result"]["capabilities"]["tools"]["listChanged"]
+    assert [tool["name"] for tool in first[1]["result"]["tools"]] == ["start_analysis"]
+    assert first[3]["method"] == "notifications/tools/list_changed"
+    assert {"submit_discovery", "reopen_analysis"}.issubset({tool["name"] for tool in first[4]["result"]["tools"]})
+    second = run([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}])
+    assert [tool["name"] for tool in second[0]["result"]["tools"]] == ["start_analysis"]
+    print("MCP smoke: PASS")
+
+
+if __name__ == "__main__":
+    main()

@@ -117,7 +117,10 @@ git commit -m "feat: add Python pipeline state validator"
 - Modify: `runtime/opencode.json`
 
 **Interfaces:**
-- Produces: one MCP tool named `analysis_pipeline` with an action argument restricted to `start`, `submit`, `reopen`, or `finalize`; one process-private active state; valid `initialize`, `tools/list`, and `tools/call` responses.
+- Produces: explicit leading-word MCP tools (`start_analysis`, stage-specific
+  `submit_*`, `reopen_analysis`, `finalize_analysis`, and grounded trusted
+  evidence tools); one process-private active state; valid `initialize`,
+  state-aware `tools/list`, and `tools/call` responses.
 
 - [ ] **Step 1: Write failing protocol and lifecycle tests**
 

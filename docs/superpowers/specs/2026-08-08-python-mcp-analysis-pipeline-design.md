@@ -52,17 +52,18 @@ or retain module-global session state.
 
 `mcp_server.py` is the only transport boundary. It reads MCP JSON-RPC from
 stdin and writes valid MCP responses to stdout. Diagnostics go only to stderr.
-It exposes explicit stage tools (`analysis_start`, `analysis_discovery`,
-`analysis_execution`, `analysis_relationships`, `analysis_boundaries`,
-`analysis_contracts`, and `analysis_finalize`) plus lifecycle `analysis_reopen`
-and Python replacements for the existing trusted `read`, `glob`,
-`git_metadata`, and `locate_evidence` tools. Each tool has a closed schema and
+It exposes explicit leading-word stage tools (`start_analysis`,
+`submit_discovery`, `submit_execution`, `submit_relationships`,
+`submit_boundaries`, `submit_contracts`, and `finalize_analysis`) plus
+`reopen_analysis` and the trusted `read_evidence`, `list_target_paths`,
+`get_target_git_metadata`, and `locate_evidence` tools. Each tool has a closed schema and
 documents its reference inputs, receipt output, and rejection conditions.
 The server still owns process-private state; stage tools cannot expose future
 stage contracts or accept out-of-order submissions. `tools/list` is state-aware:
-before start it exposes only `analysis_start`; after start it exposes only the
-active stage tool and generic `analysis_reopen`; after all stages it exposes
-only `analysis_finalize` and `analysis_reopen`. Future stage names, schemas,
+before start it exposes only `start_analysis`; after start it exposes the
+active submit tool, grounded evidence tools, and generic `reopen_analysis`;
+after all stages it exposes only `finalize_analysis`, `reopen_analysis`, and
+grounded evidence tools. Future stage names, schemas,
 rules, goals, and output shapes are not disclosed to the active-stage agent.
 
 The implementation uses a pinned Python MCP dependency. PIPE-002 must add an
