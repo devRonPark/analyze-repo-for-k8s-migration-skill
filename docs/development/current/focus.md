@@ -2,10 +2,13 @@
 
 ## Active priority (start here — updated 2026-08-08, explicit user directive)
 
-**The active queue is the PIPE analysis-pipeline milestone,
-[VS-027](../tickets/VS-027-workload-boundary-golden-fixtures.md), and
-[VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md), in that
-order.** The PIPE milestone supersedes VS-028's prose-only mechanism under
+**PIPE-001 is the only active implementation start point.** It follows the
+PIPE-000 compatibility proof and implements the pure, deterministic pipeline
+state model. VS-026, VS-027, and VS-028 are retained historical evidence;
+they are not implementation targets unless a later explicit priority decision
+reactivates them.
+
+The PIPE milestone supersedes VS-028's prose-only mechanism under
 [ADR-2026-08-08-004](../daily/2026-08-08/ADR-2026-08-08-004-analysis-pipeline-orchestration.md).
 The approved review-driven reordering is recorded in
 [ADR-2026-08-08-005](../daily/2026-08-08/ADR-2026-08-08-005-pipeline-resequencing-and-skill-load.md):
