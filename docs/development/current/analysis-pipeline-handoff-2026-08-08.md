@@ -7,9 +7,9 @@ The user wants one public `/analyze-repo-for-kubernetes` command. Its internals
 must be a mechanically validated, composable analysis pipeline; users do not
 invoke individual stages.
 
-No implementation has started for this redesign. This document records the
-confirmed runtime failure, the design direction, independent reviews, and the
-next-session starting point.
+No PIPE-001 implementation has been committed or tested for this redesign.
+This document records the confirmed runtime failure, the design direction,
+independent reviews, and the next-session starting point.
 
 ## Working context
 
@@ -19,7 +19,12 @@ next-session starting point.
 - Historical VS-028 worktree:
   `C:\Users\박병찬\Desktop\analyze-repo-for-k8s-migration-skill-worktrees\vs-028-history`
 - Completed VS-028 implementation commit: `524657e` (`fix: load workload-boundary unconditionally and drop Detailed's one-entry cap`)
-- Worktree status when this handoff was written: clean.
+- PIPE-001 has no committed or tested implementation yet. Preserved untracked
+  drafts exist at `.superpowers/sdd/pipe001-brief.md`,
+  `runtime/lib/pipeline/state.ts`, and `runtime/lib/pipeline/state.test.ts`.
+- The current PIPE-001 worktree is not clean because it retains those
+  untracked drafts. The historical VS-028 worktree was clean when this
+  handoff was first drafted.
 - Write PIPE-001 changes only in the dedicated PIPE-001 worktree.
 
 Read first on resume:
@@ -27,8 +32,9 @@ Read first on resume:
 1. `docs/development/tickets/VS-028-prose-only-process-discovery.md`
 2. `tests/evaluation/vs-028-flask-celery-runs/README.md`
 3. This handoff
-4. `runtime/agents/kubernetes-migration-analyzer.md`
-5. `runtime/tools/read.ts` and `scripts/run_opencode_acceptance.py`
+4. `.superpowers/sdd/pipe001-brief.md`
+5. `runtime/agents/kubernetes-migration-analyzer.md`
+6. `runtime/tools/read.ts` and `scripts/run_opencode_acceptance.py`
 
 ## Confirmed failure and its impact
 
