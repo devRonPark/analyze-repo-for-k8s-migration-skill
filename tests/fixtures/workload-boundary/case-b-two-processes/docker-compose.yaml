@@ -1,0 +1,14 @@
+services:
+  api:
+    build: ./api
+    command: python app.py
+    ports:
+      - "8000:8000"
+    restart: always
+
+  worker:
+    build: ./worker
+    command: python worker.py
+    restart: on-failure
+    deploy:
+      replicas: 3
