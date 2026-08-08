@@ -544,6 +544,39 @@ def extract_json_object(raw_output: str) -> str:
 RENDERERS = {"summary": render_summary, "detailed": render_detailed}
 
 
+def extract_markdown_report(raw_output: str, *, mode: str) -> str:
+    """Return the final agent-authored Markdown report from an interactive trace."""
+    heading = "# Kubernetes 설계 입력 요약" if mode == "summary" else "# Kubernetes 설계 입력 상세 평가"
+    start = raw_output.rfind(heading)
+    if start < 0:
+        raise ValueError(f"{mode.capitalize()} final output is missing required Markdown heading: {heading}")
+    return raw_output[start:].strip() + "\n"
+
+
+def retain_agent_markdown(raw_output: str, output_dir: Path, repository_root: Path, *, mode: str = "summary") -> str:
+    """Validate the final Markdown emitted after in-session MCP finalization.
+
+    This is intentionally separate from the legacy JSON renderer. Interactive
+    OpenCode acceptance must validate the assistant's own final Markdown and
+    must not depend on an out-of-session renderer or report finalizer.
+    """
+    label = mode.capitalize()
+    markdown = extract_markdown_report(raw_output, mode=mode)
+    report = output_dir / "report.md"
+    report.write_text(markdown, encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/validate_report.py"), str(report), "--mode", mode, "--repo-root", str(repository_root)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if result.returncode:
+        raise ValueError(result.stdout.strip() or result.stderr.strip() or f"{label} Markdown validation failed")
+    return report.read_text(encoding="utf-8")
+
+
 def retain_report_markdown(raw_output: str, output_dir: Path, repository_root: Path, *, mode: str = "summary") -> str:
     """Render, validate, and finalize the Agent's Summary or Detailed JSON.
 
@@ -648,17 +681,13 @@ def retain_report_markdown_with_repair(
     pure: bool = True,
     max_repairs: int = 2,
 ) -> str:
-    """Render/validate the Agent's Summary or Detailed JSON, asking it to fix
-    a specific, named validation error in the same session up to max_repairs
-    times before giving up. A session that never emitted parseable JSON, or
-    one with no captured session_id, gets exactly one attempt -- there is
-    nothing to continue."""
+    """Validate final agent Markdown and request one in-session repair if needed."""
     label = mode.capitalize()
     raw_output = str(trace["final_output"])
     attempts: list[str] = []
     for attempt in range(max_repairs + 1):
         try:
-            markdown = retain_report_markdown(raw_output, output_dir, repository_root, mode=mode)
+            markdown = retain_agent_markdown(raw_output, output_dir, repository_root, mode=mode)
             if attempts:
                 trace["repair_attempts"] = attempts
             return markdown
@@ -669,12 +698,10 @@ def retain_report_markdown_with_repair(
                 trace["repair_attempts"] = attempts
                 raise
             repair_message = (
-                "방금 만든 JSON 응답에 문제가 있습니다: "
+                "방금 만든 Markdown 보고서에 문제가 있습니다: "
                 f"{error}\n\n"
-                f"필요한 파일을 다시 확인해 해당 부분만 정확히 고친 뒤, {label} JSON 계약"
-                f"({REPAIR_CONTRACT_FIELDS[mode]})을 그대로 유지한 전체 JSON "
-                "객체 하나만 다시 출력하세요. Markdown이나 설명, 코드 펜스 없이 JSON만 "
-                "출력합니다."
+                f"필요한 근거를 다시 확인해 해당 부분만 정확히 고친 뒤, {label} Markdown "
+                "보고서 전체를 다시 출력하세요. 코드 펜스나 보고서 밖 설명은 출력하지 않습니다."
             )
             try:
                 raw_output = continue_session(

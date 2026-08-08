@@ -4,7 +4,7 @@ from copy import deepcopy
 import re
 from typing import Any, Mapping
 
-from .state import STAGES, PipelineState, derive_evidence_id
+from .state import ANALYSIS_STAGES, FINAL_STAGE, PipelineState, derive_evidence_id
 
 
 CLAIM_STATUSES = {"confirmed", "inferred", "unknown", "conflicted", "not_applicable"}
@@ -15,7 +15,6 @@ ALLOWED_STAGE_FIELDS = {
     "relationships": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "graph_edge_ids"},
     "boundaries": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "unit_ids", "deployable_unit_ids", "decisions"},
     "contracts": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "contract_ids"},
-    "finalize": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "decisions"},
 }
 
 ALLOWED_CLAIM_FIELDS = {"id", "status", "evidence_ids", "scope", "blocked_decision"}
@@ -31,7 +30,7 @@ REOPEN_PERMITTED = {
     "relationships": {"discovery", "execution"},
     "boundaries": {"discovery", "execution", "relationships"},
     "contracts": {"discovery", "execution", "relationships", "boundaries"},
-    "finalize": {"discovery", "execution", "relationships", "boundaries", "contracts"},
+    FINAL_STAGE: {"discovery", "execution", "relationships", "boundaries", "contracts"},
 }
 
 
@@ -42,7 +41,7 @@ def ensure_exact_keys(value: Mapping[str, Any], allowed: set[str], label: str) -
 
 
 def ensure_known_stage(stage: str) -> None:
-    if stage not in STAGES:
+    if stage not in ANALYSIS_STAGES:
         raise ValueError("unknown stage")
 
 
@@ -209,7 +208,7 @@ def validate_boundaries_payload(payload: Mapping[str, Any]) -> None:
 
 
 def validate_finalize_state(state: PipelineState) -> None:
-    if state.current_stage != "finalize" or any(stage not in state.outputs for stage in STAGES):
+    if state.current_stage != FINAL_STAGE or set(state.outputs) != set(ANALYSIS_STAGES):
         raise ValueError("pipeline is not complete")
     applications: dict[str, Mapping[str, Any]] = {}
     valid_subjects = set(state.catalog["process_ids"]) | set(state.catalog["candidate_ids"])

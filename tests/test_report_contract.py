@@ -33,7 +33,6 @@ class ReportContractTests(unittest.TestCase):
     def test_detailed_instructions_require_completion_first_evidence_slots(self):
         for path in (
             ROOT / "SKILL.md",
-            ROOT / "runtime/agents/kubernetes-migration-analyzer.md",
             ROOT / "references/repository-analysis-checklist.md",
         ):
             text = path.read_text(encoding="utf-8")
@@ -70,33 +69,28 @@ class ReportContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("설계 차단 항목", result.stdout)
 
-    def test_detailed_instructions_emit_json_not_markdown(self):
+    def test_interactive_agent_requires_markdown_only_after_mcp_finalization(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("## Detailed JSON contract", agent)
-        self.assertIn('"mode": "detailed"', agent)
-        self.assertIn("Detailed output, the final assistant response must be exactly", agent)
+        self.assertIn("finalize_analysis", agent)
+        self.assertIn("Kubernetes 설계 입력 요약", agent)
+        self.assertNotIn("final assistant response must be exactly one JSON object", agent)
 
     def test_detailed_instructions_pin_report_line_shapes(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
         for shape in (
             "- 키: 값 — 상태:",
             "- 차단 항목:",
         ):
-            self.assertIn(shape, agent)
             self.assertIn(shape, template)
-        self.assertIn("범위:", agent)
-        self.assertIn("결정:", agent)
-        self.assertNotIn("근거: 없음", agent)
+        self.assertIn("범위:", template)
+        self.assertIn("결정:", template)
+        self.assertNotIn("근거: 없음", template)
 
     def test_detailed_instructions_pin_absence_and_conflict_evidence(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
 
-        for text in (agent, template):
-            self.assertIn("검색(scope=", text)
-        self.assertIn("Never translate", agent)
-        self.assertIn("상태: 상충됨", agent)
+        self.assertIn("검색(scope=", template)
+        self.assertIn("상태: 상충됨", template)
 
     def test_report_rejects_a_translated_absence_marker(self):
         report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
@@ -125,11 +119,10 @@ class ReportContractTests(unittest.TestCase):
         self.assertIn("부재 근거는 검색(scope=", result.stdout)
 
     def test_detailed_instructions_forbid_absence_claims_about_read_files(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
 
-        self.assertIn("result=없음", agent)
-        self.assertIn("a file you read", agent)
-        self.assertIn("pattern=Dockerfile", agent)
+        self.assertIn("검색(scope=", skill)
+        self.assertIn("repository-relative scope", skill)
 
     def test_absence_claim_about_a_cited_file_is_rejected(self):
         report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
@@ -163,13 +156,11 @@ class ReportContractTests(unittest.TestCase):
         self.assertIn("저장소에 존재", result.stdout)
 
     def test_detailed_instructions_require_read_line_numbers_and_all_sections(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
 
-        self.assertIn("Every citation is computed by `locate_evidence`", agent)
-        self.assertIn("Never hand-write a `file:line`", agent)
-        self.assertIn("## 6. 설정과 상태 상세", agent)
-        self.assertIn("every citation is a single `path:line`", agent)
-        self.assertIn("never write a `path:start-end`", agent)
+        self.assertIn("references/workflow.md", skill)
+        self.assertIn("assets/migration-assessment-template.md", skill)
+        self.assertIn("## 6. 설정과 상태 상세", (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8"))
 
     def test_reversed_line_range_is_reported_as_reversed(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -189,13 +180,9 @@ class ReportContractTests(unittest.TestCase):
         self.assertIn("인용 줄 범위가 거꾸로입니다", result.stdout)
 
     def test_detailed_instructions_require_repository_relative_references(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
 
-        self.assertIn("repository-root-relative", agent)
         self.assertIn("저장소 루트 기준 상대 경로", template)
-        for forbidden in ("bare filename", "absolute path"):
-            self.assertIn(forbidden, agent)
 
     def test_bare_filename_reference_names_its_repository_relative_path(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,5 +1,18 @@
 # ADR-2026-08-07-001: Reconfirm deterministic Summary delivery and add provider-level JSON-schema constraint
 
+> **Superseded for interactive Python-MCP delivery (2026-08-09).** The
+> accepted Python MCP pipeline owns in-session completion. Its interactive
+> OpenCode boundary is the assistant-authored Markdown report, not a
+> model-authored JSON payload rendered or finalized outside the session. The
+> final assistant response is emitted only after `finalize_analysis` succeeds
+> and begins `# Kubernetes 설계 입력 요약` for Summary (or
+> `# Kubernetes 설계 입력 상세 평가` for Detailed). The acceptance harness
+> preserves and validates that Markdown directly; it does not invoke an
+> external renderer or finalizer as a completion dependency. This amendment
+> supersedes the JSON-only and external-finalizer decisions below only for the
+> Python-MCP interactive flow. JSON schemas and renderers remain available for
+> explicitly requested offline structured-output workflows.
+
 - Status: Accepted
 - Date: 2026-08-07
 - Related tickets: [TICKET-LIST-2026-07-30-003-deterministic-summary-delivery.md](../2026-07-30/TICKET-LIST-2026-07-30-003-deterministic-summary-delivery.md) (DEL-002, DEL-003, DEL-004 — specified 2026-07-30, not yet implemented)

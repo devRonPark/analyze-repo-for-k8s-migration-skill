@@ -7,7 +7,8 @@ import json
 from typing import Any, Mapping
 
 
-STAGES = ("discovery", "execution", "relationships", "boundaries", "contracts", "finalize")
+ANALYSIS_STAGES = ("discovery", "execution", "relationships", "boundaries", "contracts")
+FINAL_STAGE = "finalize"
 
 
 def canonical_json(value: Any) -> str:
@@ -82,7 +83,7 @@ def empty_catalog() -> dict[str, list[str]]:
 class PipelineState:
     binding: dict[str, Any]
     revision: int = 0
-    current_stage: str = STAGES[0]
+    current_stage: str = ANALYSIS_STAGES[0]
     finalized: bool = False
     outputs: dict[str, dict[str, Any]] = field(default_factory=dict)
     evidence: dict[str, dict[str, Any]] = field(default_factory=dict)

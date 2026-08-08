@@ -91,103 +91,54 @@ class OpenCodeAdapterTests(unittest.TestCase):
 
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         self.assertRegex(agent, r"(?m)^steps:\s+64$")
-        self.assertIn("bounded high-signal pass", agent)
-        self.assertRegex(agent, r"synthesize the\s+Summary immediately")
-        self.assertIn("no more than twelve target", agent)
-        self.assertIn("`read_evidence` calls", agent)
+        self.assertIn("## Observe", agent)
+        self.assertIn("`read_evidence`", agent)
+        self.assertIn("`locate_evidence`", agent)
+        self.assertIn("## Report", agent)
 
     def test_summary_and_detailed_routing_are_explicit(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("default Summary", agent)
-        self.assertIn("For an explicit Detailed request", agent)
-        for reference in (
-            "repository-analysis-checklist.md",
-            "migration-assessment-template.md",
-            "configuration-timing.md",
-            "dependency-analysis.md",
-        ):
-            self.assertIn(reference, agent)
-        self.assertIn("Do not inspect lockfiles by default", agent)
+        self.assertIn("Skill as the routing owner", agent)
+        self.assertIn("default mode", agent)
+        self.assertIn("explicit Detailed request", agent)
+        self.assertIn("selected template", agent)
 
-    def test_summary_prompt_requires_json_only_contract(self):
+    def test_summary_prompt_requires_finalized_markdown_contract(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("final assistant response must be exactly one JSON object", agent)
-        self.assertIn("no Markdown, no code fence", agent)
-        self.assertIn("progress updates are allowed", agent)
-        self.assertIn('"schema_version": "1.0"', agent)
-        self.assertIn('"mode": "summary"', agent)
-        self.assertIn("design_input_verdict", agent)
-        self.assertNotIn("final assistant response must be the completed Markdown report", agent)
+        self.assertIn("Do not send a final answer before", agent)
+        self.assertIn("`finalize_analysis`", agent)
+        self.assertIn("# Kubernetes 설계 입력 요약", agent)
+        self.assertIn("exactly one complete Markdown report", agent)
+        self.assertNotIn("final assistant response must be exactly one JSON object", agent)
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("progress\nupdates are allowed", skill)
 
     def test_detailed_output_has_compact_decision_summary_rules(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
-        self.assertIn("### 핵심 요약", agent)
-        self.assertIn("Do not expose planning", agent)
         self.assertIn("### 핵심 요약", template)
         self.assertIn("기본값이나 예시를 채우지 않는다", template)
-        self.assertIn("70 lines and 1,200 Korean words", agent)
         self.assertNotIn("| 연결 workload |", template)
-        self.assertIn("Detailed output must not use Markdown tables", agent)
 
-    def test_detailed_final_output_uses_the_json_first_contract(self):
+    def test_detailed_final_output_uses_the_finalized_markdown_contract(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("Detailed output, the final assistant response must be exactly", agent)
-        self.assertIn('"mode": "detailed"', agent)
-        self.assertIn("eight-section `# Kubernetes 설계 입력 상세 평가` Markdown report", agent)
-        self.assertNotIn("must begin exactly with `# Kubernetes 설계 입력 상세 평가`", agent)
+        self.assertIn("explicit Detailed request begin exactly with", agent)
+        self.assertIn("# Kubernetes 설계 입력 상세 평가", agent)
+        self.assertIn("Finalize only", agent)
 
     def test_agent_requires_high_signal_runtime_conflict_and_seed_checks(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for text in (
-            "report a disagreement as `상충됨`",
-            "image tags exactly",
-            "credential-exposure location",
-            "external database",
-            "final evidence self-check",
-            "Never emit a\nseed username",
-            "never call it missing, unstable, unavailable",
+            "`상충됨` and a keyed blocker",
+            "An explicit image tag is a fact",
+            "credential-shaped seed record by location and risk",
+            "PersistentVolume, StatefulSet, or an external",
         ):
-            self.assertIn(text, agent)
+            self.assertIn(text, skill)
         self.assertIn("Embedded startup\ndata alone does not evidence a PersistentVolume", skill)
         summary = (ROOT / "assets/migration-summary-template.md").read_text(encoding="utf-8")
         self.assertIn("embedded database is a runtime dependency", summary)
         self.assertNotIn("| <설계 차단|설계 결정|배포 입력|권장 사항>", summary)
-        self.assertIn("Release gate", agent)
-
-    def test_acceptance_cases_enforce_mode_specific_reads(self):
-        cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]
-        summary = next(case for case in cases if case["id"] == "minimal-summary")
-        detailed = next(case for case in cases if case["id"] == "explicit-detailed")
-        self.assertIn("workflow.md", summary["expected_behavior"]["required_reads"])
-        self.assertIn("migration-summary-template.md", summary["expected_behavior"]["required_reads"])
-        self.assertIn("repository-analysis-checklist.md", summary["forbidden_behavior"]["reads"])
-        self.assertIn("migration-assessment-template.md", detailed["expected_behavior"]["required_reads"])
-        self.assertIn("repository-analysis-checklist.md", detailed["expected_behavior"]["required_reads"])
-
-    def test_summary_and_detailed_routing_are_explicit(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("default Summary", agent)
-        self.assertIn("For an explicit Detailed request", agent)
-        for reference in (
-            "repository-analysis-checklist.md",
-            "migration-assessment-template.md",
-            "configuration-timing.md",
-            "dependency-analysis.md",
-        ):
-            self.assertIn(reference, agent)
-        self.assertIn("Do not inspect lockfiles by default", agent)
-
-    def test_detailed_output_has_compact_decision_summary_rules(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
-        self.assertIn("### 핵심 요약", agent)
-        self.assertIn("Do not expose planning", agent)
-        self.assertIn("### 핵심 요약", template)
-        self.assertIn("기본값이나 예시를 채우지 않는다", template)
+        self.assertIn("Completion gate", skill)
 
     def test_acceptance_cases_enforce_mode_specific_reads(self):
         cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]
@@ -209,6 +160,21 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertTrue(trace["skill"]["loaded"])
         self.assertIn("assets/migration-summary-template.md", trace["supporting_reads"])
         self.assertTrue(trace["permission_denials"])
+
+    def test_interactive_acceptance_extracts_agent_markdown_without_external_finalizer(self):
+        markdown = (ROOT / "tests/fixtures/reports/valid-summary.md").read_text(encoding="utf-8")
+        report = adapter.extract_markdown_report("분석 진행 중입니다.\n" + markdown, mode="summary")
+        self.assertTrue(report.startswith("# Kubernetes 설계 입력 요약\n"))
+        self.assertIn("Validation: pending", report)
+
+    def test_agent_uses_leading_word_runbook_without_static_stage_leakage(self):
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        for heading in ("## Scope", "## Start", "## Observe", "## Submit", "## Reopen", "## Finalize", "## Report", "## Stop"):
+            self.assertIn(heading, agent)
+        self.assertIn("currently advertised `submit_*`", agent)
+        self.assertNotIn("submit_discovery", agent)
+        self.assertNotIn("submit_execution", agent)
+        self.assertNotIn("final assistant response must be exactly one JSON object", agent)
 
     def test_renders_and_finalizes_a_valid_summary_json_payload(self):
         payload_text = (ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8")
@@ -256,7 +222,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
                 )
 
     def test_repair_fixes_invalid_json_using_the_same_session(self):
-        payload_text = (ROOT / "tests/fixtures/reports/valid-summary.json").read_text(encoding="utf-8")
+        payload_text = (ROOT / "tests/fixtures/reports/valid-summary.md").read_text(encoding="utf-8")
 
         def runner(command, **kwargs):
             self.assertIn("--session", command)
@@ -264,7 +230,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             event = {"type": "text", "text": payload_text}
             return subprocess.CompletedProcess(command, 0, json.dumps(event) + "\n", "")
 
-        trace = {"final_output": "이건 JSON이 아닙니다.", "session_id": "ses_test123"}
+        trace = {"final_output": "이건 Markdown 보고서가 아닙니다.", "session_id": "ses_test123"}
         with tempfile.TemporaryDirectory() as tmp:
             report = adapter.retain_summary_markdown_with_repair(
                 trace,
@@ -282,13 +248,13 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertEqual(len(trace["repair_attempts"]), 1)
 
     def test_repair_gives_up_without_a_session_id(self):
-        trace = {"final_output": "이건 JSON이 아닙니다.", "session_id": None}
+        trace = {"final_output": "이건 Markdown 보고서가 아닙니다.", "session_id": None}
 
         def runner(command, **kwargs):
             raise AssertionError("should not attempt a repair without a session_id")
 
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaisesRegex(ValueError, "not valid JSON"):
+            with self.assertRaisesRegex(ValueError, "missing required Markdown heading"):
                 adapter.retain_summary_markdown_with_repair(
                     trace,
                     Path(tmp),
@@ -301,7 +267,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
                     timeout=5,
                     pure=True,
                 )
-        self.assertEqual(trace["repair_attempts"], ["Summary output is not valid JSON: Expecting value: line 1 column 1 (char 0)"])
+        self.assertEqual(len(trace["repair_attempts"]), 1)
 
     def test_repair_exhausts_its_budget_and_raises(self):
         call_count = 0
@@ -397,7 +363,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
                 )
 
     def test_detailed_repair_fixes_invalid_json_using_the_same_session(self):
-        payload_text = self._minimal_detailed_payload_text()
+        payload_text = (ROOT / "tests/fixtures/reports/valid-detailed.md").read_text(encoding="utf-8")
 
         def runner(command, **kwargs):
             self.assertIn("--session", command)
@@ -405,7 +371,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             event = {"type": "text", "text": payload_text}
             return subprocess.CompletedProcess(command, 0, json.dumps(event) + "\n", "")
 
-        trace = {"final_output": "이건 JSON이 아닙니다.", "session_id": "ses_test123"}
+        trace = {"final_output": "이건 Markdown 보고서가 아닙니다.", "session_id": "ses_test123"}
         with tempfile.TemporaryDirectory() as tmp:
             report = adapter.retain_detailed_markdown_with_repair(
                 trace,

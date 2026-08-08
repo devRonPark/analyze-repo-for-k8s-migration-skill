@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import replace
 from typing import Any
 
-from .state import STAGES, PipelineState, with_hash
+from .state import ANALYSIS_STAGES, FINAL_STAGE, PipelineState, with_hash
 from .validation import (
     REOPEN_PERMITTED,
     collect_catalog_from_outputs,
@@ -21,8 +21,8 @@ from .validation import (
 
 
 def _next_stage(stage: str) -> str:
-    index = STAGES.index(stage)
-    return STAGES[index + 1] if index + 1 < len(STAGES) else "finalize"
+    index = ANALYSIS_STAGES.index(stage)
+    return ANALYSIS_STAGES[index + 1] if index + 1 < len(ANALYSIS_STAGES) else FINAL_STAGE
 
 
 def _combined_catalog(state: PipelineState, payload: dict[str, Any]) -> dict[str, list[str]]:
@@ -68,10 +68,8 @@ def submit(state: PipelineState, stage: str, payload: dict[str, Any], expected_r
 
 def reopen(state: PipelineState, target_stage: str, reason: str, expected_revision: int, expected_hash: str) -> PipelineState:
     ensure_transition_open(state, expected_revision, expected_hash)
-    if target_stage not in STAGES:
+    if target_stage not in ANALYSIS_STAGES:
         raise ValueError("invalid reopen target")
-    if target_stage == "finalize":
-        raise ValueError("invalid back-edge")
     if target_stage not in REOPEN_PERMITTED[state.current_stage]:
         raise ValueError("invalid back-edge")
     if not isinstance(reason, str) or reason.strip() != reason or len(reason) < 3 or len(reason) > 500:
@@ -80,12 +78,12 @@ def reopen(state: PipelineState, target_stage: str, reason: str, expected_revisi
     kept_outputs = {
         stage_name: deepcopy(output)
         for stage_name, output in state.outputs.items()
-        if STAGES.index(stage_name) < STAGES.index(target_stage)
+        if ANALYSIS_STAGES.index(stage_name) < ANALYSIS_STAGES.index(target_stage)
     }
     kept_evidence = {
         evidence_id: deepcopy(item)
         for evidence_id, item in state.evidence.items()
-        if STAGES.index(item["stage"]) < STAGES.index(target_stage)
+        if ANALYSIS_STAGES.index(item["stage"]) < ANALYSIS_STAGES.index(target_stage)
     }
     next_state = replace(
         state,

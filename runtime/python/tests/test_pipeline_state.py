@@ -6,7 +6,7 @@ import unittest
 RUNTIME_PYTHON = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RUNTIME_PYTHON))
 
-from analysis_pipeline import STAGES, canonical_json, create_state, derive_evidence_id, finalize, reopen, submit
+from analysis_pipeline import ANALYSIS_STAGES, FINAL_STAGE, canonical_json, create_state, derive_evidence_id, finalize, reopen, submit
 
 
 BINDING = {
@@ -72,10 +72,12 @@ class PipelineStateTests(unittest.TestCase):
             derive_evidence_id({"content_fingerprint": "x", "status": "confirmed", "range": "1-1", "location": "a", "snapshot_hash": "snapshot-1"}),
         )
 
-    def test_accepts_complete_ordered_vertical_proof_and_finalization(self) -> None:
+    def test_accepts_five_submitted_stages_then_finalizes_without_submit_finalize(self) -> None:
         state = create_state(BINDING)
-        for stage in STAGES:
+        for stage in ANALYSIS_STAGES:
             state = submit(state, stage, valid_payload(stage), state.revision, state.digest())
+        self.assertEqual(state.current_stage, FINAL_STAGE)
+        self.assertEqual(set(state.outputs), set(ANALYSIS_STAGES))
         completed = finalize(state, state.revision, state.digest())
         self.assertTrue(completed.finalized)
         with self.assertRaisesRegex(ValueError, "finalized"):
@@ -97,7 +99,7 @@ class PipelineStateTests(unittest.TestCase):
 
     def test_reopen_invalidates_later_outputs_and_evidence(self) -> None:
         state = create_state(BINDING)
-        for stage in STAGES[:4]:
+        for stage in ANALYSIS_STAGES[:4]:
             state = submit(state, stage, valid_payload(stage), state.revision, state.digest())
 
         reopened = reopen(state, "execution", "new evidence arrived", state.revision, state.digest())
@@ -194,7 +196,7 @@ class PipelineStateTests(unittest.TestCase):
 
         missing_rule_binding = {**BINDING, "required_rule_ids": ["rule.discovery", "rule.boundaries"]}
         state = create_state(missing_rule_binding)
-        for stage in STAGES:
+        for stage in ANALYSIS_STAGES:
             state = submit(state, stage, valid_payload(stage), state.revision, state.digest())
         with self.assertRaisesRegex(ValueError, "mandatory rule"):
             finalize(state, state.revision, state.digest())
