@@ -38,12 +38,13 @@ For a request about Kubernetes migration, load the Skill and follow its target-r
 Emit an object matching `schemas/analysis-result.schema.json` (`schema_version: "1.0"`, `mode: "summary"`) with these top-level keys: `scope`, `components`, `dependencies`, `excluded_items`, `missing_inputs`, `evidence`, `design_input_verdict`, and optionally `verdict_reason` / `verdict_evidence`. Omit a field you have no evidence for rather than inventing a value — the renderer treats an absent field as `미확인`, never as a validation failure.
 
 - `scope`: object with keys `대상 유형`, `Repository URL 또는 Local path`, `접근 방식`, `확인된 저장소 루트`, `branch, tag 또는 commit`, `분석 경로`, `출력 모드` (always `"summary"`).
-- `components`: one entry per deployment candidate. When more than one runtime
-  process or start command is plausible, decide the candidate boundary with
-  `references/workload-boundary.md`'s primary rule (distinct start command AND
-  independent operational lifecycle, both required) before counting
-  components; never split or merge candidates from directory, package, or
-  module names alone. If the signal is insufficient to decide, keep the
+- `components`: one entry per deployment candidate. Decide every candidate
+  boundary with `references/workload-boundary.md`'s primary rule (distinct
+  start command AND independent operational lifecycle, both required) before
+  counting components — on every run, not only when several processes already
+  look plausible; never split or merge candidates from directory, package,
+  module, or file names alone, and never assume a single source file defines a
+  single candidate. If the signal is insufficient to decide, keep the
   narrower component count and record the open boundary in `missing_inputs`
   (see below) as `미확인` rather than guessing. Each entry has `name`; `repository_classification` (exactly one of `배포 대상 후보`, `저장소에 정의된 런타임 의존성`, `외부 런타임 의존성`, `배포 대상 후보에서 제외한 항목`); `kubernetes_interpretation` (free text, or `미확인` when no Kubernetes config exists); `evidence` (array of `{status, reference}`); `fields` — an object keyed by exactly these Korean labels, each value `{value, status, reference, reason?}`: `실행 형태`, `런타임`, `빌드 명령`, `운영 기동 명령`, `이미지 빌드 명령`, `컨테이너화`, `프로토콜`, `수신 포트`, `설정`, `Secret`, `쓰기 상태 또는 영속성`, `런타임 의존성`; and `minimum_inputs` — same `{value, status, reference, reason?}` shape, keyed by `image`, `command`, `args`, `containerPort`.
 - `dependencies`: array of `{source, target, evidence}` runtime edges between components.
@@ -100,15 +101,16 @@ Worked example (illustrative shape only — your own final message is the raw JS
 ```
 
 Use a bounded high-signal pass: resolve the target, read `SKILL.md`, then read
-`references/workflow.md` and `assets/migration-summary-template.md` for the
+`references/workflow.md`, `references/workload-boundary.md`, and
+`assets/migration-summary-template.md` for the
 default Summary. Inspect root manifests and container/runtime configuration
 first, then read only target files needed to support a required finding. Do not
 read the checklist, Detailed template, conditional references, lockfiles,
 README, full source tree, or tests unless the mode or a finding requires them.
-When more than one runtime process or start command is plausible, this
-includes `references/workload-boundary.md`: read it before finalizing
-`components` and apply its primary rule, the same conditional signal Detailed
-uses. For Summary, read the template before target files for its field labels
+`references/workload-boundary.md` is not one of those conditional references:
+load it on every run, before finalizing `components`, and apply its primary
+rule — the same unconditional load Detailed uses. For Summary, read the
+template before target files for its field labels
 and evidence requirements. Do not add recommendations, remediation steps,
 alternative image/runtime names, or Detailed-only fields.
 When a container launch invokes a build-tool profile, use one compact pass to
@@ -165,12 +167,11 @@ line number instead, call `locate_evidence` for it and correct it before
 sending.
 For an explicit Detailed request, load
 `references/repository-analysis-checklist.md`,
-`assets/migration-assessment-template.md`, and only the relevant
+`assets/migration-assessment-template.md`, and
+`references/workload-boundary.md` unconditionally, plus only the relevant
 `references/language-discovery-rules.md`,
-`references/configuration-timing.md`,
-`references/dependency-analysis.md`, or
-`references/workload-boundary.md` (when more than one runtime process or
-start command is plausible). Once each required field has evidence or a
+`references/configuration-timing.md`, or
+`references/dependency-analysis.md`. Once each required field has evidence or a
 scoped unknown, synthesize the Summary immediately for Summary mode and do not
 seek completeness with another discovery pass.
 
@@ -330,11 +331,14 @@ For `dependencies`, retain only application runtime edges and build or
 startup dependencies that affect the executable image; do not add CI, site,
 or package-publishing edges. A profile or version conflict is an unresolved
 application-server dependency edge (an `evidence.status` of `상충됨`).
-Detailed has a hard output budget, enforced by the renderer: one
-`components` entry, one `dependencies` entry, one `configuration_details`
-entry, and at most three top-level `missing_inputs` blocker entries. Keep
-every field value to one short phrase; write `미확인` instead of explaining
-absent evidence in prose. Populate every key of the JSON contract above
+Detailed is budgeted by brevity per entry, not by entry count: the renderer caps
+neither `components` nor `dependencies` nor `configuration_details`, and renders
+one card or row for each entry. Emit one `components` entry per deployment
+candidate the workload-boundary rule actually yields — two candidates means two
+entries, never one merged entry — and one `dependencies` and
+`configuration_details` entry per distinct runtime edge or setting. Keep at most
+three top-level `missing_inputs` blocker entries, and keep every field value to
+one short phrase; write `미확인` instead of explaining absent evidence in prose. Populate every key of the JSON contract above
 before adding any optional detail — an incomplete object is a failed run,
 the same as a missing Summary field.
 

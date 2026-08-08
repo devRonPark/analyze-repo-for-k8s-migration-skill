@@ -1,0 +1,266 @@
+{
+  "components": [
+    {
+      "evidence": [
+        {
+          "reference": "app.py:10",
+          "status": "확인됨"
+        },
+        {
+          "reference": "requirements.txt:6",
+          "status": "확인됨"
+        }
+      ],
+      "fields": {
+        "Secret": {
+          "reference": "검색(scope=., pattern=SECRET, result=없음)",
+          "status": "미확인",
+          "value": "MISSING"
+        },
+        "런타임": {
+          "reference": "requirements.txt:6",
+          "status": "확인됨",
+          "value": "Flask"
+        },
+        "런타임 의존성": {
+          "reference": "requirements.txt:13",
+          "status": "확인됨",
+          "value": "Redis"
+        },
+        "빌드 명령": {
+          "reference": "검색(scope=., pattern={Dockerfile,build.*,*.py:build}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "설정": {
+          "reference": "app.py:22",
+          "status": "확인됨",
+          "value": "Redis"
+        },
+        "수신 포트": {
+          "reference": "app.py:128",
+          "status": "확인됨",
+          "value": "5000"
+        },
+        "실행 형태": {
+          "reference": "app.py:10",
+          "status": "확인됨",
+          "value": "HTTP 서버"
+        },
+        "쓰기 상태 또는 영속성": {
+          "reference": "검색(scope=., pattern={volume,persistent,disk}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "운영 기동 명령": {
+          "reference": "app.py:128",
+          "status": "확인됨",
+          "value": "python app.py"
+        },
+        "이미지 빌드 명령": {
+          "reference": "검색(scope=., pattern={Dockerfile,build.*,*.py:build}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "컨테이너화": {
+          "reference": "검색(scope=., pattern=Dockerfile, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "프로토콜": {
+          "reference": "app.py:6",
+          "status": "확인됨",
+          "value": "HTTP"
+        }
+      },
+      "kubernetes_interpretation": "미확인",
+      "minimum_inputs": {
+        "args": {
+          "reference": "검색(scope=., pattern={CMD,ENTRYPOINT}, result=없음)",
+          "status": "미확인",
+          "value": "MISSING"
+        },
+        "command": {
+          "reference": "검색(scope=., pattern={CMD,ENTRYPOINT}, result=없음)",
+          "status": "미확인",
+          "value": "MISSING"
+        },
+        "containerPort": {
+          "reference": "app.py:128",
+          "status": "확인됨",
+          "value": "5000"
+        },
+        "image": {
+          "reference": "검색(scope=., pattern={Dockerfile,image:}, result=없음)",
+          "status": "미확인",
+          "value": "MISSING"
+        }
+      },
+      "name": "flask-celery-app",
+      "repository_classification": "배포 대상 후보"
+    },
+    {
+      "evidence": [
+        {
+          "reference": "run-redis.sh:9",
+          "status": "확인됨"
+        },
+        {
+          "reference": "requirements.txt:13",
+          "status": "확인됨"
+        }
+      ],
+      "fields": {
+        "Secret": {
+          "reference": "검색(scope=., pattern=SECRET, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "런타임": {
+          "reference": "requirements.txt:13",
+          "status": "확인됨",
+          "value": "Redis"
+        },
+        "런타임 의존성": {
+          "reference": "requirements.txt:13",
+          "status": "확인됨",
+          "value": "없음"
+        },
+        "빌드 명령": {
+          "reference": "검색(scope=., pattern={Dockerfile,build.*,*.sh:build}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "설정": {
+          "reference": "검색(scope=., pattern=redis.conf, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "수신 포트": {
+          "reference": "app.py:22",
+          "status": "확인됨",
+          "value": "6379"
+        },
+        "실행 형태": {
+          "reference": "app.py:22",
+          "status": "확인됨",
+          "value": "메시지 브로커"
+        },
+        "쓰기 상태 또는 영속성": {
+          "reference": "검색(scope=., pattern={volume,persistent,disk}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "운영 기동 명령": {
+          "reference": "run-redis.sh:9",
+          "status": "확인됨",
+          "value": "src/redis-server"
+        },
+        "이미지 빌드 명령": {
+          "reference": "검색(scope=., pattern={Dockerfile,build.*,*.sh:build}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "컨테이너화": {
+          "reference": "검색(scope=., pattern=Dockerfile, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "프로토콜": {
+          "reference": "app.py:22",
+          "status": "확인됨",
+          "value": "TCP"
+        }
+      },
+      "kubernetes_interpretation": "미확인",
+      "minimum_inputs": {
+        "args": {
+          "reference": "검색(scope=., pattern={CMD,ENTRYPOINT}, result=없음)",
+          "status": "미확인",
+          "value": "MISSING"
+        },
+        "command": {
+          "reference": "검색(scope=., pattern={CMD,ENTRYPOINT}, result=없음)",
+          "status": "미확인",
+          "value": "MISSING"
+        },
+        "containerPort": {
+          "reference": "app.py:22",
+          "status": "확인됨",
+          "value": "6379"
+        },
+        "image": {
+          "reference": "검색(scope=., pattern={Dockerfile,image:}, result=없음)",
+          "status": "미확인",
+          "value": "MISSING"
+        }
+      },
+      "name": "redis",
+      "repository_classification": "외부 런타임 의존성"
+    }
+  ],
+  "dependencies": [
+    {
+      "evidence": [
+        {
+          "reference": "app.py:22",
+          "status": "확인됨"
+        }
+      ],
+      "source": "flask-celery-app",
+      "target": "redis"
+    }
+  ],
+  "design_input_verdict": "추가 정보 필요",
+  "evidence": [
+    {
+      "reference": "app.py:10",
+      "status": "확인됨"
+    }
+  ],
+  "excluded_items": [],
+  "missing_inputs": [
+    {
+      "classification": "hard_blocker",
+      "description": "Kubernetes 구성 파일 없음",
+      "impact_scope": "전체",
+      "key": "kubernetes_interpretation",
+      "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*,**/helm*}, result=없음)",
+      "status": "미확인"
+    },
+    {
+      "classification": "deployment_value",
+      "description": "Redis 인증 정보 필요",
+      "impact_scope": "특정 배포 대상",
+      "key": "redis_secret",
+      "reference": "검색(scope=., pattern=SECRET, result=없음)",
+      "status": "미확인"
+    },
+    {
+      "classification": "deployment_value",
+      "description": "메일 인증 정보 필요",
+      "impact_scope": "특정 배포 대상",
+      "key": "mail_secret",
+      "reference": "검색(scope=., pattern=SECRET, result=없음)",
+      "status": "미확인"
+    }
+  ],
+  "mode": "summary",
+  "schema_version": "1.0",
+  "scope": {
+    "Repository URL 또는 Local path": "C:\\Users\\박병찬\\AppData\\Local\\Temp\\claude\\C--Users-----Desktop-analyze-repo-for-k8s-migration-skill\\e7fd9f56-510c-4a0f-a45d-bf4b5f2aec62\\scratchpad\\flask-celery-example",
+    "branch, tag 또는 commit": "master@76f785e",
+    "대상 유형": "Local path",
+    "분석 경로": ".",
+    "접근 방식": "read-only",
+    "출력 모드": "summary",
+    "확인된 저장소 루트": "C:\\Users\\박병찬\\AppData\\Local\\Temp\\claude\\C--Users-----Desktop-analyze-repo-for-k8s-migration-skill\\e7fd9f56-510c-4a0f-a45d-bf4b5f2aec62\\scratchpad\\flask-celery-example"
+  },
+  "verdict_evidence": [
+    {
+      "reference": "app.py:10",
+      "status": "확인됨"
+    }
+  ],
+  "verdict_reason": "Kubernetes 구성 없음"
+}

@@ -7,9 +7,11 @@ optional exploration. Each required evidence slot ends as `확인됨`, `상충�
 a scoped `미확인`; `추정됨` is not terminal. In `최소 입력 누락`, a `미확인`
 entry includes `범위:` and `결정:`.
 
-Keep a Detailed report within 70 lines and 1,200 Korean words: one candidate
-card, one dependency bullet, one configuration bullet, and at most three
-blockers. Every required field is one short line; use `미확인` rather than an
+Keep a Detailed report within 70 lines and 1,200 Korean words, and at most three
+blockers. Emit one candidate card per deployment candidate, one dependency
+bullet per runtime edge, and one configuration bullet per setting: these counts
+follow the evidence, so two deployment candidates are two cards, never one
+merged card. Every required field is one short line; use `미확인` rather than an
 explanation where evidence is absent.
 
 ## 1. 분석 범위

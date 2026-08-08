@@ -45,10 +45,11 @@ excluding them. For each candidate, keep install, build, image, and production
 startup evidence separate.
 
 For Summary, collect only the fields named in `SKILL.md`, then synthesize
-immediately. Route to language, configuration-timing, dependency, and
-[workload-boundary](workload-boundary.md) references only after the
-corresponding finding exists -- workload-boundary applies when more than one
-runtime process or start command is plausible. For Detailed, complete the full
+immediately. Route to the language, configuration-timing, and dependency
+references only after the corresponding finding exists.
+[workload-boundary](workload-boundary.md) is not one of those conditional
+references: it is always read, and its primary rule decides every candidate
+boundary before `components` is counted. For Detailed, complete the full
 component card and both relationship representations; their rules live in the
 Detailed-only checklist and conditional references.
 

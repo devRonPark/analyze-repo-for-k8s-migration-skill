@@ -58,6 +58,88 @@ class TargetAndSafetyContractTests(unittest.TestCase):
             summary_section,
         )
 
+    def test_workload_boundary_is_loaded_unconditionally_in_both_modes(self):
+        """VS-028: workload-boundary.md is always-loaded, not conditionally routed.
+
+        The conditional trigger ("when more than one runtime process or start
+        command is plausible") was duplicated across SKILL.md, workflow.md, and
+        the agent prompt and still did not fire, so the file is now in the same
+        unconditional tier as workflow.md and the mode templates.
+        """
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        flat_skill = self.skill.replace("\n", " ")
+        flat_agent = agent.replace("\n", " ")
+        flat_workflow = self.workflow.replace("\n", " ")
+
+        # SKILL.md's Mode routing names it in the always-read step, for both modes.
+        always_read = flat_skill[flat_skill.index("1. Always read"):flat_skill.index("3. For Detailed")]
+        self.assertIn("references/workload-boundary.md", always_read)
+        self.assertIn("in both modes", always_read)
+
+        # Summary's bounded pass and Detailed's reference list both load it
+        # without a conditional clause.
+        summary_pass = flat_agent[flat_agent.index("Use a bounded high-signal pass"):]
+        summary_pass = summary_pass[: summary_pass.index("For an explicit Detailed request")]
+        self.assertIn("references/workload-boundary.md", summary_pass)
+        self.assertIn("load it on every run", summary_pass)
+
+        detailed_list = flat_agent[flat_agent.index("For an explicit Detailed request"):]
+        detailed_list = detailed_list[: detailed_list.index("Once each required field")]
+        self.assertIn("`references/workload-boundary.md` unconditionally", detailed_list)
+
+        # The conditional trigger must not gate this file's loading anywhere.
+        conditional = "when more than one runtime process or start command is plausible"
+        for name, text in (
+            ("SKILL.md", flat_skill),
+            ("workflow.md", flat_workflow),
+            ("kubernetes-migration-analyzer.md", flat_agent),
+        ):
+            self.assertNotIn(conditional, text, f"{name} still gates workload-boundary loading")
+
+    def test_detailed_does_not_cap_components_at_one_entry(self):
+        """VS-028: the stale one-`components`-entry cap is gone.
+
+        scripts/render_detailed.py iterates every entry of `components`,
+        `dependencies`, and `configuration_details`; the renderer never enforced
+        a one-entry budget, and tests/test_render_detailed.py's
+        test_renders_multiple_candidate_cards already proves N>1 renders and
+        validates. The prompt must not tell the model otherwise.
+        """
+        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
+        flat_agent = agent.replace("\n", " ")
+        while "  " in flat_agent:
+            flat_agent = flat_agent.replace("  ", " ")
+
+        self.assertNotIn("hard output budget", flat_agent)
+        self.assertNotIn("enforced by the renderer", flat_agent)
+        self.assertNotIn(
+            "one `components` entry, one `dependencies` entry",
+            flat_agent,
+        )
+        self.assertIn(
+            "the renderer caps neither `components` nor `dependencies` nor "
+            "`configuration_details`",
+            flat_agent,
+        )
+        self.assertIn(
+            "Emit one `components` entry per deployment candidate",
+            flat_agent,
+        )
+        self.assertIn("two candidates means two entries", flat_agent)
+
+        # The Detailed output template is loaded on every Detailed run, so a
+        # surviving cap there would contradict the prompt at the moment the
+        # model writes the report.
+        template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
+        flat_template = template.replace("\n", " ")
+        while "  " in flat_template:
+            flat_template = flat_template.replace("  ", " ")
+        self.assertNotIn("one candidate card, one dependency bullet", flat_template)
+        self.assertIn(
+            "two deployment candidates are two cards, never one merged card",
+            flat_template,
+        )
+
     def test_current_workspace_and_access_rules_are_in_workflow(self):
         self.assertIn("현재 저장소", self.workflow)
         self.assertIn("current Git root", self.workflow)

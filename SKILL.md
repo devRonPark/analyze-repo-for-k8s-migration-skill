@@ -61,11 +61,11 @@ authorization first.
 user says `Detailed`, `상세`, `전체 평가`, or equivalent. Use JSON only when
 explicitly requested and validate it against the versioned report contract.
 
-1. Always read [workflow.md](references/workflow.md) after target resolution.
-2. For Summary, use only this Skill, the workflow, and
-   [migration-summary-template.md](assets/migration-summary-template.md). Inspect
-   only high-signal target files and stop once the Summary fields have evidence
-   or a scoped unknown.
+1. Always read [workflow.md](references/workflow.md) and
+   [workload-boundary.md](references/workload-boundary.md) after target resolution, in both modes.
+2. For Summary, use only this Skill, the workflow, the workload boundary rule, and
+   [migration-summary-template.md](assets/migration-summary-template.md). Inspect only high-signal
+   target files and stop once the Summary fields have evidence or a scoped unknown.
 3. For Detailed, additionally use
    [repository-analysis-checklist.md](references/repository-analysis-checklist.md)
    and [migration-assessment-template.md](assets/migration-assessment-template.md).
@@ -94,14 +94,14 @@ suitability without direct evidence.
 
 ## Analysis contract
 
-Inspect the target read-only. A manifest, dependency, script, Dockerfile,
-Compose service, or CI job is evidence, not a deployment conclusion. Classify
-independently executable items as `배포 대상 후보` and keep these outcomes
-separate: `배포 대상 후보`, `저장소에 정의된 런타임 의존성`,
-`외부 런타임 의존성`, `배포 대상 후보에서 제외한 항목`. Do not infer
-implementation from file or directory names. Keep dependency installation,
-application build, image build, and production startup distinct, and keep
-repository launch definitions separate from operating-environment deployment
+Inspect the target read-only. A manifest, dependency, script, Dockerfile, Compose service, or
+CI job is evidence, not a deployment conclusion. Classify independently executable items as
+`배포 대상 후보` and keep these outcomes separate: `배포 대상 후보`,
+`저장소에 정의된 런타임 의존성`, `외부 런타임 의존성`, `배포 대상 후보에서 제외한 항목`.
+Do not infer implementation from file or directory names, and do not treat a file or module
+boundary as evidence of a single candidate — one file can define several independently started
+processes. Keep dependency installation, application build, image build, and production startup
+distinct, and keep repository launch definitions separate from operating-environment deployment
 evidence. A missing Dockerfile is a finding, not an analysis failure.
 
 Summary reports contain only scope/revision, candidates and major exclusions,

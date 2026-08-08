@@ -1,0 +1,199 @@
+{
+  "components": [
+    {
+      "evidence": [
+        {
+          "reference": "README.md:1",
+          "status": "확인됨"
+        },
+        {
+          "reference": "requirements.txt:4",
+          "status": "확인됨"
+        },
+        {
+          "reference": "app.py:22",
+          "status": "확인됨"
+        },
+        {
+          "reference": "app.py:17",
+          "status": "확인됨"
+        }
+      ],
+      "fields": {
+        "Secret": {
+          "reference": "app.py:17-18",
+          "status": "확인됨",
+          "value": "MAIL_USERNAME/MAIL_PASSWORD"
+        },
+        "런타임": {
+          "reference": "app.py:1",
+          "status": "확인됨",
+          "value": "Python 3"
+        },
+        "런타임 의존성": {
+          "reference": "requirements.txt:4,7,13",
+          "status": "확인됨",
+          "value": "Celery, Redis, Flask-Mail"
+        },
+        "빌드 명령": {
+          "reference": "검색(scope=., pattern={Dockerfile,Procfile,*.sh}, result=없음)",
+          "status": "확인됨",
+          "value": "없음"
+        },
+        "설정": {
+          "reference": "app.py:22-23",
+          "status": "확인됨",
+          "value": "Redis broker, Flask-Mail"
+        },
+        "수신 포트": {
+          "reference": "app.py:128",
+          "status": "확인됨",
+          "value": "5000"
+        },
+        "실행 형태": {
+          "reference": "README.md:1",
+          "status": "확인됨",
+          "value": "Flask 웹 애플리케이션"
+        },
+        "쓰기 상태 또는 영속성": {
+          "reference": "app.py:58-60",
+          "status": "확인됨",
+          "value": "임시 작업 상태"
+        },
+        "운영 기동 명령": {
+          "reference": "app.py:128-129",
+          "status": "확인됨",
+          "value": "python app.py"
+        },
+        "이미지 빌드 명령": {
+          "reference": "검색(scope=., pattern={Dockerfile,*.dockerfile}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "컨테이너화": {
+          "reference": "검색(scope=., pattern={Dockerfile,*.dockerfile}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "프로토콜": {
+          "reference": "app.py:10",
+          "status": "확인됨",
+          "value": "HTTP"
+        }
+      },
+      "kubernetes_interpretation": "미확인",
+      "minimum_inputs": {
+        "args": {
+          "reference": "검색(scope=., pattern={CMD,ENTRYPOINT}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "command": {
+          "reference": "검색(scope=., pattern={CMD,ENTRYPOINT}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        },
+        "containerPort": {
+          "reference": "app.py:128",
+          "status": "확인됨",
+          "value": "5000"
+        },
+        "image": {
+          "reference": "검색(scope=., pattern={Dockerfile,*.dockerfile}, result=없음)",
+          "status": "미확인",
+          "value": "미확인"
+        }
+      },
+      "name": "flask-celery-app",
+      "repository_classification": "배포 대상 후보"
+    }
+  ],
+  "dependencies": [
+    {
+      "evidence": [
+        {
+          "reference": "app.py:22",
+          "status": "확인됨"
+        },
+        {
+          "reference": "requirements.txt:13",
+          "status": "확인됨"
+        },
+        {
+          "reference": "run-redis.sh:1-10",
+          "status": "확인됨"
+        }
+      ],
+      "source": "flask-celery-app",
+      "target": "redis"
+    }
+  ],
+  "design_input_verdict": "추가 정보 필요",
+  "evidence": [
+    {
+      "reference": "README.md:1",
+      "status": "확인됨"
+    },
+    {
+      "reference": "requirements.txt:4",
+      "status": "확인됨"
+    },
+    {
+      "reference": "app.py:22",
+      "status": "확인됨"
+    },
+    {
+      "reference": "app.py:17",
+      "status": "확인됨"
+    }
+  ],
+  "excluded_items": [],
+  "missing_inputs": [
+    {
+      "classification": "hard_blocker",
+      "description": "Kubernetes 배포 매니페스트 미확인",
+      "impact_scope": "전체",
+      "key": "workload.kind",
+      "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*,**/helm*}, result=없음)",
+      "status": "미확인"
+    },
+    {
+      "classification": "deployment_value",
+      "description": "Kubernetes Secret으로 제공해야 할 인증 정보",
+      "impact_scope": "특정 배포 대상",
+      "key": "MAIL_USERNAME/MAIL_PASSWORD",
+      "reference": "app.py:17-18",
+      "status": "확인됨"
+    },
+    {
+      "classification": "open_design_decision",
+      "description": "단일 Flask 애플리케이션으로 구성",
+      "impact_scope": "특정 배포 대상",
+      "key": "workload-boundary",
+      "reference": "README.md:1",
+      "status": "확인됨"
+    }
+  ],
+  "mode": "summary",
+  "schema_version": "1.0",
+  "scope": {
+    "Repository URL 또는 Local path": "C:\\Users\\박병찬\\AppData\\Local\\Temp\\claude\\C--Users-----Desktop-analyze-repo-for-k8s-migration-skill\\e7fd9f56-510c-4a0f-a45d-bf4b5f2aec62\\scratchpad\\flask-celery-example",
+    "branch, tag 또는 commit": "master@76f785ebe6a049e873a8c28b4f25686b64c4fa55",
+    "대상 유형": "Local path",
+    "분석 경로": ".",
+    "접근 방식": "read-only",
+    "출력 모드": "summary",
+    "확인된 저장소 루트": "C:\\Users\\박병찬\\AppData\\Local\\Temp\\claude\\C--Users-----Desktop-analyze-repo-for-k8s-migration-skill\\e7fd9f56-510c-4a0f-a45d-bf4b5f2aec62\\scratchpad\\flask-celery-example"
+  },
+  "verdict_evidence": [
+    {
+      "reference": "README.md:1",
+      "status": "확인됨"
+    },
+    {
+      "reference": "검색(scope=., pattern={**/*deployment*,**/kustomization*,**/helm*}, result=없음)",
+      "status": "미확인"
+    }
+  ],
+  "verdict_reason": "Kubernetes 배포 매니페스트 미확인"
+}
