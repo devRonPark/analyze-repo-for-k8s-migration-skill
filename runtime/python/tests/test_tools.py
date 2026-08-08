@@ -9,4 +9,4 @@ class ToolTests(unittest.TestCase):
  def test_glob_and_locate(self):
   root=str(Path(__file__).resolve().parents[1])
   self.assertIn('pyproject.toml',glob_paths(root,'*.toml'))
-  self.assertIsNotNone(locate_evidence(root,'*.toml')['location'])
+  self.assertEqual(locate_evidence(root,'*.toml')['status'],'found')
