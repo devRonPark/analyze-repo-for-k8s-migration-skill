@@ -13,13 +13,14 @@ PIPE-000 first, an early deterministic vertical proof after PIPE-001, and
 VS-027 static fixtures before PIPE-005.
 Suggested order and why:
 
-1. **PIPE milestone: blocked at PIPE-000** —
+1. **PIPE milestone: PIPE-000 compatibility proof** —
    [PIPE-000 completion](../daily/2026-08-08/PIPE-000-completion-2026-08-08.md)
-   found no verified host-issued identity or interactive final-response hook.
-   [ADR-2026-08-08-006](../daily/2026-08-08/ADR-2026-08-08-006-host-boundary-required-for-pipeline.md)
-   prohibits substitute IDs and holds PIPE-001 through PIPE-004 until a
-   supported host boundary is selected. Do not make another prose-only change
-   intended to force a reference read.
+   requires correction: official API research identifies a host-provided
+   `sessionID`, but the installed runtime still needs a compatibility proof.
+   [ADR-2026-08-08-007](../daily/2026-08-08/ADR-2026-08-08-007-content-integrity-over-final-response-enforcement.md)
+   keeps direct TUI and makes content integrity—not final-response formatting—
+   the required boundary. Do not make another prose-only change intended to
+   force a reference read.
 2. **VS-027** — golden-set fixtures (must-split Case B, must-not-split
    Case A) for `references/workload-boundary.md`. Build Case B with its two
    processes in genuinely separate files/directories (not sharing one file

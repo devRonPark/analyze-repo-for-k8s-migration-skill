@@ -3,13 +3,9 @@
 ## Outcome
 
 Determine, without invoking a model provider or changing a target repository,
-whether the installed OpenCode plugin/tool API can expose both prerequisites of
-ADR-2026-08-08-004:
-
-1. a runtime-issued caller/session identity that a model cannot supply or
-   choose; and
-2. a final-response path that can bind an accepted result to the exact
-   `analysis_pipeline.finalize()` receipt and content hash.
+whether the installed OpenCode plugin/tool API can expose the prerequisite of
+ADR-2026-08-08-004: a runtime-issued caller/session identity that a model
+cannot supply or choose.
 
 The outcome is `SUPPORTED` or `BLOCKED`; this ticket does not implement an
 alternative architecture.
@@ -33,8 +29,7 @@ None.
 - Record the exact capability evidence, API surface, and limitation in a
   completion record under `docs/development/daily/2026-08-08/`.
 - State the next action precisely:
-  - `SUPPORTED`: PIPE-002 may bind state to the documented runtime identity
-    and receipt path.
+  - `SUPPORTED`: PIPE-002 may bind state to the documented runtime identity.
   - `BLOCKED`: PIPE-002 must not start; write a follow-up ADR describing the
     required host hook or plugin API instead of accepting a model-supplied ID.
 
@@ -49,7 +44,8 @@ None.
 
 - The completion record identifies the OpenCode version and the inspected API
   surface with repository or installed-package evidence.
-- It gives a single `SUPPORTED` or `BLOCKED` conclusion for each prerequisite.
+- It gives a single `SUPPORTED` or `BLOCKED` conclusion for the identity
+  prerequisite.
 - It demonstrates that the conclusion does not depend on a model-provided
   identifier or a provider request.
 - The checked-out target is unchanged and no external model provider is called.

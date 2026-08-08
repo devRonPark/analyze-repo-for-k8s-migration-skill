@@ -22,9 +22,11 @@ but found two execution-order risks:
 2. The existing Skill and Agent text could remain as duplicated sediment after
    stage contracts move into the tool.
 
-The architecture also depends on two runtime properties that are not yet
-verified: a non-forgeable OpenCode caller/session identity, and a path by
-which only a `finalize()` result can be accepted as the final response.
+The architecture depends on one runtime property that is not yet verified:
+a non-forgeable OpenCode caller/session identity. Report content is protected
+by deterministic rendering, validation, receipts, and golden-set scoring;
+direct-TUI final-response interception is not required. This clarification is
+recorded in ADR-2026-08-08-007.
 
 ## Decision
 
@@ -35,9 +37,9 @@ the model load linked Markdown files.
 Resequence the work as follows:
 
 1. Add `PIPE-000` as a read-only compatibility gate. It verifies the required
-   OpenCode session-identity and final-response capabilities before any
-   stateful runtime implementation begins. A missing non-forgeable identity
-   blocks PIPE-002 rather than being emulated with a model-provided value.
+   OpenCode session-identity capability before any stateful runtime
+   implementation begins. A missing non-forgeable identity blocks PIPE-002
+   rather than being emulated with a model-provided value.
 2. Retain PIPE-001 as the pure closed state model and validator, but require a
    deterministic vertical proof immediately after it. That proof exercises a
    minimal valid six-stage state through `start`, ordered submissions, and
