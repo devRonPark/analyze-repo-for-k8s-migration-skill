@@ -3,7 +3,11 @@ from pathlib import Path
 from .safe_paths import safe_path
 def locate_evidence(worktree,glob,path=".",pattern=None):
     root=safe_path(worktree,path); rx=re.compile(pattern) if pattern else None
-    candidates=sorted(x for x in root.glob(glob) if x.is_file())[:100]
+    if root.is_file():
+        filename_pattern = glob.rsplit("/", 1)[-1]
+        candidates = [root] if root.match(glob) or root.match(filename_pattern) else []
+    else:
+        candidates=sorted(x for x in root.glob(glob) if x.is_file())[:100]
     scope=Path(root).relative_to(Path(worktree).resolve()).as_posix() or "."
     for f in candidates:
         relative=f.relative_to(Path(worktree).resolve()).as_posix()

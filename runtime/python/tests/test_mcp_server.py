@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from analysis_pipeline.mcp_server import Server, catalog_changed_notification, handle
 from analysis_pipeline.protocol import text_result
+from analysis_pipeline.tools.locate_evidence import locate_evidence
 from analysis_pipeline.tools.read import read, render_lines
 
 
@@ -59,6 +60,12 @@ class MCPTests(unittest.TestCase):
         self.assertIn("[TRUNCATED", requested)
         self.assertLessEqual(len(default), 24_500)
         self.assertLessEqual(len(requested), 24_500)
+
+    def test_locate_evidence_searches_a_file_scoped_path(self):
+        root = Path(__file__).resolve().parent
+        result = locate_evidence(root, "test_mcp_server.py", "test_mcp_server.py", "class MCPTests")
+        self.assertEqual(result["status"], "found")
+        self.assertTrue(result["reference"].startswith("test_mcp_server.py:"))
 
     def test_unknown_method_is_error(self):
         self.assertIn("error", handle(Server(), {"id": 1, "method": "x"}))
