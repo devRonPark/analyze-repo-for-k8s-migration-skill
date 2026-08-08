@@ -2,7 +2,7 @@
 from __future__ import annotations
 import hashlib, json, secrets, subprocess, sys
 from pathlib import Path
-from . import create_state, submit, reopen, finalize
+from . import create_state, normalize_submission_payload, submit, reopen, finalize
 from .observations import ObservationRegistry, TargetSnapshot
 from .state import canonical_json
 from .protocol import LIFECYCLE_TOOLS, SERVER_INFO, STAGE_TOOL_BY_STAGE, STAGE_TOOLS, TRUSTED_TOOLS, error, response, text_result
@@ -39,6 +39,20 @@ class Server:
             "skill_manifest_hash": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             "required_rule_ids": [],
         }
+
+    def normalize_stage_payload(self, stage, payload):
+        if self.state is None or self._registry is None:
+            raise ValueError("analysis has not started")
+        if not isinstance(payload, dict) or not isinstance(payload.get("evidence"), list):
+            raise ValueError("evidence declarations required")
+        snapshot = TargetSnapshot.capture(self._target_root)
+        observations = {}
+        for item in payload["evidence"]:
+            if not isinstance(item, dict) or not isinstance(item.get("observation_ref"), str):
+                raise ValueError("invalid evidence declaration")
+            ref = item["observation_ref"]
+            observations[ref] = self._registry.resolve(ref, stage, snapshot)
+        return normalize_submission_payload(payload, observations, self.state.binding)
 
     def call(self, args):
         action = args.get("action")
@@ -102,7 +116,8 @@ def handle(server, request):
             elif name == "finalize_analysis": result = server.call({"action":"finalize", **args})
             elif name in STAGE_TOOL_BY_STAGE.values():
                 stage = next(key for key, value in STAGE_TOOL_BY_STAGE.items() if value == name)
-                result = server.call({"action":"submit", "stage":stage, **args})
+                normalized, _ = server.normalize_stage_payload(stage, args.get("payload"))
+                result = server.call({"action":"submit", "stage":stage, **{**args, "payload": normalized}})
             elif name == "read_evidence": result = read(server.target_root(), **args, observation_registry=server._registry, stage=server.state.current_stage)
             elif name == "list_target_paths": result = glob_paths(server.target_root(), **args)
             elif name == "get_target_git_metadata": result = git_metadata(server.target_root())

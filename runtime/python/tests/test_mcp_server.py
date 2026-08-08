@@ -68,23 +68,45 @@ class MCPTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "replay conflict"):
             server.call(changed)
 
+    def test_submit_tool_accepts_only_a_trusted_observation_reference(self):
+        server = Server(target_root=Path(__file__).resolve().parents[1])
+        started = handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})["result"]["structuredContent"]
+        observed = handle(server, {"id": 2, "method": "tools/call", "params": {"name": "read_evidence", "arguments": {"path": "pyproject.toml"}}})["result"]["structuredContent"]
+        payload = {
+            "schema_version": 1, "stage": "discovery",
+            "evidence": [{"alias": "project", "observation_ref": observed["observation_ref"]}],
+            "claims": [{"id": "project-claim", "status": "confirmed", "evidence_aliases": ["project"]}],
+            "rule_applications": [], "signals": ["signal"], "candidate_ids": ["candidate"], "decisions": ["decision"],
+        }
+        result = handle(server, {"id": 3, "method": "tools/call", "params": {"name": "submit_discovery", "arguments": {
+            "payload": payload, "expected_revision": started["revision"], "expected_hash": started["state_hash"], "transition_token": started["transition_token"],
+        }}})
+        self.assertEqual(result["result"]["structuredContent"]["current_stage"], "execution")
+
+    def test_active_submit_schema_is_closed_and_hides_raw_evidence(self):
+        server = Server(target_root=Path(__file__).resolve().parents[1])
+        handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})
+        tools = handle(server, {"id": 2, "method": "tools/list"})["result"]["tools"]
+        discovery = next(tool for tool in tools if tool["name"] == "submit_discovery")
+        schema = discovery["inputSchema"]
+        self.assertFalse(schema.get("additionalProperties", True))
+        self.assertIn("transition_token", schema["required"])
+        payload = schema["properties"]["payload"]
+        self.assertFalse(payload.get("additionalProperties", True))
+        self.assertIn("observation_ref", str(payload))
+        self.assertNotIn("evidence_ids", str(payload))
+
     def test_five_stage_submissions_expose_finalize_without_submit_finalize(self):
         server = Server(target_root=Path(__file__).resolve().parents[1])
-        started = handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})
-        receipt = started["result"]["structuredContent"]
-        for request_id, stage in enumerate(("discovery", "execution", "relationships", "boundaries", "contracts"), start=2):
-            submitted = handle(server, {"id": request_id, "method": "tools/call", "params": {"name": f"submit_{stage}", "arguments": {
-                "payload": self._payload(stage, receipt["binding"]),
-                "expected_revision": receipt["revision"], "expected_hash": receipt["state_hash"], "transition_token": receipt["transition_token"],
-            }}})
-            receipt = submitted["result"]["structuredContent"]
+        receipt = server.call({"action": "start", "arguments": {}})
+        for stage in ("discovery", "execution", "relationships", "boundaries", "contracts"):
+            receipt = server.call({"action": "submit", "stage": stage, "payload": self._payload(stage, receipt["binding"]),
+                "expected_revision": receipt["revision"], "expected_hash": receipt["state_hash"], "transition_token": receipt["transition_token"]})
         tools = [tool["name"] for tool in handle(server, {"id": 8, "method": "tools/list"})["result"]["tools"]]
         self.assertIn("finalize_analysis", tools)
         self.assertNotIn("submit_finalize", tools)
-        finalized = handle(server, {"id": 9, "method": "tools/call", "params": {"name": "finalize_analysis", "arguments": {
-            "expected_revision": receipt["revision"], "expected_hash": receipt["state_hash"], "transition_token": receipt["transition_token"],
-        }}})
-        self.assertTrue(finalized["result"]["structuredContent"]["finalized"])
+        finalized = server.call({"action": "finalize", "expected_revision": receipt["revision"], "expected_hash": receipt["state_hash"], "transition_token": receipt["transition_token"]})
+        self.assertTrue(finalized["finalized"])
 
     def test_read_evidence_is_available_only_after_start(self):
         server = Server(target_root=Path(__file__).resolve().parents[1])
