@@ -94,8 +94,11 @@ Findings that changed this revision:
 
 ## Status and dependencies
 
-- **Status:** Proposed — fourth revision, narrowed after independent review;
-  not yet implemented.
+- **Status:** Superseded as an implementation path by
+  [ADR-2026-08-08-004](../daily/2026-08-08/ADR-2026-08-08-004-analysis-pipeline-orchestration.md).
+  Commit `524657e` is retained as evidence: its prompt/reference changes did
+  not cause the referenced Markdown files to load in any of the twelve
+  preserved runs. Do not reopen this ticket for another prose-only iteration.
 - **Depends on:** None.
 - **Blocks:** Nothing, if [VS-027](VS-027-workload-boundary-golden-fixtures.md)
   builds Case B with its two processes in separate files (recommended — see

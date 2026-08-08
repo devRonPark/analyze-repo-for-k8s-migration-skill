@@ -1,28 +1,22 @@
 # Current Focus
 
-## Active priority (start here — updated 2026-08-07, explicit user directive)
+## Active priority (start here — updated 2026-08-08, explicit user directive)
 
-**Only [VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md),
+**The active queue is the PIPE analysis-pipeline milestone,
 [VS-027](../tickets/VS-027-workload-boundary-golden-fixtures.md), and
-[VS-028](../tickets/VS-028-prose-only-process-discovery.md) are the active
-queue right now, in that order — the user explicitly said to ignore
-everything else and record these three as top priority.** Suggested order
-and why:
+[VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md), in that
+order.** The PIPE milestone supersedes VS-028's prose-only mechanism under
+[ADR-2026-08-08-004](../daily/2026-08-08/ADR-2026-08-08-004-analysis-pipeline-orchestration.md).
+Suggested order and why:
 
-1. **VS-028** — read first regardless of which you implement, since VS-027's
-   fixture design depends on its finding. Fourth revision, not yet
-   implemented: move `references/workload-boundary.md` into both Summary's
-   and Detailed's *unconditional*-load lists, and remove Detailed's stale
-   one-`components`-entry cap (`kubernetes-migration-analyzer.md:333-335`).
-   See the ticket's "Revision history" and "Independent review findings"
-   sections before touching anything — two earlier diagnoses were checked
-   and ruled out, and three independent reviews already found a differently-
-   scoped fix would not have worked.
+1. **PIPE-001 through PIPE-005** — implement the trusted staged pipeline in
+   dependency order. Read ADR-2026-08-08-004 and
+   `analysis-pipeline-handoff-2026-08-08.md` first. Do not make another
+   prose-only change intended to force a reference read.
 2. **VS-027** — golden-set fixtures (must-split Case B, must-not-split
    Case A) for `references/workload-boundary.md`. Build Case B with its two
    processes in genuinely separate files/directories (not sharing one file
-   like the `flask-celery-example` fixture VS-028 found the gap with) so
-   VS-027 does not have to wait on VS-028 landing first.
+   like the `flask-celery-example` fixture that exposed the prior gap).
 3. **VS-026** — a scoping/decision ticket only (re-open `ADR-2026-08-07-003`'s
    VS-023 Phase 2 deferral): decide whether the wrong-file `docker-compose.yaml`
    citation finding and `locate_evidence`'s first-match imprecision justify
