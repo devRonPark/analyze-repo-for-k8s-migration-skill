@@ -140,3 +140,38 @@ build full Phase 2 / hold, with the revisit signal if holding) as an
 addendum to this ticket or a new ADR. Do not implement Phase 2 tools in this
 pass even if the decision favors building them.
 ```
+
+## Decision outcome (2026-08-08)
+
+**HOLD.** Full reasoning, the reproduction evidence, and the revisit signal
+are recorded in
+[ADR-2026-08-08-001](../daily/2026-08-08/ADR-2026-08-08-001-vs-026-phase2-hold.md).
+Short version:
+
+- The `locate_evidence`-sourced-vs-hand-written question is **undetermined**
+  from surviving artifacts — the interactive run's tool-call trace does not
+  exist (it was never captured by the structured harness, and the session
+  scratchpad that held its raw output is gone). No amount of re-reading
+  `jpetstore-6-detailed-timing-and-citation-2026-08-07.md` resolves this; it
+  documents the final report, not the tool calls behind it.
+- A 3-repeat live reproduction (`upstage/solar-pro2`, same `jpetstore-6`
+  revision, batch harness with full tool-call tracing) did not reproduce the
+  specific `docker-compose.yaml:17`/`:21` confusion — all 3 correctly cited
+  `Dockerfile:17`/`Dockerfile:21`. It did surface a different, trace-confirmed
+  gap: `locate_evidence` was called **zero times** in any of the 3 runs,
+  meaning every citation in all 3 reports was hand-written from `read`
+  output despite the prompt's "every citation is computed by
+  `locate_evidence`" rule and despite `locate_evidence: allow` in the
+  permission set — an enforcement-compliance gap `validate_report.py` does
+  not check for.
+- Neither this reproduction nor the `INSERT INTO` first-match finding shows
+  `locate_evidence` itself confusing structurally similar files. Both
+  Phase 2 options (the narrow Dockerfile/Compose disambiguator and the full
+  five-tool set) would leave the actual observed gap — the tool not being
+  invoked at all — unaddressed, since ecosystem-aware tools are still tools
+  the agent has to choose to call.
+- Revisit signal: a **trace-verified** case of `locate_evidence` itself
+  returning a `found.reference` from a file other than the one its own
+  `glob`/`pattern` was scoped for. A named, out-of-scope follow-up
+  (mechanically verifying `locate_evidence` provenance, e.g. in
+  `report_contract.py`) is recorded in the ADR but not implemented here.
