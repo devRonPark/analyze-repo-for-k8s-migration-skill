@@ -1,0 +1,2 @@
+# Deliberately stdlib-only: the MCP JSON-RPC boundary is dependency-free.
+# This lock is reproducible offline on Python 3.13 and avoids an unpinned SDK.

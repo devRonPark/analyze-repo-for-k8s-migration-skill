@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools==75.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trusted-analysis-pipeline"
+version = "0.1.0"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[project.scripts]
+analysis-pipeline-mcp = "analysis_pipeline.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
