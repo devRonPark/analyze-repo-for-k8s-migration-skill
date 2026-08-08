@@ -1,1 +1,1 @@
-{"mcp":{"servers":{"analysis":{"type":"local","command":["{env:ANALYSIS_PIPELINE_PYTHON}","{env:ANALYSIS_PIPELINE_LAUNCHER}"]}}}}
+{"mcp":{"analysis":{"type":"local","command":["{env:ANALYSIS_PIPELINE_PYTHON}","{env:ANALYSIS_PIPELINE_LAUNCHER}"],"enabled":true}}}
