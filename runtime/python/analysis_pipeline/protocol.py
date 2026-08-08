@@ -12,7 +12,7 @@ def tool(name: str, description: str, required: list[str], properties: dict[str,
 
 
 LIFECYCLE_TOOLS = [
-    tool("start_analysis", "Start an analysis exactly once before any target evidence or stage submission. Provide the verified target binding. Do not call again while an analysis is active; the receipt reveals only the active stage and concurrency token.", ["binding"], {"binding": {"type": "object"}}),
+    tool("start_analysis", "Start the process-private analysis for the current OpenCode workspace exactly once. Call with {}: do not provide a binding, ID, path, revision, mode, or goal. The server derives and owns the target binding, then returns only the active stage and concurrency token.", [], {}),
     tool("reopen_analysis", "Reopen an earlier accepted stage only when new evidence invalidates it. Provide a bounded reason and current revision/hash. This discards that stage and later outputs atomically; it cannot skip forward.", ["stage", "reason", "expected_revision", "expected_hash"], {"stage": {"type": "string"}, "reason": {"type": "string"}, "expected_revision": {"type": "integer"}, "expected_hash": {"type": "string"}}),
     tool("finalize_analysis", "Finalize only after all stage receipts are accepted. Revalidates evidence, mandatory rules, relationships, boundaries, and contracts, then clears process-private state on success.", ["expected_revision", "expected_hash"], {"expected_revision": {"type": "integer"}, "expected_hash": {"type": "string"}}),
 ]

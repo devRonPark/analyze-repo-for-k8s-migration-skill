@@ -1,6 +1,7 @@
-"""Local stdio MCP server; state exists only for this process."""
+"""Local stdio MCP server; state and target binding exist only for this process."""
 from __future__ import annotations
-import json, sys
+import hashlib, json, secrets, subprocess, sys
+from pathlib import Path
 from . import create_state, submit, reopen, finalize
 from .protocol import LIFECYCLE_TOOLS, SERVER_INFO, STAGE_TOOL_BY_STAGE, STAGE_TOOLS, TRUSTED_TOOLS, error, response, text_result
 from .tools import git_metadata, glob_paths, locate_evidence, read
@@ -18,12 +19,37 @@ def catalog_changed_notification():
     return {"jsonrpc": "2.0", "method": "notifications/tools/list_changed"}
 
 class Server:
-    def __init__(self): self.state = None
+    def __init__(self, target_root=None):
+        self.state = None
+        self._target_root = Path(target_root or Path.cwd()).resolve()
+
+    def _binding(self):
+        if not self._target_root.is_dir():
+            raise ValueError("OpenCode workspace is unavailable")
+        try:
+            snapshot = subprocess.run(
+                ["git", "-C", str(self._target_root), "rev-parse", "HEAD"],
+                capture_output=True,
+                check=True,
+                text=True,
+            ).stdout.strip()
+        except (OSError, subprocess.CalledProcessError):
+            snapshot = "unversioned:" + hashlib.sha256(str(self._target_root).encode("utf-8")).hexdigest()
+        return {
+            "binding_id": "process_" + secrets.token_hex(16),
+            "target_realpath": str(self._target_root),
+            "target_snapshot_hash": snapshot,
+            "skill_manifest_hash": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            "required_rule_ids": [],
+        }
+
     def call(self, args):
         action = args.get("action")
         if action == "start":
             if self.state is not None: raise ValueError("active analysis already exists")
-            self.state = create_state(args.get("binding"))
+            if args.get("arguments"):
+                raise ValueError("start_analysis accepts no model-supplied arguments")
+            self.state = create_state(self._binding())
             return self._state()
         if self.state is None: raise ValueError("analysis has not started")
         rev, digest = args.get("expected_revision"), args.get("expected_hash")
@@ -38,9 +64,9 @@ class Server:
     def _state(self):
         return {"binding": self.state.binding, "revision": self.state.revision, "current_stage": self.state.current_stage, "finalized": self.state.finalized, "state_hash": self.state.state_hash}
     def target_root(self):
-        if self.state is None or not self.state.binding["target_realpath"]:
+        if self.state is None:
             raise ValueError("verified target is unavailable")
-        return self.state.binding["target_realpath"]
+        return self._target_root
 
 def handle(server, request):
     rid = request.get("id")
@@ -52,7 +78,7 @@ def handle(server, request):
         if method == "tools/call":
             params = request.get("params", {})
             name, args = params.get("name"), params.get("arguments", {})
-            if name == "start_analysis": result = server.call({"action":"start", **args})
+            if name == "start_analysis": result = server.call({"action":"start", "arguments": args})
             elif name == "reopen_analysis": result = server.call({"action":"reopen", **args})
             elif name == "finalize_analysis": result = server.call({"action":"finalize", **args})
             elif name in STAGE_TOOL_BY_STAGE.values():

@@ -16,25 +16,32 @@ class MCPTests(unittest.TestCase):
         self.assertEqual(catalog_changed_notification()["method"], "notifications/tools/list_changed")
 
     def test_catalog_exposes_only_active_stage(self):
-        server = Server()
+        server = Server(target_root=Path(__file__).resolve().parents[1])
         initial = handle(server, {"id": 1, "method": "tools/list"})
         self.assertEqual([item["name"] for item in initial["result"]["tools"]], ["start_analysis"])
-        handle(server, {"id": 2, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {"binding": "b"}}})
+        started = handle(server, {"id": 2, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})
+        self.assertEqual(started["result"]["structuredContent"]["binding"]["target_realpath"], str(Path(__file__).resolve().parents[1]))
         active = handle(server, {"id": 3, "method": "tools/list"})
         self.assertTrue({"submit_discovery", "reopen_analysis", "read_evidence", "list_target_paths", "get_target_git_metadata", "locate_evidence"}.issubset({item["name"] for item in active["result"]["tools"]}))
 
     def test_second_start_is_rejected(self):
         server = Server()
-        handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {"binding": "b"}}})
-        self.assertIn("error", handle(server, {"id": 2, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {"binding": "b"}}}))
+        handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})
+        self.assertIn("error", handle(server, {"id": 2, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}}))
 
     def test_read_evidence_is_available_only_after_start(self):
-        server = Server()
+        server = Server(target_root=Path(__file__).resolve().parents[1])
         root = str(Path(__file__).resolve().parents[1])
-        binding = {"binding_id": "b", "target_realpath": root, "target_snapshot_hash": "s", "skill_manifest_hash": "m", "required_rule_ids": []}
-        handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {"binding": binding}}})
+        handle(server, {"id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})
         result = handle(server, {"id": 2, "method": "tools/call", "params": {"name": "read_evidence", "arguments": {"path": "pyproject.toml"}}})
         self.assertIn("trusted-analysis-pipeline", result["result"]["structuredContent"])
+
+    def test_start_tool_does_not_accept_model_owned_binding(self):
+        server = Server()
+        result = handle(server, {"id": 1, "method": "tools/list"})
+        start = result["result"]["tools"][0]
+        self.assertEqual(start["inputSchema"]["required"], [])
+        self.assertNotIn("binding", start["inputSchema"]["properties"])
 
     def test_unknown_method_is_error(self):
         self.assertIn("error", handle(Server(), {"id": 1, "method": "x"}))

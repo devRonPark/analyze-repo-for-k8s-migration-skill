@@ -25,7 +25,7 @@ def main():
     first = run([
         {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
         {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
-        {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {"binding": "smoke"}}},
+        {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}},
         {"jsonrpc": "2.0", "id": 4, "method": "tools/list"},
     ])
     assert first[0]["result"]["capabilities"]["tools"]["listChanged"]
