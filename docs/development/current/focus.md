@@ -7,12 +7,17 @@
 [VS-026](../tickets/VS-026-reconsider-descriptor-parser-phase2.md), in that
 order.** The PIPE milestone supersedes VS-028's prose-only mechanism under
 [ADR-2026-08-08-004](../daily/2026-08-08/ADR-2026-08-08-004-analysis-pipeline-orchestration.md).
+The approved review-driven reordering is recorded in
+[ADR-2026-08-08-005](../daily/2026-08-08/ADR-2026-08-08-005-pipeline-resequencing-and-skill-load.md):
+PIPE-000 first, an early deterministic vertical proof after PIPE-001, and
+VS-027 static fixtures before PIPE-005.
 Suggested order and why:
 
-1. **PIPE-001 through PIPE-005** — implement the trusted staged pipeline in
-   dependency order. Read ADR-2026-08-08-004 and
-   `analysis-pipeline-handoff-2026-08-08.md` first. Do not make another
-   prose-only change intended to force a reference read.
+1. **PIPE-000, then PIPE-001 through PIPE-005** — verify the non-forgeable
+   runtime binding and final-response path first, then implement the trusted
+   staged pipeline as vertical increments. Read ADR-2026-08-08-004,
+   ADR-2026-08-08-005, and `analysis-pipeline-handoff-2026-08-08.md` first.
+   Do not make another prose-only change intended to force a reference read.
 2. **VS-027** — golden-set fixtures (must-split Case B, must-not-split
    Case A) for `references/workload-boundary.md`. Build Case B with its two
    processes in genuinely separate files/directories (not sharing one file
