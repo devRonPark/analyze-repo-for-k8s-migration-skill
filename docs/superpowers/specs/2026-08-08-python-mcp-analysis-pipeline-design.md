@@ -6,9 +6,10 @@ Approved for planning on 2026-08-08. This design supersedes the TypeScript
 implementation choice in PIPE-001 and later PIPE tickets. It does not change
 the public `/analyze-repo-for-kubernetes` command.
 
-Before implementation, this decision must amend ADR-2026-08-08-004 and
-PIPE-001 through PIPE-006. Their current TypeScript, OpenCode custom-tool, and
-`context.sessionID` requirements are incompatible with this design.
+Before implementation, a new ADR must supersede ADR-2026-08-08-004's runtime
+integration decision and PIPE-001 through PIPE-006 must be revised. The
+historical ADR remains unchanged; its current TypeScript, OpenCode custom-tool,
+and `context.sessionID` requirements are incompatible with this design.
 
 ## Goal
 
