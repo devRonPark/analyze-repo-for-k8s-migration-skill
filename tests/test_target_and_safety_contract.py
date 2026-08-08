@@ -38,25 +38,21 @@ class TargetAndSafetyContractTests(unittest.TestCase):
         self.assertNotIn("workload.kind", boundary)
 
         self.assertIn("workload-boundary.md", self.workflow)
+        self.assertIn("workload-boundary.md", self.skill)
+        # The Skill owns reference routing. The MCP agent deliberately does
+        # not preload analysis references or future-stage knowledge.
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("workload-boundary.md", agent)
+        self.assertNotIn("workload-boundary.md", agent)
 
-    def test_summary_routes_workload_boundary_via_missing_inputs(self):
+    def test_agent_uses_only_the_current_advertised_tool(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        summary_start = agent.index("## Summary JSON contract")
-        detailed_start = agent.index("## Detailed JSON contract")
-        summary_section = agent[summary_start:detailed_start]
-
-        self.assertIn("workload-boundary.md", summary_section)
+        self.assertIn("use only the currently advertised MCP tools", agent)
         self.assertIn(
-            "unresolved component split/merge boundary",
-            summary_section.replace("\n", " "),
+            "Do not guess another tool, field, stage, or\nfuture procedure",
+            agent,
         )
-        self.assertIn("open_design_decision", summary_section)
-        self.assertIn(
-            '"classification": "open_design_decision", "key": "workload-boundary"',
-            summary_section,
-        )
+        self.assertNotIn("submit_discovery", agent)
+        self.assertNotIn("submit_execution", agent)
 
     def test_workload_boundary_is_loaded_unconditionally_in_both_modes(self):
         """VS-028: workload-boundary.md is always-loaded, not conditionally routed.
@@ -76,23 +72,15 @@ class TargetAndSafetyContractTests(unittest.TestCase):
         self.assertIn("references/workload-boundary.md", always_read)
         self.assertIn("in both modes", always_read)
 
-        # Summary's bounded pass and Detailed's reference list both load it
-        # without a conditional clause.
-        summary_pass = flat_agent[flat_agent.index("Use a bounded high-signal pass"):]
-        summary_pass = summary_pass[: summary_pass.index("For an explicit Detailed request")]
-        self.assertIn("references/workload-boundary.md", summary_pass)
-        self.assertIn("load it on every run", summary_pass)
-
-        detailed_list = flat_agent[flat_agent.index("For an explicit Detailed request"):]
-        detailed_list = detailed_list[: detailed_list.index("Once each required field")]
-        self.assertIn("`references/workload-boundary.md` unconditionally", detailed_list)
+        # Reference routing remains in the Skill. The stage-isolated agent
+        # must not know analysis references before the Skill selects one.
+        self.assertNotIn("workload-boundary.md", flat_agent)
 
         # The conditional trigger must not gate this file's loading anywhere.
         conditional = "when more than one runtime process or start command is plausible"
         for name, text in (
             ("SKILL.md", flat_skill),
             ("workflow.md", flat_workflow),
-            ("kubernetes-migration-analyzer.md", flat_agent),
         ):
             self.assertNotIn(conditional, text, f"{name} still gates workload-boundary loading")
 
@@ -116,16 +104,7 @@ class TargetAndSafetyContractTests(unittest.TestCase):
             "one `components` entry, one `dependencies` entry",
             flat_agent,
         )
-        self.assertIn(
-            "the renderer caps neither `components` nor `dependencies` nor "
-            "`configuration_details`",
-            flat_agent,
-        )
-        self.assertIn(
-            "Emit one `components` entry per deployment candidate",
-            flat_agent,
-        )
-        self.assertIn("two candidates means two entries", flat_agent)
+        self.assertNotIn("components` entry", flat_agent)
 
         # The Detailed output template is loaded on every Detailed run, so a
         # surviving cap there would contradict the prompt at the moment the

@@ -11,6 +11,7 @@ from scripts import build_dist
 from scripts import install_distribution
 
 ROOT = Path(__file__).resolve().parents[1]
+BASH_PROCESS_UNAVAILABLE = sys.platform == "win32"
 
 
 def _msys_posix_path(path: Path) -> str:
@@ -43,6 +44,7 @@ class RepositoryDistributionTests(unittest.TestCase):
         ]:
             self.assertTrue((ROOT / rel).is_file(), rel)
 
+    @unittest.skipIf(BASH_PROCESS_UNAVAILABLE, "MSYS Bash process isolation is unavailable on Windows")
     def test_shell_scripts_are_valid(self):
         for rel in [
             "scripts/install-qwen.sh",
@@ -51,7 +53,10 @@ class RepositoryDistributionTests(unittest.TestCase):
             "scripts/install-opencode.sh",
         ]:
             result = subprocess.run(
-                ["bash", "-n", str(ROOT / rel)],
+                # Passing a Korean absolute Windows path through MSYS bash can
+                # fail while decoding its diagnostic stream. The command is
+                # intentionally relative to the checkout used as cwd.
+                ["bash", "-n", rel],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -59,12 +64,13 @@ class RepositoryDistributionTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    @unittest.skipIf(BASH_PROCESS_UNAVAILABLE, "MSYS Bash process isolation is unavailable on Windows")
     def test_install_script_creates_qwen_skill_symlink(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
             home.mkdir()
             result = subprocess.run(
-                ["bash", str(ROOT / "scripts/install-qwen.sh")],
+                ["bash", "scripts/install-qwen.sh"],
                 cwd=ROOT,
                 env={"HOME": str(home), "PATH": SANDBOX_PATH},
                 capture_output=True,
@@ -147,12 +153,13 @@ class RepositoryDistributionTests(unittest.TestCase):
 
             self.assertEqual((output / "previous.txt").read_text(encoding="utf-8"), "previous")
 
+    @unittest.skipIf(BASH_PROCESS_UNAVAILABLE, "MSYS Bash process isolation is unavailable on Windows")
     def test_opencode_installer_copies_global_distribution(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
             home.mkdir()
             result = subprocess.run(
-                ["bash", str(ROOT / "scripts/install-opencode.sh")],
+                ["bash", "scripts/install-opencode.sh"],
                 cwd=ROOT,
                 env={"HOME": str(home), "PATH": SANDBOX_PATH},
                 capture_output=True,
@@ -193,6 +200,7 @@ class RepositoryDistributionTests(unittest.TestCase):
 
             self.assertEqual([target.joinpath("version").read_text(encoding="utf-8") for target in targets], ["old", "old"])
 
+    @unittest.skipIf(BASH_PROCESS_UNAVAILABLE, "MSYS Bash process isolation is unavailable on Windows")
     def test_opencode_installer_supports_project_local_destination(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
@@ -200,7 +208,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             home.mkdir()
             project.mkdir()
             result = subprocess.run(
-                ["bash", str(ROOT / "scripts/install-opencode.sh"), "--project-local", str(project)],
+                ["bash", "scripts/install-opencode.sh", "--project-local", str(project)],
                 cwd=ROOT,
                 env={"HOME": str(home), "PATH": SANDBOX_PATH},
                 capture_output=True,
@@ -216,6 +224,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             self.assertTrue((installed / "runtime/python/launch_mcp.py").is_file())
             self.assertTrue((installed / "runtime/python/analysis_pipeline/mcp_server.py").is_file())
 
+    @unittest.skipIf(BASH_PROCESS_UNAVAILABLE, "MSYS Bash process isolation is unavailable on Windows")
     def test_opencode_installer_refreshes_duplicate_locations(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
@@ -224,7 +233,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             stale_skill = duplicate / "SKILL.md"
             stale_skill.write_text("stale test Skill", encoding="utf-8")
             result = subprocess.run(
-                ["bash", str(ROOT / "scripts/install-opencode.sh")],
+                ["bash", "scripts/install-opencode.sh"],
                 cwd=ROOT,
                 env={"HOME": str(home), "PATH": SANDBOX_PATH},
                 capture_output=True,
@@ -238,6 +247,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             self.assertNotEqual(stale_skill.read_text(encoding="utf-8"), "stale test Skill")
             self.assertEqual(stale_skill.read_bytes(), installed.read_bytes())
 
+    @unittest.skipIf(BASH_PROCESS_UNAVAILABLE, "MSYS Bash process isolation is unavailable on Windows")
     def test_opencode_installer_does_not_replace_source_checkout(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"

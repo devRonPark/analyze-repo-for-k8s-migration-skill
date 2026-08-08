@@ -180,10 +180,7 @@ directory, pinned to the golden set's revision
 (`e1dd9a31d1cef68793cd0933ae06898e6fcfa807`), and ran
 
 ```
-python scripts/run_opencode_acceptance.py --config runtime/opencode.json \
-  --cases tests/evaluation/opencode-cases.json --case slash-default-summary \
-  --repository-root <scratch>/jpetstore-6 --repeat 3 --model upstage/solar-pro2 \
-  --output-dir <scratch>/vs025-summary-solar-verify
+python scripts/run_opencode_acceptance.py --config runtime/opencode.json --cases tests/evaluation/opencode-cases.json --case slash-default-summary --repository-root <scratch>/jpetstore-6 --repeat 3 --model upstage/solar-pro2 --output-dir <scratch>/vs025-summary-solar-verify
 ```
 
 Result: 3/3 `PASS` (one repeat needed a `--timeout 300` retry after an
