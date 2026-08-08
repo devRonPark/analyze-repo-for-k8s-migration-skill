@@ -5,6 +5,14 @@ from dataclasses import asdict
 from . import create_state, submit, reopen, finalize
 from .protocol import SERVER_INFO, TOOLS, error, response, text_result
 
+def visible_tools(server):
+    if server.state is None:
+        return [tool for tool in TOOLS if tool["name"] == "analysis_start"]
+    stage = server.state.current_stage
+    if stage == "finalize":
+        return [tool for tool in TOOLS if tool["name"] in ("analysis_reopen", "analysis_finalize")]
+    return [tool for tool in TOOLS if tool["name"] in ("analysis_reopen", f"analysis_{stage}")]
+
 class Server:
     def __init__(self): self.state = None
     def call(self, args):
@@ -32,7 +40,7 @@ def handle(server, request):
     try:
         if method == "initialize": return response(rid, {"protocolVersion": request.get("params", {}).get("protocolVersion", "2024-11-05"), "capabilities": {"tools": {}}, "serverInfo": SERVER_INFO})
         if method == "notifications/initialized": return None
-        if method == "tools/list": return response(rid, {"tools": TOOLS})
+        if method == "tools/list": return response(rid, {"tools": visible_tools(server)})
         if method == "tools/call":
             params = request.get("params", {})
             name, args = params.get("name"), params.get("arguments", {})

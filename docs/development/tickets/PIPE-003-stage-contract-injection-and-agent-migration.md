@@ -22,6 +22,9 @@ to drive the explicit Python MCP stage tools through its six stages.
 - Runtime stage-context isolation per ADR-2026-08-08-008: expose only the
   active contract and never a future-stage task, identifier, count, schema,
   asset, or roadmap.
+- MCP `tools/list` is state-aware and exposes only the active stage tool plus
+  generic reopen; future tool names and schemas are not catalogued to the
+  active-stage agent.
 - Each active contract declares only its applicable manifest-versioned
   `rule_id`s and requires a closed rule application to target evidence and its
   immediate phase decision input. It never discloses rules owned by later

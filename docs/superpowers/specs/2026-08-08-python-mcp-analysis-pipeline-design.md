@@ -59,7 +59,11 @@ and Python replacements for the existing trusted `read`, `glob`,
 `git_metadata`, and `locate_evidence` tools. Each tool has a closed schema and
 documents its reference inputs, receipt output, and rejection conditions.
 The server still owns process-private state; stage tools cannot expose future
-stage contracts or accept out-of-order submissions.
+stage contracts or accept out-of-order submissions. `tools/list` is state-aware:
+before start it exposes only `analysis_start`; after start it exposes only the
+active stage tool and generic `analysis_reopen`; after all stages it exposes
+only `analysis_finalize` and `analysis_reopen`. Future stage names, schemas,
+rules, goals, and output shapes are not disclosed to the active-stage agent.
 
 The implementation uses a pinned Python MCP dependency. PIPE-002 must add an
 offline-reproducible installation path before a client configuration can launch

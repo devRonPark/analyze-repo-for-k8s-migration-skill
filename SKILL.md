@@ -94,6 +94,29 @@ suitability without direct evidence.
 
 ## Analysis contract
 
+## Leading-word workflow
+
+Use these established anchors as the procedure vocabulary. Treat each as an
+action gate, not as a decorative heading:
+
+1. **Vertical Slice** — trace one independently executable runtime item from
+   source evidence through its current decision input. Do not advance on a
+   file read alone.
+2. **Grounding** — attach every material claim to a repository-relative
+   `path:line` fact, a preserved conflict, or a scoped absence before using it.
+3. **Workload Boundary** — apply the two-condition rule (independent
+   execution and independent lifecycle/operational boundary) to each grounded
+   runtime item; do not split by file, directory, image, or port alone.
+4. **Gap Analysis** — compare only grounded findings with the applicable
+   portability, build, operational, or protection expectation; never invent a
+   platform default.
+5. **Quality Gate** — block the next phase until the current phase has a
+   grounded result or scoped unknown. Do not emit a candidate count, readiness
+   conclusion, or verdict while a required current-phase slot is unresolved.
+
+Keep `SKILL.md` as the routing owner and load detailed rules from the named
+references; do not duplicate those rules in this section.
+
 Inspect the target read-only. A manifest, dependency, script, Dockerfile, Compose service, or
 CI job is evidence, not a deployment conclusion. Classify independently executable items as
 `배포 대상 후보` and keep these outcomes separate: `배포 대상 후보`,
