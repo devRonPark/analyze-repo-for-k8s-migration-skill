@@ -40,16 +40,6 @@ class OpenCodeAdapterTests(unittest.TestCase):
             self.assertNotIn('"$HOME/.agents/skills', text)
             self.assertNotIn('"$HOME/.claude/skills', text)
 
-    def test_isolated_tool_copy_includes_sibling_lib_modules(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            config_dir = Path(tmp) / "config"
-            adapter.copy_tools(ROOT, config_dir)
-            self.assertTrue((config_dir / "tools" / "read.ts").is_file())
-            self.assertTrue((config_dir / "tools" / "locate_evidence.ts").is_file())
-            self.assertTrue((config_dir / "lib" / "safe-path.ts").is_file())
-            self.assertTrue((config_dir / "lib" / "redact.ts").is_file())
-            self.assertTrue((config_dir / "lib" / "locate-evidence.ts").is_file())
-
     def test_discovery_audit_reports_stale_and_unexpected_skills(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -84,15 +74,15 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertEqual(permissions["skill"]["*"] , "deny")
         self.assertEqual(permissions["skill"]["analyze-repo-for-kubernetes"], "allow")
         self.assertEqual(permissions["bash"]["*"], "deny")
-        self.assertEqual(permissions["glob"], "allow")
-        self.assertEqual(permissions["git_metadata"], "allow")
+        self.assertEqual(permissions["analysis_*"], "allow")
         for tool_name in ("grep", "list"):
             self.assertEqual(permissions[tool_name], "deny")
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         self.assertIn("mode: primary", agent)
         self.assertIn("analyze-repo-for-kubernetes: allow", agent)
-        self.assertIn("trusted `glob` tool only to list target paths", agent)
-        self.assertIn("call only trusted `git_metadata`", agent)
+        self.assertIn("start_analysis", agent)
+        self.assertIn("read_evidence", agent)
+        self.assertIn("get_target_git_metadata", agent)
 
     def test_e2e_agent_has_bounded_summary_and_no_target_shell_rules(self):
         config = json.loads((ROOT / "runtime/opencode.json").read_text(encoding="utf-8"))
@@ -103,7 +93,8 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertRegex(agent, r"(?m)^steps:\s+64$")
         self.assertIn("bounded high-signal pass", agent)
         self.assertRegex(agent, r"synthesize the\s+Summary immediately")
-        self.assertIn("no more than twelve target `read` calls", agent)
+        self.assertIn("no more than twelve target", agent)
+        self.assertIn("`read_evidence` calls", agent)
 
     def test_summary_and_detailed_routing_are_explicit(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")

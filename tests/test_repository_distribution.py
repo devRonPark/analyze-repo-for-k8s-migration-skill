@@ -166,9 +166,8 @@ class RepositoryDistributionTests(unittest.TestCase):
             self.assertFalse(installed.is_symlink())
             self.assertTrue((home / ".config/opencode/agent/kubernetes-migration-analyzer.md").is_file())
             self.assertTrue((home / ".config/opencode/command/analyze-repo-for-kubernetes.md").is_file())
-            self.assertTrue((home / ".config/opencode/tools/read.ts").is_file())
-            self.assertTrue((home / ".config/opencode/tools/glob.ts").is_file())
-            self.assertTrue((home / ".config/opencode/tools/git_metadata.ts").is_file())
+            self.assertTrue((installed / "runtime/python/launch_mcp.py").is_file())
+            self.assertTrue((installed / "runtime/python/analysis_pipeline/mcp_server.py").is_file())
 
     def test_failed_multi_path_install_restores_every_target(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -213,9 +212,9 @@ class RepositoryDistributionTests(unittest.TestCase):
             self.assertTrue((project / ".opencode/skill/analyze-repo-for-kubernetes/SKILL.md").is_file())
             self.assertTrue((project / ".opencode/agent/kubernetes-migration-analyzer.md").is_file())
             self.assertTrue((project / ".opencode/command/analyze-repo-for-kubernetes.md").is_file())
-            self.assertTrue((project / ".opencode/tools/read.ts").is_file())
-            self.assertTrue((project / ".opencode/tools/glob.ts").is_file())
-            self.assertTrue((project / ".opencode/tools/git_metadata.ts").is_file())
+            installed = project / ".opencode/skill/analyze-repo-for-kubernetes"
+            self.assertTrue((installed / "runtime/python/launch_mcp.py").is_file())
+            self.assertTrue((installed / "runtime/python/analysis_pipeline/mcp_server.py").is_file())
 
     def test_opencode_installer_refreshes_duplicate_locations(self):
         with tempfile.TemporaryDirectory() as tmp:

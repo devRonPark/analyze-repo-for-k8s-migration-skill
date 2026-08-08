@@ -258,17 +258,6 @@ def copy_skill(source_root: Path, destination: Path) -> None:
         shutil.copyfile(source, target)
 
 
-def copy_tools(source_root: Path, config_dir: Path) -> None:
-    """Copy OpenCode tool sources and their sibling lib modules.
-
-    runtime/tools/*.ts import sibling modules via "../lib/..." (e.g. SEC-002's
-    safe-path.ts); config_dir/lib must exist next to config_dir/tools for that
-    relative import to resolve.
-    """
-    shutil.copytree(source_root / "runtime" / "tools", config_dir / "tools", dirs_exist_ok=True)
-    shutil.copytree(source_root / "runtime" / "lib", config_dir / "lib", dirs_exist_ok=True)
-
-
 def render_agent(source: Path, destination: Path, skill_path: Path) -> None:
     text = source.read_text(encoding="utf-8")
     temporary_rule = '    "/tmp/opencode-acceptance-*/config/skills/analyze-repo-for-kubernetes/**": allow'
@@ -1208,7 +1197,6 @@ def main() -> int:
             installed_skill = config_dir / "skills" / SKILL_ID
             config_path = temporary_root / "runtime" / "opencode.json"
             copy_skill(ROOT, installed_skill)
-            copy_tools(ROOT, config_dir)
             isolated_config(source_config, config_path, installed_skill)
             agent_path = config_dir / "agents" / f"{AGENT_ID}.md"
             render_agent(ROOT / "runtime/agents/kubernetes-migration-analyzer.md", agent_path, installed_skill)
