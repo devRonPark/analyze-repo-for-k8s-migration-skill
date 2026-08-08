@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from analysis_pipeline.mcp_server import Server, catalog_changed_notification, handle
 from analysis_pipeline.protocol import text_result
+from analysis_pipeline.tools.read import read, render_lines
 
 
 class MCPTests(unittest.TestCase):
@@ -45,8 +46,19 @@ class MCPTests(unittest.TestCase):
         self.assertNotIn("binding", start["inputSchema"]["properties"])
 
     def test_structured_content_is_reserved_for_object_results(self):
-        self.assertNotIn("structuredContent", text_result("plain text"))
+        plain = text_result("plain text")
+        self.assertNotIn("structuredContent", plain)
+        self.assertEqual(plain["content"][0]["text"], "plain text")
         self.assertEqual(text_result({"fact": "value"})["structuredContent"], {"fact": "value"})
+
+    def test_read_evidence_caps_default_and_requested_output(self):
+        lines = [f"line {index}" for index in range(250)]
+        default = render_lines(lines)
+        requested = render_lines(lines, limit=10000)
+        self.assertIn("[TRUNCATED", default)
+        self.assertIn("[TRUNCATED", requested)
+        self.assertLessEqual(len(default), 24_500)
+        self.assertLessEqual(len(requested), 24_500)
 
     def test_unknown_method_is_error(self):
         self.assertIn("error", handle(Server(), {"id": 1, "method": "x"}))
