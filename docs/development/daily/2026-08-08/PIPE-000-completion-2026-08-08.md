@@ -1,7 +1,7 @@
 # PIPE-000 completion: runtime binding compatibility
 
 - Date: 2026-08-08
-- Outcome: SUPPORTED
+- Outcome: SUPPORTED (static API compatibility only)
 - Provider calls: none
 
 ## Commands and evidence
@@ -23,16 +23,18 @@ evidence.
 
 ## Prerequisite conclusions
 
-### Host-issued caller/session identity: SUPPORTED
+### Host-issued caller/session identity: SUPPORTED (static API compatibility only)
 
 The installed 1.18.14 plugin declaration delivers `context.sessionID` as part
 of `ToolContext`, not as a field of the model-supplied `args` value. Binding
-pipeline state only to that context field meets PIPE-000's API requirement:
-the tool implementation does not accept a caller/session identifier from the
-model, CLI argument, or generated value.
+pipeline state only to that context field meets PIPE-000's static API
+compatibility requirement: the tool implementation does not accept a
+caller/session identifier from the model, CLI argument, or generated value.
 
-This is a static installed-package compatibility result, not a provider-backed
-interactive invocation. PIPE-002 must preserve the boundary by accepting the
+This does not prove actual host issuance, uniqueness, session lifecycle, or
+cleanup. Before PIPE-002 persists state, a provider-free host/tool integration
+test must verify that two runtime sessions receive distinct stable context IDs,
+cannot cross-read state, and clean up on completion. PIPE-002 must accept the
 identity exclusively from `context.sessionID`; its unit tests must reject any
 attempt to provide a session identifier through submitted payload data.
 
@@ -51,7 +53,8 @@ resolved configuration, and checked-in runtime source.
 
 ## Required next decision
 
-PIPE-000 is complete. PIPE-001 may begin with its deterministic pure state
-machine and vertical proof. PIPE-002 may begin only after PIPE-001 passes; it
-must use `context.sessionID` exclusively and must not accept a model-provided
-or process-global substitute.
+PIPE-000's static compatibility check is complete. PIPE-001 may begin with its
+deterministic pure state machine and vertical proof. PIPE-002 may begin only
+after PIPE-001 passes and its provider-free host/tool lifecycle gate succeeds;
+it must use `context.sessionID` exclusively and must not accept a
+model-provided or process-global substitute.

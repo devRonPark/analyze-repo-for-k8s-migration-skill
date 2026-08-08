@@ -1,6 +1,6 @@
 # TICKET-LIST-2026-08-08-001: Trusted pipeline resequencing
 
-- Status: PIPE-000 supported; PIPE-001 is the next ticket
+- Status: PIPE-000 static API compatibility recorded; PIPE-001 is the next ticket
 - Decision: ADR-2026-08-08-005
 
 ## Queue
@@ -18,7 +18,8 @@ Implement and commit each ticket independently in this order:
    — inject canonical contracts and record the deletion inventory without
    removing public text.
 5. [PIPE-004](../../tickets/PIPE-004-runtime-finalizer-and-deterministic-renderer.md)
-   — produce a canonical report and receipt for content-oriented acceptance.
+   — produce a canonical report and receipt, including the Detailed-only
+   evidence-backed readiness-gap contract.
 6. [VS-027](../../tickets/VS-027-workload-boundary-golden-fixtures.md), static
    fixture and rubric portion only — prepare the boundary test data before
    provider runs.

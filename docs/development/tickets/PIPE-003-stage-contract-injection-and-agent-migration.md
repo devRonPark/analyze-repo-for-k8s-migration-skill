@@ -21,9 +21,15 @@ to drive `analysis_pipeline` through its six stages.
 - Runtime stage-context isolation per ADR-2026-08-08-008: expose only the
   active contract and never a future-stage task, identifier, count, schema,
   asset, or roadmap.
+- Each active contract declares only its applicable manifest-versioned
+  `rule_id`s and requires a closed rule application to target evidence and its
+  immediate phase decision input. It never discloses rules owned by later
+  phases.
 - Tests for stage instruction identity, path mismatch handling, stale
   submission rejection, no independent public stage command, and absence of
   future-stage leakage in `start`, failed `submit`, and `reopen` responses.
+- Opaque-canary tests for future contracts/assets and rule-application tests
+  that reject a read acknowledgement without target evidence usage.
 - A deletion budget listing every public Skill or Agent-prompt requirement
   replaced by an injected, tested stage contract. Record every candidate for
   terminal PIPE-006; do not remove public text in this ticket.

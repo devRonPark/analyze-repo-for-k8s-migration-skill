@@ -1,6 +1,7 @@
 # Design: Leading Words and Detailed-only Kubernetes readiness gap analysis
 
-- Status: Approved design; awaiting written-spec review before planning
+- Status: User-approved direction; revised after independent review; awaiting
+  written-spec review before planning
 - Date: 2026-08-08
 - Related: `leading-words-research-2026-08-08.md`, VS-027, PIPE-001 through PIPE-005
 
@@ -27,8 +28,11 @@ recommendations.
 
 The primary-tier workflow in `SKILL.md` will use this compact sequence:
 
-1. **Vertical Slice**: before broad exploration, complete one thin path from a
-   required-reference rule and repository evidence to a Workload Unit outcome.
+1. **Vertical Slice**: the end-to-end trace for one Workload candidate spans
+   multiple phase-local contracts. Before broad exploration, complete the
+   active phase's thin path from its required-reference rule and repository
+   evidence to its immediate decision input; only the boundary phase may close
+   a Workload Unit outcome.
 2. **Grounding**: every material conclusion from that slice has a repository
    reference, conflict, or scoped absence; a tool read alone is not grounding.
 3. **Workload Boundary**: use the existing two-condition rule for every
@@ -41,10 +45,10 @@ The primary-tier workflow in `SKILL.md` will use this compact sequence:
    a grounded boundary result and every readiness item is either grounded or
    scoped unknown.
 
-The active Vertical Slice is context-isolated. At runtime the Agent receives
-only its active contract and cannot inspect later-stage tasks, schemas, assets,
-or a stage roadmap. A newly active contract is disclosed only after the prior
-slice satisfies its Quality Gate. ADR-2026-08-08-008 defines this boundary.
+The active contract is context-isolated. At runtime the Agent receives only its
+current phase and cannot inspect later-stage tasks, schemas, assets, or a stage
+roadmap. A newly active contract is disclosed only after the prior phase
+satisfies its Quality Gate. ADR-2026-08-08-008 defines this boundary.
 
 `workflow.md` and `workload-boundary.md` remain the detailed authoritative
 rules. `SKILL.md` retains only the ordered action and routing language. The
@@ -93,17 +97,21 @@ recommendation. The item must be action-oriented but implementation-neutral;
 for example, it may request an external-state decision but may not invent a
 particular manifest field or value.
 
-The structured Detailed payload gains an optional `readiness_gaps` array with
-`lens`, `finding`, `impact_scope`, `direction`, `status`, and `reference`.
-When `readiness_gaps` is present, all fields are required; `status` is limited
-to `확인됨` or `상충됨`. Summary rejects the field. The renderer and validator
-enforce the same distinction.
+The structured Detailed payload gains an optional `readiness_gaps` array with a
+closed `lens`, `finding_claim_ids`, `applicability_evidence_ids`,
+`impact_scope_ids`, closed implementation-neutral `direction_kind`, `status`,
+and `reference`. When `readiness_gaps` is present, all fields are required;
+`status` is limited to `확인됨` or `상충됨`. Summary rejects the field. The
+renderer and validator reject values or product/manifest choices outside the
+closed direction vocabulary.
 
 ## Failure handling
 
-- A mandatory-reference read with no extracted source-linked result leaves the
-  Vertical Slice incomplete; the Agent must continue, or record a scoped
-  unknown when the target evidence is absent.
+- A mandatory reference must first yield its manifest-versioned `rule_id` and
+  a closed application to target evidence and the current phase input. A
+  scoped unknown is allowed only for absent target evidence and includes the
+  rule ID, process/candidate ID, search scope, and blocked decision; it cannot
+  substitute for applying the reference rule.
 - Incomplete workload-boundary evidence yields `미확인`, not a split/merge
   guess.
 - A missing probe, resource policy, or security policy is a Detailed design
@@ -115,13 +123,15 @@ enforce the same distinction.
 ## Verification strategy
 
 1. Add deterministic validator/schema tests: Summary rejects `readiness_gaps`;
-   Detailed accepts a cited grounded item and rejects uncited, unknown-status,
-   or invented-default items.
+   Detailed accepts a typed grounded item and rejects uncited, unknown-status,
+   unlinked-materiality, or out-of-vocabulary direction items.
 2. Add renderer/template tests for the Detailed subsection and preserve Summary
    byte/contract behaviour.
-3. Extend VS-027 fixtures: the multi-process case proves one Vertical Slice per
-   independent process; the single-process case proves modules/Secrets do not
-   force a split.
+3. Extend VS-027 fixtures: the multi-process case proves rule-to-evidence-to-
+   boundary provenance for each independent process; the single-process case
+   proves modules/Secrets do not force a split. Add contrastive or rule-
+   mutation cases where surface signals are constant but the rule changes the
+   valid boundary outcome.
 4. Run the relevant static quality gate. Before calling the change complete,
    run the detached OpenCode E2E with an independent golden set and verify that
    the final Detailed report contains grounded boundary outcomes and only
@@ -143,6 +153,9 @@ enforce the same distinction.
 Stage-context isolation is delivered with the Agent/command routing slice. It
 must be in place before Leading Words are evaluated through a multi-stage E2E;
 otherwise later-stage knowledge can confound the observed behaviour.
+Every future contract/schema/asset carries an opaque canary during test builds;
+the acceptance trace verifies that no future canary appears in the model input,
+tool response, error, receipt, or trace snapshot.
 
 The two areas are intentionally separable: leading words improve process
 selection, while the structured Detailed gap model keeps recommendations

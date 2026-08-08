@@ -30,7 +30,13 @@ all required stage activity.
   each; JPetStore Summary and Detailed; command aliases; independent role
   arguments; and unresolved-boundary cases.
 - Trace assertions for ordered submissions, injected instruction identity,
-  state revisions, finalization receipt, and canonical report hash.
+  state revisions, finalization receipt, canonical report hash, rule
+  application provenance, and future-stage opaque-canary absence across model
+  inputs, tool responses, errors, receipts, and trace snapshots.
+- Contrastive fixtures or rule-mutation tests where surface process signals are
+  held constant but correct Workload Boundary outcome changes only when the
+  applicable mandatory rule is consumed.
+- Detailed readiness-gap acceptance cases and Summary rejection cases.
 - Target Git status/tree comparison before and after every interactive run.
 
 ## Out of scope
@@ -43,6 +49,11 @@ all required stage activity.
 - Flask web and Celery worker are distinct deployable candidates even when
   they share source or image; lack of a worker port does not remove it.
 - JPetStore web remains one workload and its embedded database is not split.
+- Every mandatory rule used in a final boundary outcome has a
+  `rule_id -> evidence -> process/candidate -> decision` trace; a read-only or
+  unused rule cannot pass coverage.
+- Detailed gap items are grounded and implementation-neutral; Summary contains
+  no readiness-gap recommendation.
 - Interrupted, step-limited, unfinalized, or canonically hash-mismatched
   sessions fail content-oriented acceptance.
 - Every recorded interactive run preserves the target repository unchanged.

@@ -1,6 +1,7 @@
 # Leading-words research for evidence-to-workload analysis
 
-- Status: Research complete; application to `SKILL.md` is not yet designed
+- Status: Research complete; initial candidates are superseded by the
+  established-idiom addendum and DESIGN-2026-08-08-leading-words-and-detailed-gap-analysis
 - Date: 2026-08-08
 - Scope: Prevent required-reference reads that produce no usable evidence, and
   make evidence collection precede minimum deployable-unit judgment.
@@ -50,7 +51,7 @@ contract precise: separate Workload Units require both independent execution
 and an independent lifecycle/operational boundary; evidence for only one is
 not a separation.
 
-## Candidate leading words
+## Initial candidate labels (superseded)
 
 | Leading word | Existing prior it recruits | Required agent behaviour | Why it addresses the observed failure |
 | --- | --- | --- | --- |
@@ -96,7 +97,7 @@ Sources:
 - <https://maturitymodel.cncf.io/> uses Technology as one maturity dimension;
   this Skill may use it only as a vocabulary source, not as a maturity score.
 
-## Revised leading-word set
+## Initial revised set (superseded by established-idiom addendum)
 
 The recommended compact set is now:
 
@@ -180,12 +181,12 @@ they are meant to replace.
 
 | Established idiom | Intended behaviour in this Skill | Selection |
 | --- | --- | --- |
-| **Vertical Slice** | Complete one thin end-to-end path from mandatory-reference evidence through a Workload Unit decision before expanding exploration. | Primary execution anchor. It directly counters reading without producing a decision input. |
+| **Vertical Slice** | The end-to-end trace for one Workload candidate across phase-local contracts; each contract completes only its current decision input. | Primary execution anchor. It counters reading without a grounded phase result while preserving future-stage isolation. |
 | **Grounding** / **provenance** | Keep every material conclusion traceable to repository evidence, a conflict, or a scoped absence. | Primary evidence anchor. Prefer this over the more legalistic `chain of custody`, which can overemphasize handling and hashing. |
 | **Single Source of Truth** | Treat `SKILL.md` as the authoritative owner of evidence statuses and the named reference as the authoritative owner of its domain rule. | Ownership/routing anchor; not the main analysis action. |
 | **Workload Boundary** | Apply the local two-condition rule to decide the minimum deployable unit from runtime evidence. | Domain decision anchor. It is already a local term and has a Kubernetes basis. |
 | **Gap Analysis** | Translate grounded findings into an observed readiness difference and a scoped improvement input. | Candidate output anchor, pending the recommendation-scope decision. |
-| **Quality Gate** | Block completion until the vertical slice has grounding and a boundary result for every material runtime process. | Completion anchor; prefer this familiar term over the coined `decision gate`. |
+| **Quality Gate** | Block a phase transition until its grounded current-phase result is complete; require the boundary outcome only in the boundary phase. | Completion anchor; prefer this familiar term over the coined `decision gate`. |
 
 `Vertical Slice -> grounding -> Workload Boundary -> gap analysis -> Quality
 Gate` is the proposed behavioural path. It should be tested as one small

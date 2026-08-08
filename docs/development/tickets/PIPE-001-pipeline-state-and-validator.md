@@ -4,7 +4,8 @@
 
 Create the closed internal state schema and pure TypeScript validator for the
 analysis pipeline. It must represent the six internal stages, state revisions,
-claims, evidence registry, discovery/process/graph/boundary/contract data, and
+claims, evidence registry, mandatory-rule applications,
+discovery/process/graph/boundary/contract data, and
 the invariants in ADR-2026-08-08-004. No OpenCode tool binding, target read,
 or provider invocation is included.
 
@@ -22,8 +23,12 @@ or provider invocation is included.
 - A closed transition table: legal forward stages, legal `reopen` targets,
   required structured reason, and the exact later outputs invalidated by each
   back-edge.
-- Coverage, graph integrity, claim-status, evidence-ID, deployability, and
-  runtime-contract invariants.
+- Coverage, graph integrity, claim-status, evidence-ID, mandatory-reference
+  provenance, deployability, and runtime-contract invariants.
+- A closed rule-application relation:
+  `rule_id -> evidence_ids -> process_or_candidate_ids -> decision_id`.
+  A scoped target absence uses the same relation and cannot stand in for a
+  missing rule application.
 - TypeScript unit tests for every accepted and rejected transition.
 - A deterministic vertical proof over the pure API: create a bound state,
   submit minimal valid data for all six stages in order, finalize it, and
@@ -41,6 +46,9 @@ or provider invocation is included.
 - Tests reject stage skips, duplicates, stale revisions, cross-binding state,
   premature finalization, dangling IDs, duplicate membership, and invalid
   unknown claims.
+- Tests reject an unread/unapplied mandatory rule, a dangling or mismatched
+  rule/evidence/process/decision relation, and a boundary outcome that does
+  not consume its required rule application.
 - Tests prove `reopen` invalidates all later state deterministically.
 - The same valid state produces the same state hash and projected ID values.
 - The vertical proof is the first consumer of the public pure state-machine

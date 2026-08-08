@@ -8,7 +8,7 @@ deterministic content snapshot. Pipeline state remains outside the target.
 
 ## Depends on
 
-- PIPE-000 (`SUPPORTED`)
+- PIPE-000 static API compatibility
 - PIPE-001
 
 ## Read first
@@ -23,6 +23,9 @@ deterministic content snapshot. Pipeline state remains outside the target.
 - `start`, `submit`, `reopen`, and `finalize` dispatch that delegates all
   validation to PIPE-001.
 - Runtime-private state lifecycle and cleanup.
+- A provider-free host/tool lifecycle gate before persistent state: prove that
+  separate runtime sessions receive distinct stable `context.sessionID` values,
+  cannot cross-read state, and clean up on completion.
 - Safe file-handle access; deterministic target Merkle hashing; per-evidence
   hash checks; final snapshot revalidation.
 - Rejection of symlinks/junctions/reparse points, target escape, state reuse,
@@ -38,6 +41,8 @@ deterministic content snapshot. Pipeline state remains outside the target.
 
 - Tests show state cannot be reused across sessions, targets, snapshots, or
   manifest versions.
+- The host/tool lifecycle gate proves actual session separation and cleanup;
+  a TypeScript declaration alone is not accepted as host-identity proof.
 - All target access is handle-verified and target changes fail finalization.
 - State cleanup leaves no raw target content or secret literal on disk.
 

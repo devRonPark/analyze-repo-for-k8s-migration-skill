@@ -38,11 +38,13 @@ contracts.
   pipeline action. They do not enumerate the internal stage roadmap or tell
   the Agent what it will do next.
 
-Each active contract is a self-contained **Vertical Slice**: it includes the
-evidence to collect, the local **Grounding** rule, the immediate **Workload
-Boundary** or readiness decision it enables, and its **Quality Gate**. A
-contract must not explain later analysis work as motivation to hurry its own
-completion.
+A **Vertical Slice** is the end-to-end, runtime-owned trace for one Workload
+candidate across the necessary internal phases. It is not synonymous with one
+active contract. An active contract is the slice's current phase: it exposes
+only that phase's evidence, Grounding rule, immediate decision input, and
+Quality Gate. A Workload Boundary or readiness conclusion is required only in
+the phase that owns that conclusion; an early phase must not predict it or
+describe later work as motivation to hurry its own completion.
 
 ## Consequences
 
@@ -60,11 +62,14 @@ completion.
 
 ## Verification requirements
 
-- Unit tests assert that `start`, failed `submit`, and `reopen` responses do
-  not contain a future-stage identifier, asset content, count, or schema.
+- Unit tests give every future contract, schema, and asset a distinct opaque
+  canary and assert that `start`, failed `submit`, and `reopen` responses do
+  not contain any future canary, identifier, asset content, count, or schema.
 - Transition tests assert that a next contract appears only after the current
   submission satisfies its full coverage and grounding invariants.
 - Integration tests ensure general read/glob tools cannot read the internal
   stage-contract bundle.
-- Interactive E2E traces are checked for a completed grounded current-stage
-  result before each later contract is observed.
+- Interactive E2E traces and model-input snapshots are checked for a completed
+  grounded current-stage result before each later contract is observed, and
+  for absence of every future canary from prompts, tool responses, errors, and
+  receipts.

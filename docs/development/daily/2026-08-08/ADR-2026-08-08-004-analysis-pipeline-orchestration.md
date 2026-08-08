@@ -52,7 +52,7 @@ repository. It has three internal groups:
 ```text
 binding: session_id, target_realpath, target_snapshot_hash, skill_manifest_hash
 control: current_stage, state_revision, state_hash, finalized
-data: evidence_registry, stage_outputs
+data: evidence_registry, rule_application_registry, stage_outputs
 ```
 
 Except for `session_id`, all identity and control values are tool-computed.
@@ -90,12 +90,21 @@ runtime contract per deployable unit. Every evidence-bearing claim has one of
 An `unknown` claim must name its search scope, absence evidence, and blocked
 decision.
 
+Every mandatory reference rule used by a stage has a manifest-versioned
+`rule_id`. The rule-application registry links `rule_id` to the target evidence
+IDs it governs, the process/candidate IDs affected, and the boundary or
+readiness decision ID that consumes it. A required rule cannot be marked
+complete merely because its file was read; it must have a valid application,
+or a scoped target absence linked to the same rule and process.
+
 The validator rejects skipped, duplicate, stale, cross-session, cross-target,
 cross-snapshot, and cross-manifest submissions. It also rejects unresolved
 signal/process coverage, dangling graph IDs, duplicate unit membership,
 contracts for non-deployable units, missing or duplicate contracts for
 deployable units, forged evidence IDs, secret-bearing state, and premature
-finalization. Finalization is a pure projection: it cannot discover evidence
+finalization. It also rejects a mandatory rule with no application, dangling
+rule/evidence/process/decision links, or a boundary decision not supported by
+its required rule applications. Finalization is a pure projection: it cannot discover evidence
 or change pipeline state other than marking the receipt final.
 
 Execution duration (`continuous`, `one_shot`, `scheduled`) is distinct from
