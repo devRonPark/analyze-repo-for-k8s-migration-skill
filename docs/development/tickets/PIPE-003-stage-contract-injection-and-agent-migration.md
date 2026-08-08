@@ -20,6 +20,10 @@ to drive `analysis_pipeline` through its six stages.
   active stage, use restricted `reopen`, and relay only finalized output.
 - Tests for stage instruction identity, path mismatch handling, stale
   submission rejection, and no independent public stage command.
+- A deletion budget listing every public Skill or Agent-prompt requirement
+  replaced by an injected, tested stage contract. Remove only entries on that
+  list; retain invocation, target-safety, and final-output routing that the
+  pipeline does not yet own.
 
 ## Out of scope
 
@@ -32,6 +36,8 @@ to drive `analysis_pipeline` through its six stages.
   stage or an internal reference.
 - A new signal found late forces a bounded, validated reopen rather than a
   silently inconsistent report.
+- The committed deletion budget has no duplicate normative rule remaining in
+  both an enforced stage contract and the public Skill/Agent prompt.
 
 ## Commit boundary
 

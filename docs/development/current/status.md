@@ -2,6 +2,8 @@
 
 | Work item | Status | Evidence | Blocker |
 | --- | --- | --- | --- |
+| PIPE-000 — runtime binding compatibility | TODO | Planned by ADR-2026-08-08-005 and TICKET-LIST-2026-08-08-001. | OpenCode capability evidence has not yet been recorded. |
+| PIPE-001 — PIPE-005 — trusted analysis pipeline | TODO | Resequenced in ADR-2026-08-08-005: early pure vertical proof, VS-027 static fixtures before PIPE-005, and prompt deletion budget. | PIPE-000 must be `SUPPORTED` before implementation starts. |
 | INT-001 — help before analysis | DONE | Help and usage routing contract is covered by target safety tests and the Quality Gate. | None. |
 | INT-002 — local target resolution | DONE | Worktree-bounded target contract is covered by target safety tests and the Quality Gate. | None. |
 | INT-003 — report-only response | PARTIAL | Harness tests and Quality Gate pass; TTY run loaded the Skill and agent without mutating the target. | Final TTY Markdown report was not captured. |

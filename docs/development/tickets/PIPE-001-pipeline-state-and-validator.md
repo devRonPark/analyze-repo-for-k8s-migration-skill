@@ -10,16 +10,26 @@ or provider invocation is included.
 
 ## Depends on
 
-None.
+- PIPE-000 must record `SUPPORTED` for the runtime-binding prerequisites, or
+  an ADR must explicitly replace the blocked architecture before this ticket
+  starts.
 
 ## In scope
 
 - Canonical JSON and SHA-256 helpers for state and deterministic IDs.
 - Closed envelopes and stage-specific input/output schemas.
 - Pure transition and `reopen` validation with atomic invalidation plans.
+- A closed transition table: legal forward stages, legal `reopen` targets,
+  required structured reason, and the exact later outputs invalidated by each
+  back-edge.
 - Coverage, graph integrity, claim-status, evidence-ID, deployability, and
   runtime-contract invariants.
 - TypeScript unit tests for every accepted and rejected transition.
+- A deterministic vertical proof over the pure API: create a bound state,
+  submit minimal valid data for all six stages in order, finalize it, and
+  verify that skipped, stale, forged, and unfinalized variants fail. This is
+  not an OpenCode or provider invocation; PIPE-002 binds the same API to the
+  runtime later.
 
 ## Out of scope
 
@@ -33,6 +43,9 @@ None.
   unknown claims.
 - Tests prove `reopen` invalidates all later state deterministically.
 - The same valid state produces the same state hash and projected ID values.
+- The vertical proof is the first consumer of the public pure state-machine
+  API and proves that no valid path skips a stage or finalizes unvalidated
+  data.
 
 ## Commit boundary
 

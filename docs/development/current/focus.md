@@ -13,9 +13,11 @@ PIPE-000 first, an early deterministic vertical proof after PIPE-001, and
 VS-027 static fixtures before PIPE-005.
 Suggested order and why:
 
-1. **PIPE-000, then PIPE-001 through PIPE-005** — verify the non-forgeable
-   runtime binding and final-response path first, then implement the trusted
-   staged pipeline as vertical increments. Read ADR-2026-08-08-004,
+1. **PIPE-000, then PIPE-001 through PIPE-005** — follow
+   [TICKET-LIST-2026-08-08-001](../daily/2026-08-08/TICKET-LIST-2026-08-08-001-pipeline-resequencing.md):
+   verify the non-forgeable runtime binding and final-response path first,
+   prove the pure six-stage path immediately after PIPE-001, and prepare
+   VS-027 static fixtures before PIPE-005. Read ADR-2026-08-08-004,
    ADR-2026-08-08-005, and `analysis-pipeline-handoff-2026-08-08.md` first.
    Do not make another prose-only change intended to force a reference read.
 2. **VS-027** — golden-set fixtures (must-split Case B, must-not-split

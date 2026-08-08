@@ -29,7 +29,10 @@ wiring and the existing Detailed wiring both rest on an unverified rule.
   VS-025 landing first so both Summary and Detailed can be scored against
   the same fixtures, but does not strictly require it — Detailed alone can
   be scored first.
-- **Blocks:** None.
+- **Blocks:** PIPE-005's provider-backed acceptance runs after the static
+  fixtures and golden rubrics are committed. The live repetitions and
+  scorecard remain a final VS-027 completion step after PIPE-005 exposes the
+  trusted runtime path.
 
 ## Read first
 
@@ -81,9 +84,10 @@ wiring and the existing Detailed wiring both rest on an unverified rule.
 
 1. Build Case A and Case B fixture repositories.
 2. Write their golden-set rubric entries.
-3. Run Detailed (and Summary, if available) against both, at least 3 repeats
-   each per this project's existing live-verification convention.
-4. Score and record results; file a follow-up ticket immediately if either
+3. Commit the fixtures and golden rubrics before PIPE-005 begins.
+4. Run Detailed (and Summary, if available) against both, at least 3 repeats
+   each per this project's existing live-verification convention after PIPE-005.
+5. Score and record results; file a follow-up ticket immediately if either
    case's boundary decision is wrong, rather than adjusting the rule inline.
 
 ## Acceptance criteria
@@ -93,7 +97,9 @@ wiring and the existing Detailed wiring both rest on an unverified rule.
   rules).
 - Both golden-set rubric entries exist with an explicit expected component
   count and expected boundary evidence.
-- At least 3 live repeats per case per mode tested, `PASS`, target unchanged.
+- Before PIPE-005: the static fixtures and golden rubrics are committed.
+- At ticket completion: at least 3 live repeats per case per mode tested,
+  `PASS`, target unchanged.
 - `python scripts/run_quality_gate.py` passes.
 
 ## Verification commands

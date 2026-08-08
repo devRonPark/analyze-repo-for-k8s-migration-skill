@@ -12,6 +12,7 @@ all required stage activity.
 - PIPE-002
 - PIPE-003
 - PIPE-004
+- VS-027's committed static fixtures and golden rubrics
 
 ## Read first
 

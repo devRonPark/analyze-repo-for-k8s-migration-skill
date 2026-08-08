@@ -8,6 +8,7 @@ deterministic content snapshot. Pipeline state remains outside the target.
 
 ## Depends on
 
+- PIPE-000 (`SUPPORTED`)
 - PIPE-001
 
 ## Read first
@@ -19,8 +20,6 @@ deterministic content snapshot. Pipeline state remains outside the target.
 
 ## In scope
 
-- Verify the OpenCode plugin API's caller/session identity before coding the
-  binding. Block this ticket if it cannot support non-forgeable binding.
 - `start`, `submit`, `reopen`, and `finalize` dispatch that delegates all
   validation to PIPE-001.
 - Runtime-private state lifecycle and cleanup.
