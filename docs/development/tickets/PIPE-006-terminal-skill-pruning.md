@@ -14,6 +14,12 @@ preserving form. This is the final task of the trusted-pipeline milestone.
 ## In scope
 
 - One-at-a-time deletion tests for public Skill and Agent/command passages.
+- The deletion test procedure is fixed for every candidate: (1) select one
+  suspicious instruction unit, (2) remove it completely in an isolated copy,
+  (3) rerun the same agent scenario and inspect behaviour and output, and (4)
+  compare the post-deletion result with the recorded baseline. Remove the unit
+  permanently only when the comparison shows no behaviourally meaningful
+  difference; otherwise restore it and retain it with the observed reason.
 - A committed deletion record that maps each candidate passage to its claimed
   responsibility, deterministic checks, acceptance scenario, result, and
   retain/remove decision.
@@ -37,6 +43,30 @@ preserving form. This is the final task of the trusted-pipeline milestone.
   text removals that have no observed behaviour impact.
 - The final provider-backed acceptance comparison preserves target immutability
   and all required evidence and boundary findings.
+
+## Required deletion-test record
+
+For each candidate, record before editing: immutable Skill revision, candidate
+text location, exact baseline prompt/scenario, tool-read receipt, grounded
+evidence IDs, Workload Boundary decision, rendered report, target Git status,
+and the acceptance assertions used for comparison. The isolated post-deletion
+run must use the same prompt, target revision, provider configuration, and
+scenario. Compare routing, mandatory-reference grounding, evidence-to-decision
+provenance, minimum deployable unit, Summary/Detailed contract, uncertainty,
+and target immutability. A textually similar report is insufficient if any of
+these behavioural fields differ.
+
+## Execution order
+
+1. Complete PIPE-005 and VS-027 static/live gates and freeze the baseline.
+2. Build the candidate inventory from PIPE-003; do not preselect removal based
+   on wording alone.
+3. Run the four-step deletion test above one candidate at a time, committing
+   only the final deletion record and proven removals at the ticket boundary.
+4. Run the final provider-backed acceptance comparison and verify unchanged
+   target Git status.
+5. Only after all pipeline gates pass, run the terminal no-op deletion sweep on
+   any remaining public-text candidates; no later feature work is allowed.
 
 ## Commit boundary
 
