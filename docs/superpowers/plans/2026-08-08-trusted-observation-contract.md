@@ -300,3 +300,89 @@ git commit -m "test: verify trusted observation MCP lifecycle"
 - Spec coverage: Tasks 1-5 cover aliases, trusted issuance, snapshots, redaction, stage isolation, replay safety, closed schemas, agent conflict removal, deterministic tests, and interactive OpenCode E2E.
 - Placeholder scan: no deferred implementation markers are present; every task names files, interfaces, assertions, commands, and a focused commit.
 - Type consistency: observations and tokens are created only at the server boundary; pure state receives normalized canonical evidence, and later tasks consume the same receipt names.
+
+## Review Amendment — Mandatory Before Implementation
+
+This amendment supersedes conflicting steps above and records the independent
+high-reasoning plan review. The following changes are implementation gates.
+
+### Task 0: Repair terminal state and report-delivery boundary
+
+Before Task 1, write RED tests proving that five submitted stages
+(`discovery`, `execution`, `relationships`, `boundaries`, `contracts`) move the
+state to terminal `finalize`, and that `finalize_analysis` succeeds without a
+nonexistent `submit_finalize` tool. Refactor `state.py` to define
+`ANALYSIS_STAGES` separately from `FINAL_STAGE`; make terminal validation
+require exactly the five submitted outputs. Keep `tools/list` after contracts
+limited to `finalize_analysis`, `reopen_analysis`, and trusted evidence tools.
+
+Direct interactive Markdown is required by the repository E2E policy but
+conflicts with the current JSON-first ADR and tests. In this same task, amend
+the JSON-first ADR, agent, renderer/harness, adapter tests, and report-contract
+tests together. The final OpenCode assistant response must be validated
+Markdown headed `Kubernetes 설계 입력 요약` only after finalization; no external
+uninvoked finalizer may be an acceptance dependency. Commit this boundary
+before the observation work.
+
+### Strengthened Task 2: fail-closed snapshot and atomic evidence read
+
+Replace the earlier `HEAD + git status` proposal. A Git snapshot records HEAD,
+index blob identity, and the normalized type/content hash of every dirty or
+untracked entry. Disable untrusted fsmonitor and hooks for all Git queries. A
+manifest larger than its declared bound fails start rather than omitting an
+entry. A non-Git target uses the same complete fail-closed manifest rule.
+
+For evidence files, use one verified open handle: verify every path component
+has not become a symlink or reparse point, `fstat`, read bytes, `fstat` again,
+redact, and issue both displayed content and the observation from those exact
+bytes. Revalidate target and file identity on resolve, submit, reopen, and
+finalize. Add separate tests for an already-dirty file whose content changes,
+symlink/junction replacement, and source change between observation and
+submission.
+
+Task 2 must also modify `runtime-files.txt` for `observations.py` and add a
+built-distribution launcher/import test. Source-only tests do not satisfy this
+gate.
+
+### Strengthened Task 3: universal replay ledger
+
+Apply transition tokens and idempotent receipts to submit, reopen, and
+finalize. Check the replay ledger before active-stage visibility so an
+identical retry works after catalog advancement. A rejected request changes
+neither state, revision, token, nor observation-consumed status. One alias may
+support many claims or rules; duplicate aliases and duplicate declaration of a
+single observation fail, while exploratory unsubmitted observations remain
+allowed.
+
+### Strengthened Task 4: complete client contract
+
+Each active tool schema must recursively set `additionalProperties: false` and
+declare every required/optional field, enum, pattern, and length/cardinality
+bound. Empty process, edge, unit, or contract results are valid only with a
+server-issued scoped-absence observation; never require fabricated IDs.
+`structuredContent`, when present, is an object. Return domain validation and
+replay failures as MCP tool errors with structured code/path; reserve JSON-RPC
+errors for malformed protocol requests. Test that start receipts do not expose
+future rule catalogs and that static SKILL/agent text does not describe future
+stages.
+
+### Strengthened Task 5: required three-repository evidence protocol
+
+For JPetStore 6, `miguelgrinberg/flask-celery-example`, and
+`tiangolo/full-stack-fastapi-template`, make a static independent golden set
+before loading the Skill or starting OpenCode. Each records target path,
+immutable revision, evidence date, required Summary findings, blockers,
+unknowns, and weighted scorecard. Preserve pre/post Git status, final assistant
+response, finalization receipt, and catalog-refresh trace. Score only the
+captured final response. A tool error, absent finalization, invalid heading, or
+target change fails that target. Run JPetStore first and proceed only after it
+passes.
+
+### Revised completion gate
+
+Run all pure and MCP tests, `tests/test_repository_distribution.py`, adapter
+and report-contract suites, `scripts/mcp_smoke.py`,
+`scripts/verify_python_runtime.py`, `scripts/run_quality_gate.py`, and a built
+distribution launcher smoke before any provider-backed run. The detached PTY
+E2E must then prove all active catalog transitions and a clean final report for
+all three golden-scored repositories.
