@@ -6,7 +6,7 @@ import unittest
 RUNTIME_PYTHON = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RUNTIME_PYTHON))
 
-from analysis_pipeline import ANALYSIS_STAGES, FINAL_STAGE, canonical_json, create_state, derive_evidence_id, finalize, reopen, submit
+from analysis_pipeline import ANALYSIS_STAGES, FINAL_STAGE, canonical_json, create_state, derive_evidence_id, finalize, normalize_submission_payload, reopen, submit
 
 
 BINDING = {
@@ -65,6 +65,50 @@ def valid_payload(stage: str, *, override: dict | None = None) -> dict:
 
 
 class PipelineStateTests(unittest.TestCase):
+    @staticmethod
+    def _issued_observation(*, status: str = "confirmed") -> dict:
+        return {
+            "location": "Dockerfile", "range": "17-21", "status": status,
+            "content_fingerprint": "server-derived-fingerprint", "redacted": True,
+        }
+
+    @staticmethod
+    def _alias_submission(observation_ref: str = "obs_issued") -> dict:
+        return {
+            "schema_version": 1,
+            "stage": "discovery",
+            "evidence": [{"alias": "docker_start", "observation_ref": observation_ref}],
+            "claims": [{"id": "claim-start", "status": "confirmed", "evidence_aliases": ["docker_start"]}],
+            "rule_applications": [],
+            "signals": ["signal-1"], "candidate_ids": ["candidate-1"], "decisions": ["decision-1"],
+        }
+
+    def test_normalizes_local_aliases_to_server_derived_evidence_ids(self) -> None:
+        normalized, evidence = normalize_submission_payload(
+            self._alias_submission(), {"obs_issued": self._issued_observation()}, BINDING
+        )
+        evidence_id = next(iter(evidence))
+        self.assertEqual(normalized["claims"][0]["evidence_ids"], [evidence_id])
+        self.assertEqual(normalized["evidence_ids"], [evidence_id])
+        self.assertNotIn("evidence", normalized)
+        self.assertNotIn("evidence_aliases", normalized["claims"][0])
+
+    def test_rejects_client_owned_evidence_fields_and_alias_misuse(self) -> None:
+        client_evidence = self._alias_submission()
+        client_evidence["evidence_ids"] = []
+        with self.assertRaisesRegex(ValueError, "client evidence"):
+            normalize_submission_payload(client_evidence, {"obs_issued": self._issued_observation()}, BINDING)
+
+        duplicate = self._alias_submission()
+        duplicate["evidence"].append({"alias": "docker_start", "observation_ref": "obs_other"})
+        with self.assertRaisesRegex(ValueError, "duplicate alias"):
+            normalize_submission_payload(duplicate, {"obs_issued": self._issued_observation(), "obs_other": self._issued_observation()}, BINDING)
+
+        unreferenced = self._alias_submission()
+        unreferenced["claims"] = []
+        with self.assertRaisesRegex(ValueError, "unreferenced observation"):
+            normalize_submission_payload(unreferenced, {"obs_issued": self._issued_observation()}, BINDING)
+
     def test_canonical_json_and_evidence_ids_are_stable(self) -> None:
         self.assertEqual(canonical_json({"b": 1, "a": [2, {"c": 3}]}), '{"a":[2,{"c":3}],"b":1}')
         self.assertEqual(

@@ -21,6 +21,15 @@ ALLOWED_CLAIM_FIELDS = {"id", "status", "evidence_ids", "scope", "blocked_decisi
 ALLOWED_EVIDENCE_FIELDS = {"location", "range", "status", "content_fingerprint", "redacted"}
 ALLOWED_RULE_FIELDS = {"rule_id", "evidence_ids", "process_or_candidate_ids", "decision_id"}
 
+CLIENT_STAGE_FIELDS = {
+    stage: (fields - {"evidence_ids", "evidence_inputs"}) | {"schema_version", "evidence"}
+    for stage, fields in ALLOWED_STAGE_FIELDS.items()
+}
+CLIENT_CLAIM_FIELDS = {"id", "status", "evidence_aliases", "scope", "blocked_decision"}
+CLIENT_RULE_FIELDS = {"rule_id", "evidence_aliases", "process_or_candidate_ids", "decision_id"}
+CLIENT_EVIDENCE_FIELDS = {"alias", "observation_ref"}
+IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
+
 SECRET_PATTERN = re.compile(r"password|secret|token|api[_-]?key|private[_-]?key", re.IGNORECASE)
 REOPEN_REASON_PATTERN = re.compile(r"^.{3,500}$", re.DOTALL)
 
@@ -89,6 +98,150 @@ def validate_payload_shape(stage: str, payload: Mapping[str, Any]) -> dict[str, 
     if not stage_data_present(stage, payload):
         raise ValueError("stage-specific data missing")
     return deepcopy(dict(payload))
+
+
+def _require_identifier(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not IDENTIFIER_PATTERN.fullmatch(value):
+        raise ValueError(f"invalid {label}")
+    return value
+
+
+def _canonical_observation(raw: Any, binding: Mapping[str, Any]) -> dict[str, Any]:
+    """Extract only server-owned canonical fields from a trusted observation."""
+    if not isinstance(raw, Mapping):
+        raise ValueError("invalid trusted observation")
+    candidate = raw.get("canonical_evidence", raw)
+    if not isinstance(candidate, Mapping):
+        raise ValueError("invalid trusted observation")
+    required = {"location", "range", "status", "content_fingerprint", "redacted"}
+    if not required.issubset(candidate):
+        raise ValueError("invalid trusted observation")
+    evidence = {key: candidate[key] for key in required}
+    if evidence["status"] not in CLAIM_STATUSES or evidence["redacted"] is not True:
+        raise ValueError("invalid trusted observation")
+    if not isinstance(evidence["location"], str) or not isinstance(evidence["range"], str) or not isinstance(evidence["content_fingerprint"], str):
+        raise ValueError("invalid trusted observation")
+    if SECRET_PATTERN.search(f"{evidence['location']} {evidence['content_fingerprint']}"):
+        raise ValueError("secret-bearing trusted observation")
+    snapshot = raw.get("snapshot_hash")
+    if snapshot is not None and snapshot != binding["target_snapshot_hash"]:
+        raise ValueError("trusted observation snapshot mismatch")
+    return evidence
+
+
+def normalize_submission_payload(
+    payload: Mapping[str, Any], observations: Mapping[str, Any], binding: Mapping[str, Any]
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    """Resolve ephemeral client aliases into canonical server-derived evidence.
+
+    `observations` is process-private server data. Client input can name only an
+    opaque observation reference; it cannot control evidence identity or fields.
+    """
+    if not isinstance(payload, Mapping):
+        raise ValueError("payload must be object")
+    stage = payload.get("stage")
+    ensure_known_stage(stage)
+    if payload.get("schema_version") != 1:
+        raise ValueError("unsupported schema version")
+    forbidden = {"evidence_ids", "evidence_inputs", "content_fingerprint", "redacted", "location"}
+    if forbidden.intersection(payload):
+        raise ValueError("client evidence field")
+    ensure_exact_keys(payload, CLIENT_STAGE_FIELDS[stage], "client payload")
+    if not isinstance(observations, Mapping):
+        raise ValueError("trusted observations required")
+    raw_evidence = payload.get("evidence")
+    if not isinstance(raw_evidence, list):
+        raise ValueError("evidence declarations required")
+
+    alias_to_id: dict[str, str] = {}
+    canonical: dict[str, dict[str, Any]] = {}
+    used_refs: set[str] = set()
+    for item in raw_evidence:
+        if not isinstance(item, Mapping):
+            raise ValueError("invalid evidence declaration")
+        ensure_exact_keys(item, CLIENT_EVIDENCE_FIELDS, "evidence declaration")
+        alias = _require_identifier(item.get("alias"), "evidence alias")
+        ref = _require_identifier(item.get("observation_ref"), "observation reference")
+        if alias in alias_to_id:
+            raise ValueError("duplicate alias")
+        if ref in used_refs:
+            raise ValueError("duplicate observation declaration")
+        if ref not in observations:
+            raise ValueError("unknown observation reference")
+        evidence = _canonical_observation(observations[ref], binding)
+        evidence_id = derive_evidence_id({"snapshot_hash": binding["target_snapshot_hash"], **evidence})
+        if evidence_id in canonical:
+            raise ValueError("duplicate observation declaration")
+        alias_to_id[alias] = evidence_id
+        canonical[evidence_id] = evidence
+        used_refs.add(ref)
+
+    normalized_claims: list[dict[str, Any]] = []
+    used_aliases: set[str] = set()
+    claims = payload.get("claims", [])
+    if not isinstance(claims, list):
+        raise ValueError("invalid claims")
+    for raw_claim in claims:
+        if not isinstance(raw_claim, Mapping):
+            raise ValueError("invalid claim")
+        if {"evidence_ids", "evidence_inputs", "content_fingerprint", "redacted", "location"}.intersection(raw_claim):
+            raise ValueError("client evidence field")
+        ensure_exact_keys(raw_claim, CLIENT_CLAIM_FIELDS, "client claim")
+        aliases = raw_claim.get("evidence_aliases")
+        if not isinstance(aliases, list) or not aliases:
+            raise ValueError("claim evidence aliases required")
+        resolved_aliases = [_require_identifier(alias, "evidence alias") for alias in aliases]
+        if len(resolved_aliases) != len(set(resolved_aliases)):
+            raise ValueError("duplicate claim evidence alias")
+        if any(alias not in alias_to_id for alias in resolved_aliases):
+            raise ValueError("undeclared evidence alias")
+        claim = {key: raw_claim[key] for key in ("id", "status", "scope", "blocked_decision") if key in raw_claim}
+        claim["evidence_ids"] = [alias_to_id[alias] for alias in resolved_aliases]
+        if claim.get("status") == "unknown" and not any(canonical[evidence_id]["status"] == "unknown" for evidence_id in claim["evidence_ids"]):
+            raise ValueError("unknown claim requires absence observation")
+        normalized_claims.append(claim)
+        used_aliases.update(resolved_aliases)
+
+    normalized_rules: list[dict[str, Any]] = []
+    rules = payload.get("rule_applications", [])
+    if not isinstance(rules, list):
+        raise ValueError("invalid rule applications")
+    for raw_rule in rules:
+        if not isinstance(raw_rule, Mapping):
+            raise ValueError("invalid rule application")
+        if {"evidence_ids", "evidence_inputs", "content_fingerprint", "redacted", "location"}.intersection(raw_rule):
+            raise ValueError("client evidence field")
+        ensure_exact_keys(raw_rule, CLIENT_RULE_FIELDS, "client rule application")
+        aliases = raw_rule.get("evidence_aliases")
+        if not isinstance(aliases, list) or not aliases:
+            raise ValueError("rule evidence aliases required")
+        resolved_aliases = [_require_identifier(alias, "evidence alias") for alias in aliases]
+        if len(resolved_aliases) != len(set(resolved_aliases)):
+            raise ValueError("duplicate rule evidence alias")
+        if any(alias not in alias_to_id for alias in resolved_aliases):
+            raise ValueError("undeclared evidence alias")
+        normalized_rules.append({
+            "rule_id": raw_rule.get("rule_id"),
+            "evidence_ids": [alias_to_id[alias] for alias in resolved_aliases],
+            "process_or_candidate_ids": raw_rule.get("process_or_candidate_ids"),
+            "decision_id": raw_rule.get("decision_id"),
+        })
+        used_aliases.update(resolved_aliases)
+
+    if set(alias_to_id) != used_aliases:
+        raise ValueError("unreferenced observation")
+    normalized = {
+        key: deepcopy(value)
+        for key, value in payload.items()
+        if key not in {"schema_version", "evidence", "claims", "rule_applications"}
+    }
+    normalized.update({
+        "claims": normalized_claims,
+        "evidence_ids": list(alias_to_id.values()),
+        "evidence_inputs": canonical,
+        "rule_applications": normalized_rules,
+    })
+    return normalized, canonical
 
 
 def validate_claims(payload: Mapping[str, Any]) -> None:
