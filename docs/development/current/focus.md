@@ -15,8 +15,8 @@ Suggested order and why:
 
 1. **PIPE milestone: PIPE-000 compatibility proof** —
    [PIPE-000 completion](../daily/2026-08-08/PIPE-000-completion-2026-08-08.md)
-   requires correction: official API research identifies a host-provided
-   `sessionID`, but the installed runtime still needs a compatibility proof.
+   is `SUPPORTED`: the installed 1.18.14 plugin declaration exposes a
+   host-provided `context.sessionID`. PIPE-001 is now the next ticket.
    [ADR-2026-08-08-007](../daily/2026-08-08/ADR-2026-08-08-007-content-integrity-over-final-response-enforcement.md)
    keeps direct TUI and makes content integrity—not final-response formatting—
    the required boundary. Do not make another prose-only change intended to

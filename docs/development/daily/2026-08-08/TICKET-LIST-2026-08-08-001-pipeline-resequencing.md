@@ -1,6 +1,6 @@
 # TICKET-LIST-2026-08-08-001: Trusted pipeline resequencing
 
-- Status: PIPE-000 blocked; VS-027 static fixtures remain independently actionable
+- Status: PIPE-000 supported; PIPE-001 is the next ticket
 - Decision: ADR-2026-08-08-005
 
 ## Queue
@@ -17,7 +17,7 @@ Implement and commit each ticket independently in this order:
 4. [PIPE-003](../../tickets/PIPE-003-stage-contract-injection-and-agent-migration.md)
    — inject canonical contracts and remove only proved duplicate prompt rules.
 5. [PIPE-004](../../tickets/PIPE-004-runtime-finalizer-and-deterministic-renderer.md)
-   — make finalization return the sole renderable report and receipt.
+   — produce a canonical report and receipt for content-oriented acceptance.
 6. [VS-027](../../tickets/VS-027-workload-boundary-golden-fixtures.md), static
    fixture and rubric portion only — prepare the boundary test data before
    provider runs.
@@ -30,7 +30,7 @@ Implement and commit each ticket independently in this order:
 ## Gates
 
 - A `BLOCKED` PIPE-000 result stops PIPE-002 and requires an ADR before any
-  substitute identity or final-response mechanism is proposed.
+  substitute identity is proposed.
 - PIPE-001's deterministic vertical proof is required before PIPE-002 starts.
 - PIPE-005 may not begin provider-backed runs until VS-027's static fixtures
   and golden rubrics are committed.

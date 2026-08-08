@@ -2,8 +2,8 @@
 
 | Work item | Status | Evidence | Blocker |
 | --- | --- | --- | --- |
-| PIPE-000 — runtime binding compatibility | IN_PROGRESS | The local completion record needs correction: official OpenCode custom-tool documentation exposes host-provided `sessionID`; compatibility with installed OpenCode 1.18.14 remains unproven. ADR-2026-08-08-007 removes final-response interception from this gate. | Prove that installed runtime supplies the documented identity to a custom tool without provider or target changes. |
-| PIPE-001 — PIPE-005 — trusted analysis pipeline | BLOCKED | Resequenced in ADR-2026-08-08-005; content integrity is the required acceptance boundary per ADR-2026-08-08-007. | PIPE-000 must be recorded `SUPPORTED` before PIPE-001 begins. |
+| PIPE-000 — runtime binding compatibility | DONE | Installed `@opencode-ai/plugin` 1.18.14 declares `ToolContext.sessionID` separately from model-call arguments; the evidence and limitation are recorded in `daily/2026-08-08/PIPE-000-completion-2026-08-08.md`. ADR-2026-08-08-007 removes final-response interception from this gate. | None. |
+| PIPE-001 — PIPE-005 — trusted analysis pipeline | TODO | Resequenced in ADR-2026-08-08-005; content integrity is the required acceptance boundary per ADR-2026-08-08-007. | Start PIPE-001's pure state-machine and deterministic vertical proof. |
 | INT-001 — help before analysis | DONE | Help and usage routing contract is covered by target safety tests and the Quality Gate. | None. |
 | INT-002 — local target resolution | DONE | Worktree-bounded target contract is covered by target safety tests and the Quality Gate. | None. |
 | INT-003 — report-only response | PARTIAL | Harness tests and Quality Gate pass; TTY run loaded the Skill and agent without mutating the target. | Final TTY Markdown report was not captured. |
