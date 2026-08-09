@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import json
+from pathlib import Path
 import re
 from typing import Any, Mapping
 
@@ -12,7 +14,10 @@ CLAIM_STATUSES = {"confirmed", "inferred", "unknown", "conflicted", "not_applica
 ALLOWED_STAGE_FIELDS = {
     "discovery": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "signals", "candidate_ids", "decisions"},
     "execution": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "discovery_fact_refs", "process_ids"},
-    "relationships": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "graph_edge_ids"},
+    "relationships": {
+        "stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications",
+        "discovery_fact_refs", "execution_fact_refs", "graph_edges", "graph_edge_ids",
+    },
     "boundaries": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "unit_ids", "deployable_unit_ids", "decisions"},
     "contracts": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "contract_ids"},
 }
@@ -21,8 +26,26 @@ ALLOWED_CLAIM_FIELDS = {"id", "status", "evidence_ids", "scope", "blocked_decisi
 ALLOWED_EVIDENCE_FIELDS = {"location", "range", "status", "content_fingerprint", "redacted"}
 ALLOWED_RULE_FIELDS = {"rule_id", "evidence_ids", "process_or_candidate_ids", "decision_id"}
 
+
+CONTRACT_PATH = Path(__file__).resolve().parents[3] / "contracts" / "stage-payload-contracts.json"
+
+
+def _client_fields_from_contract(stage: str, fallback: set[str]) -> set[str]:
+    """Use sealed client fields where a stage contract exposes them."""
+    contracts = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    payload = contracts.get("stages", {}).get(stage, {}).get("client_payload")
+    required = payload.get("required") if isinstance(payload, Mapping) else None
+    if required is None:
+        return fallback
+    if not isinstance(required, list) or not required or any(not isinstance(field, str) for field in required):
+        raise ValueError("invalid_stage_payload_contract")
+    return set(required)
+
+
 CLIENT_STAGE_FIELDS = {
-    stage: (fields - {"evidence_ids", "evidence_inputs"}) | {"schema_version", "evidence"}
+    stage: _client_fields_from_contract(
+        stage, (fields - {"evidence_ids", "evidence_inputs"}) | {"schema_version", "evidence"}
+    )
     for stage, fields in ALLOWED_STAGE_FIELDS.items()
 }
 CLIENT_CLAIM_FIELDS = {"id", "status", "evidence_aliases", "scope", "blocked_decision"}
@@ -78,7 +101,7 @@ def stage_data_present(stage: str, payload: Mapping[str, Any]) -> bool:
     if stage == "execution":
         return bool(payload.get("process_ids"))
     if stage == "relationships":
-        return bool(payload.get("graph_edge_ids"))
+        return True
     if stage == "boundaries":
         return bool(payload.get("unit_ids"))
     if stage == "contracts":

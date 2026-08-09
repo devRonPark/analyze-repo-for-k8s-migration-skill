@@ -34,11 +34,20 @@ def _append_evidence(state: PipelineState, stage: str, payload: dict[str, Any]) 
     evidence = deepcopy(state.evidence)
     evidence_inputs = validate_evidence_inputs(payload, state.binding["target_snapshot_hash"])
     for evidence_id in payload["evidence_ids"]:
-        if evidence_id in evidence:
-            raise ValueError("duplicate evidence")
         if evidence_id not in evidence_inputs:
             raise ValueError("unverified evidence")
-        evidence[evidence_id] = {"stage": stage, **evidence_inputs[evidence_id]}
+        candidate = {"stage": stage, **evidence_inputs[evidence_id]}
+        if evidence_id in evidence:
+            # A later vertical slice may re-ground the same immutable, redacted
+            # observation. The ID is bound to its canonical evidence, so reuse
+            # it rather than letting the caller manufacture a distinct record.
+            existing = evidence[evidence_id]
+            if {key: value for key, value in existing.items() if key != "stage"} != {
+                key: value for key, value in candidate.items() if key != "stage"
+            }:
+                raise ValueError("evidence collision")
+            continue
+        evidence[evidence_id] = candidate
     return evidence
 
 

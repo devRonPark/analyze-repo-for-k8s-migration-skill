@@ -34,6 +34,7 @@ runtime/stage-skills/analyze-k8s-discovery/references/language-discovery-rules.m
 runtime/stage-skills/analyze-k8s-execution/SKILL.md
 runtime/stage-skills/analyze-k8s-execution/references/execution-rules.md
 runtime/stage-skills/analyze-k8s-relationships/SKILL.md
+runtime/stage-skills/analyze-k8s-relationships/references/dependency-analysis.md
 runtime/stage-skills/analyze-k8s-boundaries/SKILL.md
 runtime/stage-skills/analyze-k8s-contracts/SKILL.md
 runtime/stage-skills/analyze-k8s-finalize/SKILL.md

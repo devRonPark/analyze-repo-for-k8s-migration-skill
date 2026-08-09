@@ -101,7 +101,12 @@ TOOLS.extend(
                 "Submit only when the current Execution Vertical Slice has grounded its build, runtime, startup, image, or port claims. "
                 "Submit observation aliases, never raw repository evidence."
                 if stage == "execution"
+                else (
+                    "Submit only when the current Relationships Vertical Slice has grounded dependency and external runtime claims. "
+                    "Submit observation aliases, never raw repository evidence."
+                    if stage == "relationships"
                 else f"Submit the current {stage} Vertical Slice with trusted observations."
+                )
             )
         ),
         list(_ENVELOPE),

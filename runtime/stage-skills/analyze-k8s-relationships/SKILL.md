@@ -1,10 +1,23 @@
 ---
 name: analyze-k8s-relationships
-description: Ground runtime dependencies and external services for accepted execution facts.
+description: Use when accepted discovery and execution facts need grounded dependency relationships.
 ---
 
 # Relationships
 
-Use the incoming handoff only. Apply Vertical Slice and Grounding. This
-skeletal stage is not enabled yet: do not read references or target evidence,
-do not call any MCP tool, and stop without loading another Skill.
+Use the incoming handoff only. Apply Vertical Slice, Grounding, and Quality Gate.
+
+1. Read [the dependency analysis rules](references/dependency-analysis.md) and
+   [the payload contract](references/payload-contract.json) before collecting
+   evidence.
+2. The incoming `stage_input` owns `mode`, `process_ids`,
+   `discovery_fact_refs`, `execution_fact_refs`, and `unknown_ids`. Use only
+   `list_target_paths`, `read_evidence`, `locate_evidence`, and
+   `get_target_git_metadata` to ground dependency edges, external runtime
+   dependencies, or scoped unknowns for those inputs.
+3. Keep incoming fact references unchanged. Create only safe structured graph
+   edges and observation aliases; never copy raw evidence into claims.
+4. Submit `submit_relationships` once with the incoming envelope.
+
+Do not load another Skill, read another stage's references, or infer a later
+procedure. End this stage after the server response.

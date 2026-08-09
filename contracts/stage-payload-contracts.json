@@ -27,7 +27,35 @@
       },
       "accepted_output": ["process_ids", "execution_fact_refs", "unknown_ids"]
     },
-    "relationships": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "graph_edge_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs"]},
+    "relationships": {
+      "required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "graph_edges", "graph_edge_ids"],
+      "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs"],
+      "client_payload": {
+        "schema_version": 1,
+        "stage": "relationships",
+        "required": ["schema_version", "stage", "evidence", "claims", "rule_applications", "discovery_fact_refs", "execution_fact_refs", "graph_edges"],
+        "evidence": {"alias": "identifier", "observation_ref": "opaque observation reference"},
+        "claims": {"id": "identifier", "status": "confirmed|inferred|unknown|conflicted|not_applicable", "evidence_aliases": ["identifier"]},
+        "rule_applications": {"rule_id": "identifier", "evidence_aliases": ["identifier"], "process_or_candidate_ids": ["identifier"], "decision_id": "identifier"},
+        "graph_edges": {
+          "id": "identifier",
+          "source_process_id": "accepted execution process identifier",
+          "target_id": "identifier",
+          "target_kind": "process|external_system",
+          "dependency_type": "service|data_store|queue|cache|identity|external_api|filesystem|unknown",
+          "mechanism": "identifier",
+          "endpoint_name": "identifier|unknown",
+          "required_for_function": "confirmed|inferred|unknown|conflicted",
+          "startup_use": "confirmed|inferred|unknown|conflicted",
+          "management_boundary": "repository_managed|externally_managed|unknown|conflicted",
+          "timing": "build|runtime|unknown|conflicted",
+          "execution_location": "browser|server_process|worker_process|scheduled_job_process|build_pipeline|deployment_controller|human_administrator|external_system|unknown",
+          "claim_ids": ["relationship claim identifier"],
+          "status": "confirmed|inferred|unknown|conflicted"
+        }
+      },
+      "accepted_output": ["graph_edge_ids", "relationship_fact_refs", "unknown_ids"]
+    },
     "boundaries": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "unit_ids", "deployable_unit_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs"]},
     "contracts": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "boundaries_fact_refs", "contract_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "boundaries_fact_refs"]}
   }

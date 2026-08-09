@@ -110,7 +110,10 @@ class ExecutionStageTests(unittest.TestCase):
             "execution_fact_refs": ["fact_execution_claim-process"],
             "unknown_ids": [],
         })
-        self.assertEqual(result["stage_input"], result["accepted_output"] | {"mode": "summary"})
+        self.assertEqual(result["stage_input"], result["accepted_output"] | {
+            "mode": "summary",
+            "discovery_fact_refs": ["fact_discovery_claim-container"],
+        })
         self.assertEqual(result["revision"], discovery["revision"] + 1)
         self.assertNotEqual(result["transition_token"], discovery["transition_token"])
         self.assertTrue(stale_failed)

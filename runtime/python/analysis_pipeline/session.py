@@ -10,10 +10,13 @@ from .observations import ObservationRegistry, TargetSnapshot
 from .stage_contracts import (
     promote_discovery_facts,
     promote_execution_facts,
+    promote_relationship_facts,
     project_discovery_handoff,
     project_execution_handoff,
+    project_relationships_handoff,
     validate_discovery_payload,
     validate_execution_payload,
+    validate_relationships_payload,
 )
 from .state import ANALYSIS_STAGES, PipelineState, create_state
 
@@ -170,6 +173,32 @@ class AnalysisSession:
         self.transition_token = self._token()
         return self.handoff("execution")
 
+    def submit_relationships(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        self.assert_envelope(arguments)
+        if self.current_stage != "relationships":
+            raise ValueError("stage_order")
+        assert self.registry is not None
+        assert self.snapshot is not None
+        assert self.binding is not None
+        assert self.pipeline is not None
+        discovery_input = project_discovery_handoff(self.pipeline)
+        execution_input = project_execution_handoff(self.pipeline)
+        payload = validate_relationships_payload(
+            arguments.get("payload"),
+            self.registry,
+            self.snapshot,
+            self.binding,
+            discovery_input["discovery_fact_refs"],
+            execution_input["execution_fact_refs"],
+            execution_input["process_ids"],
+        )
+        next_pipeline = promote_relationship_facts(self.pipeline, payload)
+        self.pipeline = next_pipeline
+        self.current_stage = next_pipeline.current_stage
+        self.revision = next_pipeline.revision
+        self.transition_token = self._token()
+        return self.handoff("relationships")
+
     def handoff(self, completed_stage: str | None) -> dict[str, Any]:
         if not self.active or self.mode is None or self.transition_token is None or self.current_stage is None:
             raise ValueError("analysis_not_started")
@@ -185,6 +214,13 @@ class AnalysisSession:
             assert self.pipeline is not None
             accepted_output = project_execution_handoff(self.pipeline)
             stage_input.update(accepted_output)
+            stage_input["discovery_fact_refs"] = project_discovery_handoff(self.pipeline)["discovery_fact_refs"]
+        elif self.current_stage == "boundaries":
+            assert self.pipeline is not None
+            accepted_output = project_relationships_handoff(self.pipeline)
+            stage_input.update(accepted_output)
+            stage_input["discovery_fact_refs"] = project_discovery_handoff(self.pipeline)["discovery_fact_refs"]
+            stage_input["execution_fact_refs"] = project_execution_handoff(self.pipeline)["execution_fact_refs"]
         return {
             "status": "accepted",
             "analysis_id": self.analysis_id,
