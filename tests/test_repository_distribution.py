@@ -65,7 +65,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     @unittest.skipIf(BASH_PROCESS_UNAVAILABLE, "MSYS Bash process isolation is unavailable on Windows")
-    def test_install_script_creates_qwen_skill_symlink(self):
+    def test_install_script_creates_qwen_static_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
             home.mkdir()
@@ -79,9 +79,9 @@ class RepositoryDistributionTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            installed = home / ".qwen/skills/analyze-repo-for-kubernetes"
-            self.assertTrue(installed.is_symlink())
-            self.assertEqual(installed.resolve(), ROOT.resolve())
+            skills = home / ".qwen/skills"
+            self.assertEqual({path.name for path in skills.iterdir()}, set(build_dist.SKILL_IDS))
+            self.assertTrue((home / ".qwen/analyze-repo-for-kubernetes/runtime/python/launch_mcp.py").is_file())
 
     def run_builder(self, output: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -110,8 +110,8 @@ class RepositoryDistributionTests(unittest.TestCase):
                 }
 
             self.assertEqual(snapshot(first), snapshot(second))
-            manifest = json.loads((first / "manifest.json").read_text(encoding="utf-8"))
-            self.assertEqual(manifest["skill_id"], "analyze-repo-for-kubernetes")
+            manifest = json.loads((first / "bundle-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["skills"], list(build_dist.SKILL_IDS))
             self.assertTrue(manifest["source_revision"])
             self.assertNotIn("README.md", snapshot(first))
             self.assertNotIn("CHANGELOG.md", snapshot(first))
@@ -168,13 +168,14 @@ class RepositoryDistributionTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            installed = home / ".config/opencode/skill/analyze-repo-for-kubernetes"
+            config = home / ".config/opencode"
+            installed = config / "skills/analyze-repo-for-kubernetes"
             self.assertTrue((installed / "SKILL.md").is_file())
             self.assertFalse(installed.is_symlink())
             self.assertTrue((home / ".config/opencode/agent/kubernetes-migration-analyzer.md").is_file())
             self.assertTrue((home / ".config/opencode/command/analyze-repo-for-kubernetes.md").is_file())
-            self.assertTrue((installed / "runtime/python/launch_mcp.py").is_file())
-            self.assertTrue((installed / "runtime/python/analysis_pipeline/mcp_server.py").is_file())
+            self.assertTrue((config / "analyze-repo-for-kubernetes/runtime/python/launch_mcp.py").is_file())
+            self.assertTrue((config / "analyze-repo-for-kubernetes/opencode-mcp.json").is_file())
 
     def test_failed_multi_path_install_restores_every_target(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -217,15 +218,15 @@ class RepositoryDistributionTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertTrue((project / ".opencode/skill/analyze-repo-for-kubernetes/SKILL.md").is_file())
+            self.assertTrue((project / ".opencode/skills/analyze-repo-for-kubernetes/SKILL.md").is_file())
             self.assertTrue((project / ".opencode/agent/kubernetes-migration-analyzer.md").is_file())
             self.assertTrue((project / ".opencode/command/analyze-repo-for-kubernetes.md").is_file())
-            installed = project / ".opencode/skill/analyze-repo-for-kubernetes"
+            installed = project / ".opencode/analyze-repo-for-kubernetes"
             self.assertTrue((installed / "runtime/python/launch_mcp.py").is_file())
-            self.assertTrue((installed / "runtime/python/analysis_pipeline/mcp_server.py").is_file())
+            self.assertTrue((installed / "opencode-mcp.json").is_file())
 
     @unittest.skipIf(BASH_PROCESS_UNAVAILABLE, "MSYS Bash process isolation is unavailable on Windows")
-    def test_opencode_installer_refreshes_duplicate_locations(self):
+    def test_opencode_installer_leaves_legacy_duplicate_locations_untouched(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
             duplicate = home / ".agents/skills/analyze-repo-for-kubernetes"
@@ -242,10 +243,9 @@ class RepositoryDistributionTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            installed = home / ".config/opencode/skill/analyze-repo-for-kubernetes/SKILL.md"
+            installed = home / ".config/opencode/skills/analyze-repo-for-kubernetes/SKILL.md"
             self.assertTrue(installed.is_file())
-            self.assertNotEqual(stale_skill.read_text(encoding="utf-8"), "stale test Skill")
-            self.assertEqual(stale_skill.read_bytes(), installed.read_bytes())
+            self.assertEqual(stale_skill.read_text(encoding="utf-8"), "stale test Skill")
 
     @unittest.skipIf(BASH_PROCESS_UNAVAILABLE, "MSYS Bash process isolation is unavailable on Windows")
     def test_opencode_installer_does_not_replace_source_checkout(self):
@@ -269,7 +269,7 @@ class RepositoryDistributionTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertTrue((source / "README.md").is_file())
-            self.assertTrue((home / ".config/opencode/skill/analyze-repo-for-kubernetes/SKILL.md").is_file())
+            self.assertTrue((home / ".config/opencode/skills/analyze-repo-for-kubernetes/SKILL.md").is_file())
 
     def test_markdown_commands_do_not_use_shell_line_continuations(self):
         for path in ROOT.rglob("*.md"):

@@ -53,7 +53,13 @@
     "list": "deny",
     "skill": {
       "*": "deny",
-      "analyze-repo-for-kubernetes": "allow"
+      "analyze-repo-for-kubernetes": "allow",
+      "analyze-k8s-discovery": "allow",
+      "analyze-k8s-execution": "allow",
+      "analyze-k8s-relationships": "allow",
+      "analyze-k8s-boundaries": "allow",
+      "analyze-k8s-contracts": "allow",
+      "analyze-k8s-finalize": "allow"
     },
     "edit": "deny",
     "bash": {

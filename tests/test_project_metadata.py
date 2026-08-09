@@ -23,16 +23,11 @@ class ProjectMetadataTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "agent_id"):
                 project_metadata.load(root)
 
-    def test_builder_uses_metadata_version_and_manifest_name(self):
+    def test_builder_uses_the_static_bundle_manifest_contract(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source"
             output = Path(tmp) / "output"
             shutil.copytree(ROOT, source, ignore=shutil.ignore_patterns(".git", ".artifacts", "dist", "__pycache__"))
-            metadata_path = source / "contracts/project-metadata.json"
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            metadata.update(skill_version="9.9.9", manifest_name="package.json")
-            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
-
             result = subprocess.run(
                 [sys.executable, str(source / "scripts/build_dist.py"), "--source-root", str(source), "--output", str(output)],
                 capture_output=True,
@@ -42,7 +37,8 @@ class ProjectMetadataTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(json.loads((output / "package.json").read_text(encoding="utf-8"))["version"], "9.9.9")
+            manifest = json.loads((output / "bundle-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["skills"], list(adapter.BUNDLE_SKILL_IDS))
 
     def test_acceptance_uses_metadata_agent_id(self):
         project = project_metadata.ProjectMetadata("analyze-repo-for-kubernetes", "fixture-agent", "1.0.0", "manifest.json")

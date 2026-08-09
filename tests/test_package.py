@@ -137,60 +137,49 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_target_resolution_gate_contract(self):
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        intake = (ROOT / "references/workflow.md").read_text(encoding="utf-8")
-        combined = skill + "\n" + intake
+        dispatcher = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for term in [
-            "Target Resolution Gate",
-            "Skill installation directory",
-            "repository discovery",
-            "Stop the turn after asking",
             "Local path",
-            "directory listing",
-            "tests",
+            "start_analysis",
+            "target_path",
+            "untrusted",
+            "handoff.next_skill",
+            "read-only",
         ]:
-            self.assertIn(term, combined)
-
-    def test_output_contract(self):
-        text = "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in [
-                ROOT / "SKILL.md",
-                ROOT / "assets/migration-summary-template.md",
-                ROOT / "assets/migration-assessment-template.md",
-            ]
-        )
-        for term in [
-            "배포 대상별 실행 정보",
+            self.assertIn(term, dispatcher)
+        for forbidden in [
+            "read_evidence",
+            "submit_discovery",
             "Kubernetes 최소 설계 입력",
-            "최소 입력 누락",
-            "키: 값",
-            "실행 위치",
-            "적용 시점",
-            "확인됨",
-            "추정됨",
-            "미확인",
-            "상충됨",
-            "설계 입력 충분",
-            "추가 정보 필요",
-            "분석 불가",
-            "path/to/file:line",
         ]:
-            self.assertIn(term, text)
-        self.assertNotIn("## 다음 작업", text)
-        self.assertNotIn("다음 인계:", text)
+            self.assertNotIn(forbidden, dispatcher)
 
-    def test_fact_based_analysis_outcome_contract(self):
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        summary = (ROOT / "assets/migration-summary-template.md").read_text(encoding="utf-8")
-        checklist = (ROOT / "references/repository-analysis-checklist.md").read_text(encoding="utf-8")
+    def test_dispatcher_owns_only_intake_and_handoff_routing(self):
+        dispatcher = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for term in [
-            "배포 대상 후보",
-            "저장소에 정의된 런타임 의존성",
-            "외부 런타임 의존성",
-            "배포 대상 후보에서 제외한 항목",
+            "Local path",
+            "summary",
+            "detailed",
+            "finalize_analysis",
         ]:
-            self.assertIn(term, skill + summary + checklist)
+            self.assertIn(term, dispatcher)
+
+    def test_dispatcher_does_not_embed_report_procedure(self):
+        dispatcher = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("relay only its Markdown content unchanged", dispatcher)
+        self.assertNotIn("Kubernetes 최소 설계 입력", dispatcher)
+        self.assertNotIn("## 다음 작업", dispatcher)
+
+    def test_stage_contracts_are_the_evidence_handoff_source_of_truth(self):
+        contract = (ROOT / "contracts/stage-payload-contracts.json").read_text(encoding="utf-8")
+        for term in [
+            "discovery",
+            "execution",
+            "relationships",
+            "boundaries",
+            "contracts",
+        ]:
+            self.assertIn(term, contract)
 
     def test_launch_and_operating_environment_evidence_contract(self):
         text = "\n".join(

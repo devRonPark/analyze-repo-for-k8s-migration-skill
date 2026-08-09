@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Static Kubernetes analysis Skill bundle manifest",
+  "type": "object",
+  "required": ["source_revision", "skills", "skill_policies", "files"],
+  "properties": {
+    "source_revision": {"type": "string", "minLength": 1},
+    "skills": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true
+    },
+    "skill_policies": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["tools", "references"],
+        "properties": {
+          "tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "references": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        },
+        "additionalProperties": false
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["sha256", "size"],
+        "properties": {
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "size": {"type": "integer", "minimum": 0}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

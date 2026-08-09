@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import re
 import sys
 from pathlib import Path
@@ -24,7 +26,25 @@ FRONTMATTER_MAP_FIELD_PATTERN = re.compile(r"^\s{2,}[A-Za-z][A-Za-z0-9_.-]*:\s*.
 # These are runtime roles. README, development documents, tests, and legacy
 # client adapters are not required merely because they exist in the checkout.
 REQUIRED_RUNTIME_FILES = ("scripts/validate_report.py",)
-NON_RUNTIME_DIRECTORIES = {".git", ".artifacts", "dist", "docs", "tests"}
+NON_RUNTIME_DIRECTORIES = {".git", ".artifacts", "dist", "docs", "runtime", "tests"}
+BUNDLE_SKILL_IDS = (
+    "analyze-repo-for-kubernetes",
+    "analyze-k8s-discovery",
+    "analyze-k8s-execution",
+    "analyze-k8s-relationships",
+    "analyze-k8s-boundaries",
+    "analyze-k8s-contracts",
+    "analyze-k8s-finalize",
+)
+BUNDLE_STAGE_IDS = ("discovery", "execution", "relationships", "boundaries", "contracts")
+BUNDLE_SKILL_POLICIES = {
+    "analyze-repo-for-kubernetes": {"tools": ["start_analysis"], "references": []},
+    **{
+        f"analyze-k8s-{stage}": {"tools": [], "references": ["references/payload-contract.json"]}
+        for stage in BUNDLE_STAGE_IDS
+    },
+    "analyze-k8s-finalize": {"tools": [], "references": []},
+}
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, str], list[str]]:
@@ -105,6 +125,115 @@ def validate_code_fences(path: Path, text: str) -> list[str]:
     return []
 
 
+def validate_installed_skill(skill_path: Path, expected_name: str) -> list[str]:
+    """Validate one sibling Skill without requiring repository metadata."""
+    errors: list[str] = []
+    package_root = skill_path.parent
+    try:
+        skill_text = skill_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return [f"SKILL.md is not valid UTF-8: {skill_path}"]
+    frontmatter, frontmatter_errors = parse_frontmatter(skill_text)
+    errors.extend(frontmatter_errors)
+    name = frontmatter.get("name", "")
+    description = frontmatter.get("description", "")
+    if name != expected_name:
+        errors.append(f"unexpected Skill name: {name or '<missing>'}")
+    elif len(name) > 64 or not NAME_PATTERN.fullmatch(name):
+        errors.append("name must match ^[a-z0-9]+(-[a-z0-9]+)*$ and be 1-64 characters")
+    if not description:
+        errors.append("frontmatter requires description")
+    elif len(description) > 1024:
+        errors.append("description must be 1-1024 characters")
+    elif XML_TAG_PATTERN.search(description):
+        errors.append("description must not contain XML tags")
+    errors.extend(validate_links(skill_path, package_root))
+    for path in package_markdown_paths(package_root, skill_path):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            errors.append(f"Markdown is not valid UTF-8: {path.relative_to(package_root)}")
+            continue
+        errors.extend(validate_code_fences(path.relative_to(package_root), text))
+        if PLACEHOLDER_PATTERN.search(text):
+            errors.append(f"placeholder found in runtime Markdown: {path.relative_to(package_root)}")
+    return errors
+
+
+def file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def validate_bundle(root: Path) -> list[str]:
+    """Validate the sealed seven-Skill artifact used by all client adapters."""
+    root = root.resolve()
+    errors: list[str] = []
+    skills_root = root / "skills"
+    observed = {path.name for path in skills_root.iterdir()} if skills_root.is_dir() else set()
+    if observed != set(BUNDLE_SKILL_IDS):
+        errors.append("bundle must contain exactly the declared sibling Skill inventory")
+        return errors
+    try:
+        manifest = json.loads((root / "bundle-manifest.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        errors.append("bundle manifest is missing or invalid")
+        return errors
+    if not isinstance(manifest, dict) or manifest.get("skills") != list(BUNDLE_SKILL_IDS):
+        errors.append("bundle manifest Skill inventory does not match the static catalog")
+    if not isinstance(manifest, dict) or manifest.get("skill_policies") != BUNDLE_SKILL_POLICIES:
+        errors.append("bundle manifest Skill tool and reference policies do not match the static catalog")
+    files = manifest.get("files") if isinstance(manifest, dict) else None
+    if not isinstance(files, dict):
+        errors.append("bundle manifest requires file digests")
+    else:
+        actual_files = {
+            path.relative_to(root).as_posix(): path
+            for path in root.rglob("*")
+            if path.is_file() and path.name != "bundle-manifest.json"
+        }
+        if set(files) != set(actual_files):
+            errors.append("bundle manifest file inventory does not match the artifact")
+        for relative, path in actual_files.items():
+            declared = files.get(relative)
+            if (
+                not isinstance(declared, dict)
+                or declared.get("sha256") != file_sha256(path)
+                or declared.get("size") != path.stat().st_size
+            ):
+                errors.append(f"bundle manifest digest mismatch: {relative}")
+    try:
+        contracts = json.loads((root / "contracts" / "stage-payload-contracts.json").read_text(encoding="utf-8"))
+        stages = contracts["stages"]
+    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
+        errors.append("stage payload contract source is missing or invalid")
+        stages = {}
+    for skill_id in BUNDLE_SKILL_IDS:
+        skill_path = skills_root / skill_id / "SKILL.md"
+        if not skill_path.is_file():
+            errors.append(f"bundle Skill is missing SKILL.md: {skill_id}")
+            continue
+        errors.extend(validate_installed_skill(skill_path, skill_id))
+    for stage in BUNDLE_STAGE_IDS:
+        projection_path = skills_root / f"analyze-k8s-{stage}" / "references" / "payload-contract.json"
+        try:
+            projection = json.loads(projection_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            errors.append(f"stage payload projection is missing or invalid: {stage}")
+            continue
+        expected = stages.get(stage, {})
+        if projection != expected:
+            errors.append(f"stage payload projection does not match the source contract: {stage}")
+    required = (
+        root / "runtime" / "python" / "launch_mcp.py",
+        root / "agents" / "kubernetes-migration-analyzer.md",
+        root / "commands" / "analyze-repo-for-kubernetes.md",
+    )
+    for path in required:
+        if not path.is_file():
+            errors.append(f"bundle required runtime file is missing: {path.relative_to(root)}")
+    return errors
+
+
 def validate(root: Path) -> list[str]:
     root = root.resolve()
     errors: list[str] = []
@@ -183,11 +312,12 @@ def main() -> int:
     parser.add_argument("root", nargs="?", default=".", help="스킬 패키지 디렉터리")
     args = parser.parse_args()
 
-    errors = validate(Path(args.root))
+    root = Path(args.root)
+    errors = validate_bundle(root) if (root / "skills").is_dir() else validate(root)
     if errors:
         return fail(errors)
 
-    print(f"성공: {load(Path(args.root).resolve()).skill_id} 패키지 구조가 유효합니다.")
+    print("성공: 정적 Skill 번들 구조가 유효합니다." if (root / "skills").is_dir() else f"성공: {load(root.resolve()).skill_id} 패키지 구조가 유효합니다.")
     return 0
 
 

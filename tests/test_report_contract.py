@@ -32,7 +32,6 @@ class ReportContractTests(unittest.TestCase):
 
     def test_detailed_instructions_require_completion_first_evidence_slots(self):
         for path in (
-            ROOT / "SKILL.md",
             ROOT / "references/repository-analysis-checklist.md",
         ):
             text = path.read_text(encoding="utf-8")
@@ -71,8 +70,10 @@ class ReportContractTests(unittest.TestCase):
 
     def test_interactive_agent_requires_markdown_only_after_mcp_finalization(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("finalize_analysis", agent)
-        self.assertIn("Kubernetes 설계 입력 요약", agent)
+        dispatcher = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("successful server handoff", agent)
+        self.assertIn("finalize_analysis", dispatcher)
+        self.assertIn("Markdown content unchanged", dispatcher)
         self.assertNotIn("final assistant response must be exactly one JSON object", agent)
 
     def test_detailed_instructions_pin_report_line_shapes(self):
@@ -119,10 +120,10 @@ class ReportContractTests(unittest.TestCase):
         self.assertIn("부재 근거는 검색(scope=", result.stdout)
 
     def test_detailed_instructions_forbid_absence_claims_about_read_files(self):
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        skill = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
 
         self.assertIn("검색(scope=", skill)
-        self.assertIn("repository-relative scope", skill)
+        self.assertIn("저장소 루트 기준 상대 경로", skill)
 
     def test_absence_claim_about_a_cited_file_is_rejected(self):
         report = (REPORT_FIXTURES / "valid-detailed.md").read_text(encoding="utf-8").replace(
@@ -158,8 +159,8 @@ class ReportContractTests(unittest.TestCase):
     def test_detailed_instructions_require_read_line_numbers_and_all_sections(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
 
-        self.assertIn("references/workflow.md", skill)
-        self.assertIn("assets/migration-assessment-template.md", skill)
+        self.assertNotIn("references/workflow.md", skill)
+        self.assertNotIn("migration-assessment-template.md", skill)
         self.assertIn("## 6. 설정과 상태 상세", (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8"))
 
     def test_reversed_line_range_is_reported_as_reversed(self):

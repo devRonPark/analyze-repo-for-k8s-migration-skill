@@ -17,11 +17,17 @@ from pathlib import Path
 from typing import Any, Callable
 
 try:
+    from scripts.build_dist import SKILL_IDS as BUNDLE_SKILL_IDS, build as build_bundle
+    from scripts.install_distribution import install_bundle, render_opencode_mcp_fragment
+    from scripts.validate_skill import validate_bundle
     from scripts.project_metadata import ProjectMetadata, load as load_project_metadata
     from scripts.render_summary import render_summary
     from scripts.render_detailed import render_detailed
     from scripts.validate_target_report import finalize as finalize_receipt
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
+    from build_dist import SKILL_IDS as BUNDLE_SKILL_IDS, build as build_bundle
+    from install_distribution import install_bundle, render_opencode_mcp_fragment
+    from validate_skill import validate_bundle
     from project_metadata import ProjectMetadata, load as load_project_metadata
     from render_summary import render_summary
     from render_detailed import render_detailed
@@ -258,6 +264,56 @@ def copy_skill(source_root: Path, destination: Path) -> None:
         shutil.copyfile(source, target)
 
 
+def copy_bundle(source_root: Path, destination: Path) -> Path:
+    """Build and validate a sealed seven-Skill bundle for an isolated run."""
+    bundle = build_bundle(source_root, destination)
+    errors = validate_bundle(bundle)
+    if errors:
+        raise ValueError("invalid acceptance bundle: " + "; ".join(errors))
+    return bundle
+
+
+def bundle_skill_paths(config_dir: Path) -> list[Path]:
+    return [config_dir / "skills" / skill_id for skill_id in BUNDLE_SKILL_IDS]
+
+
+def discovery_audit_bundle(
+    source_bundle: Path,
+    config_dir: Path,
+    repository_root: Path,
+    mode: str,
+) -> dict[str, Any]:
+    """Audit only the installed static topology, never target-repository files."""
+    source_bundle = source_bundle.resolve()
+    config_dir = config_dir.resolve()
+    paths = bundle_skill_paths(config_dir)
+    expected_hashes = {
+        skill_id: sha256_file(source_bundle / "skills" / skill_id / "SKILL.md")
+        for skill_id in BUNDLE_SKILL_IDS
+    }
+    installed = {
+        skill_id: sha256_file(config_dir / "skills" / skill_id / "SKILL.md")
+        if (config_dir / "skills" / skill_id / "SKILL.md").is_file()
+        else None
+        for skill_id in BUNDLE_SKILL_IDS
+    }
+    observed = {path.name for path in (config_dir / "skills").iterdir()} if (config_dir / "skills").is_dir() else set()
+    return {
+        "mode": mode,
+        "repository_root": str(repository_root.resolve()),
+        "skill_paths": [str(path.resolve()) for path in paths],
+        "expected_skill_ids": list(BUNDLE_SKILL_IDS),
+        "observed_skill_ids": sorted(observed),
+        "missing_skill_ids": sorted(set(BUNDLE_SKILL_IDS) - observed),
+        "unexpected_skill_ids": sorted(observed - set(BUNDLE_SKILL_IDS)),
+        "mismatched_skill_ids": sorted(
+            skill_id
+            for skill_id, actual in installed.items()
+            if actual != expected_hashes[skill_id]
+        ),
+    }
+
+
 def render_agent(source: Path, destination: Path, skill_path: Path) -> None:
     text = source.read_text(encoding="utf-8")
     temporary_rule = '    "/tmp/opencode-acceptance-*/config/skills/analyze-repo-for-kubernetes/**": allow'
@@ -282,6 +338,31 @@ def isolated_config(source: Path, destination: Path, skill_path: Path) -> None:
     if not isinstance(permissions, dict):
         raise ValueError("OpenCode permission must be an object")
     permissions["external_directory"] = {f"{skill_path.resolve().as_posix()}/**": "allow"}
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(
+        json.dumps(config, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def isolated_config_bundle(source: Path, destination: Path, config_dir: Path) -> None:
+    """Write an isolated OpenCode config with the exact installed Skill roots."""
+    config = load_json(source)
+    if not isinstance(config, dict):
+        raise ValueError("OpenCode config must be a JSON object")
+    permissions = config.setdefault("permission", {})
+    if not isinstance(permissions, dict):
+        raise ValueError("OpenCode permission must be an object")
+    permissions["external_directory"] = {
+        f"{path.resolve().as_posix()}/**": "allow"
+        for path in bundle_skill_paths(config_dir)
+    }
+    mcp = config.setdefault("mcp", {})
+    if not isinstance(mcp, dict):
+        raise ValueError("OpenCode mcp must be an object")
+    mcp["analysis"] = render_opencode_mcp_fragment(
+        config_dir / "analyze-repo-for-kubernetes" / "runtime"
+    )["mcp"]["analysis"]
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
         json.dumps(config, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -362,6 +443,36 @@ def event_lines(stdout: str) -> list[dict[str, Any]]:
         if isinstance(value, dict):
             events.append(redact(value))
     return events
+
+
+def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
+    """Reject deterministic traces that load an undeclared future stage or reference."""
+    errors: list[str] = []
+    loaded: list[str] = []
+    current_skill: str | None = None
+    for event in events:
+        tool = event.get("tool")
+        arguments = event.get("input", {})
+        if tool == "skill" and isinstance(arguments, dict):
+            skill_id = arguments.get("name")
+            if skill_id not in BUNDLE_SKILL_IDS:
+                errors.append("undeclared Skill load")
+                continue
+            loaded.append(skill_id)
+            current_skill = skill_id
+            if loaded[0] != SKILL_ID:
+                errors.append("dispatcher must be the first loaded Skill")
+            if len(loaded) == 2 and loaded[1] != "analyze-k8s-discovery":
+                errors.append("only discovery may follow the start handoff")
+            if len(loaded) > 2:
+                errors.append("skeletal stages must stop before another Skill loads")
+        if tool in {"read", "skill"} and isinstance(arguments, dict):
+            path = arguments.get("path") or arguments.get("filePath")
+            if isinstance(path, str) and "analyze-k8s-" in path:
+                stage_path = next((skill_id for skill_id in BUNDLE_SKILL_IDS[1:] if skill_id in path), None)
+                if stage_path is not None and stage_path != current_skill:
+                    errors.append("future Skill reference read")
+    return errors
 
 
 def output_text(value: str | bytes | None) -> str:
@@ -1219,14 +1330,15 @@ def main() -> int:
         config_path: Path | None = None
         installed_skill: Path | None = None
         agent_path: Path | None = None
+        installed_bundle: Path | None = None
         if isolated:
             assert config_dir is not None
             installed_skill = config_dir / "skills" / SKILL_ID
+            installed_bundle = copy_bundle(ROOT, temporary_root / "bundle")
+            install_bundle(installed_bundle, config_dir)
             config_path = temporary_root / "runtime" / "opencode.json"
-            copy_skill(ROOT, installed_skill)
-            isolated_config(source_config, config_path, installed_skill)
-            agent_path = config_dir / "agents" / f"{AGENT_ID}.md"
-            render_agent(ROOT / "runtime/agents/kubernetes-migration-analyzer.md", agent_path, installed_skill)
+            isolated_config_bundle(source_config, config_path, config_dir)
+            agent_path = config_dir / "agent" / f"{AGENT_ID}.md"
             home.mkdir(parents=True, exist_ok=True)
         else:
             # User mode is intentionally read-only with respect to all config
@@ -1246,7 +1358,11 @@ def main() -> int:
         log_root = output_dir / "logs"
         environment = profile_environment(args.mode, config_path, config_dir, home, log_root)
         paths = profile_paths(args.mode, profile_target, home, config_path, config_dir, output_dir)
-        audit = discovery_audit(ROOT, home, config_dir, profile_target, args.mode)
+        audit = (
+            discovery_audit_bundle(installed_bundle, config_dir, profile_target, args.mode)
+            if installed_bundle is not None
+            else discovery_audit(ROOT, home, config_dir, profile_target, args.mode)
+        )
         audit["config"] = config_audit(config_path, agent_path, installed_skill)
         paths["model"] = args.model or audit["config"].get("model")
         paths["provider"] = audit["config"].get("provider")

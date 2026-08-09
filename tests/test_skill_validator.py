@@ -4,6 +4,7 @@ import unittest
 import json
 
 from scripts import validate_skill
+from scripts import build_dist
 
 
 DESCRIPTION = (
@@ -93,6 +94,15 @@ class SkillValidatorTests(unittest.TestCase):
         errors = validate_skill.validate(root)
 
         self.assertTrue(any("fence" in error for error in errors))
+
+    def test_static_bundle_with_exact_projected_stage_contracts_passes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "bundle"
+            build_dist.build(Path(__file__).resolve().parents[1], root)
+
+            errors = validate_skill.validate_bundle(root)
+
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

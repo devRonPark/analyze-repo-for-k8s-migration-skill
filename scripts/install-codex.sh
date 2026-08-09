@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_ROOT="${1:-$HOME/.agents/skills}"
-TARGET_DIR="$TARGET_ROOT/analyze-repo-for-kubernetes"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+CONFIG_ROOT="${CODEX_HOME:-$HOME/.codex}"
+TEMPORARY_ROOT="$(mktemp -d)"
+trap 'rm -rf "$TEMPORARY_ROOT"' EXIT
 
-mkdir -p "$TARGET_ROOT"
-rm -rf "$TARGET_DIR"
-cp -R "$SOURCE_DIR" "$TARGET_DIR"
+python3 "$SOURCE_DIR/scripts/build_dist.py" --source-root "$SOURCE_DIR" --output "$TEMPORARY_ROOT/bundle"
+python3 "$SOURCE_DIR/scripts/install_distribution.py" --bundle "$TEMPORARY_ROOT/bundle" --config-root "$CONFIG_ROOT"
 
-echo "설치 완료: $TARGET_DIR"
-echo "스킬이 자동으로 표시되지 않으면 Codex를 다시 시작하세요."
+echo "Codex bundle 설치 완료: $CONFIG_ROOT/skills"
+echo "MCP fragment: $CONFIG_ROOT/analyze-repo-for-kubernetes/opencode-mcp.json"

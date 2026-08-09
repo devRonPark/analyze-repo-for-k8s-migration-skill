@@ -13,6 +13,29 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class OpenCodeAdapterTests(unittest.TestCase):
+    def test_bundle_adapter_installs_exact_skills_and_grants_all_static_roots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_root = root / "config"
+            bundle = adapter.copy_bundle(ROOT, root / "bundle")
+            adapter.install_bundle(bundle, config_root)
+            config = root / "runtime" / "opencode.json"
+            adapter.isolated_config_bundle(ROOT / "runtime/opencode.json", config, config_root)
+
+            payload = json.loads(config.read_text(encoding="utf-8"))
+            audit = adapter.discovery_audit_bundle(bundle, config_root, root / "target", "isolated")
+
+        self.assertEqual(audit["observed_skill_ids"], sorted(adapter.BUNDLE_SKILL_IDS))
+        self.assertEqual(audit["missing_skill_ids"], [])
+        self.assertEqual(audit["unexpected_skill_ids"], [])
+        self.assertEqual(audit["mismatched_skill_ids"], [])
+        self.assertEqual(
+            set(payload["permission"]["external_directory"]),
+            {f"{path.as_posix()}/**" for path in adapter.bundle_skill_paths(config_root)},
+        )
+        launcher = payload["mcp"]["analysis"]["command"][1]
+        self.assertTrue(Path(launcher).is_absolute())
+
     def test_isolated_config_allows_only_the_actual_temporary_skill_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -34,8 +57,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
             agent = root / "config" / "agents" / f"{adapter.AGENT_ID}.md"
             adapter.render_agent(ROOT / "runtime/agents/kubernetes-migration-analyzer.md", agent, skill)
             text = agent.read_text(encoding="utf-8")
-            self.assertIn(f'"{skill.resolve().as_posix()}/**": allow', text)
-            self.assertNotIn("/tmp/opencode-acceptance-*/config/skills", text)
+            self.assertNotIn("external_directory:", text)
             self.assertNotIn('"$HOME/.config/opencode/skills', text)
             self.assertNotIn('"$HOME/.agents/skills', text)
             self.assertNotIn('"$HOME/.claude/skills', text)
@@ -80,9 +102,9 @@ class OpenCodeAdapterTests(unittest.TestCase):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
         self.assertIn("mode: primary", agent)
         self.assertIn("analyze-repo-for-kubernetes: allow", agent)
-        self.assertIn("start_analysis", agent)
-        self.assertIn("read_evidence", agent)
-        self.assertIn("get_target_git_metadata", agent)
+        self.assertIn("dispatcher Skill", agent)
+        for skill_id in adapter.BUNDLE_SKILL_IDS:
+            self.assertIn(f"{skill_id}: allow", agent)
 
     def test_e2e_agent_has_bounded_summary_and_no_target_shell_rules(self):
         config = json.loads((ROOT / "runtime/opencode.json").read_text(encoding="utf-8"))
@@ -90,28 +112,21 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertEqual(bash_rules, {"*": "deny"})
 
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertRegex(agent, r"(?m)^steps:\s+64$")
-        self.assertIn("## Observe", agent)
-        self.assertIn("`read_evidence`", agent)
-        self.assertIn("`locate_evidence`", agent)
-        self.assertIn("## Report", agent)
+        self.assertIn("mode: primary", agent)
+        self.assertIn("only analysis MCP tools", agent)
+        self.assertIn("Never edit, execute, or install in the target", agent)
 
     def test_summary_and_detailed_routing_are_explicit(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("Skill as the routing owner", agent)
-        self.assertIn("default mode", agent)
-        self.assertIn("explicit Detailed request", agent)
-        self.assertIn("selected template", agent)
+        dispatcher = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("Default the mode to\nsummary", dispatcher)
+        self.assertIn("detailed only when the request explicitly asks", dispatcher)
+        self.assertIn("start_analysis once", dispatcher)
 
     def test_summary_prompt_requires_finalized_markdown_contract(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("Do not send a final answer before", agent)
-        self.assertIn("`finalize_analysis`", agent)
-        self.assertIn("# Kubernetes 설계 입력 요약", agent)
-        self.assertIn("exactly one complete Markdown report", agent)
-        self.assertNotIn("final assistant response must be exactly one JSON object", agent)
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("progress\nupdates are allowed", skill)
+        dispatcher = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("After finalize_analysis succeeds", dispatcher)
+        self.assertIn("relay only its Markdown content unchanged", dispatcher)
+        self.assertNotIn("JSON", dispatcher)
 
     def test_detailed_output_has_compact_decision_summary_rules(self):
         template = (ROOT / "assets/migration-assessment-template.md").read_text(encoding="utf-8")
@@ -120,25 +135,32 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertNotIn("| 연결 workload |", template)
 
     def test_detailed_final_output_uses_the_finalized_markdown_contract(self):
-        agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("explicit Detailed request begin exactly with", agent)
-        self.assertIn("# Kubernetes 설계 입력 상세 평가", agent)
-        self.assertIn("Finalize only", agent)
+        finalizer = (ROOT / "runtime/stage-skills/analyze-k8s-finalize/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("not enabled yet", finalizer)
+        self.assertNotIn("finalize_analysis", finalizer)
 
-    def test_agent_requires_high_signal_runtime_conflict_and_seed_checks(self):
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        for text in (
-            "`상충됨` and a keyed blocker",
-            "An explicit image tag is a fact",
-            "credential-shaped seed record by location and risk",
-            "PersistentVolume, StatefulSet, or an external",
-        ):
-            self.assertIn(text, skill)
-        self.assertIn("Embedded startup\ndata alone does not evidence a PersistentVolume", skill)
-        summary = (ROOT / "assets/migration-summary-template.md").read_text(encoding="utf-8")
-        self.assertIn("embedded database is a runtime dependency", summary)
-        self.assertNotIn("| <설계 차단|설계 결정|배포 입력|권장 사항>", summary)
-        self.assertIn("Completion gate", skill)
+    def test_stage_skeletons_use_leading_words_and_opaque_handoffs(self):
+        discovery = (ROOT / "runtime/stage-skills/analyze-k8s-discovery/SKILL.md").read_text(encoding="utf-8")
+        execution = (ROOT / "runtime/stage-skills/analyze-k8s-execution/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("Vertical Slice", discovery)
+        self.assertIn("Grounding", discovery)
+        self.assertIn("Quality Gate", execution)
+        self.assertIn("incoming handoff only", discovery)
+        for text in (discovery, execution):
+            self.assertIn("do not read", text)
+            self.assertNotIn("submit_", text)
+
+    def test_progressive_disclosure_events_allow_only_dispatcher_then_discovery(self):
+        valid = [
+            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-repo-for-kubernetes"}},
+            {"type": "tool_use", "tool": "start_analysis", "input": {}},
+            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-discovery"}},
+        ]
+        future = valid + [
+            {"type": "tool_use", "tool": "read", "input": {"path": "skills/analyze-k8s-execution/references/canary.md"}},
+        ]
+        self.assertEqual(adapter.progressive_disclosure_errors(valid), [])
+        self.assertTrue(adapter.progressive_disclosure_errors(future))
 
     def test_acceptance_cases_enforce_mode_specific_reads(self):
         cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]
@@ -169,9 +191,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
 
     def test_agent_uses_leading_word_runbook_without_static_stage_leakage(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        for heading in ("## Scope", "## Start", "## Observe", "## Submit", "## Reopen", "## Finalize", "## Report", "## Stop"):
-            self.assertIn(heading, agent)
-        self.assertIn("currently advertised `submit_*`", agent)
+        self.assertIn("Load the next Skill\nonly from a successful server handoff", agent)
         self.assertNotIn("submit_discovery", agent)
         self.assertNotIn("submit_execution", agent)
         self.assertNotIn("final assistant response must be exactly one JSON object", agent)
