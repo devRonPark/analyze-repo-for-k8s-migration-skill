@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "jpetstore-6-summary",
+      "target": "jpetstore-6",
+      "mode": "summary",
+      "golden": "static-mcp-jpetstore-6-summary-golden.md",
+      "sha256": "4cb7865998591f1e63adc01492766cb229ae26c706f89e0bd1d03234062c402c"
+    },
+    {
+      "id": "jpetstore-6-detailed",
+      "target": "jpetstore-6",
+      "mode": "detailed",
+      "golden": "static-mcp-jpetstore-6-detailed-golden.md",
+      "sha256": "52fdc15ad1f1a4ec6434d984adc6eef9aa563392865ceddd649562a37ac98ba4"
+    },
+    {
+      "id": "flask-celery-summary",
+      "target": "flask-celery",
+      "mode": "summary",
+      "golden": "static-mcp-flask-celery-summary-golden.md",
+      "sha256": "c1f367ed2286d22e68f34f59bb0efef0d94dd4967f3b9d6aaec263a18c0e4f33"
+    },
+    {
+      "id": "flask-celery-detailed",
+      "target": "flask-celery",
+      "mode": "detailed",
+      "golden": "static-mcp-flask-celery-detailed-golden.md",
+      "sha256": "05b62e94504784481b5a6febe55eb57f8dae107eb73bfef368a87403fde554c8"
+    },
+    {
+      "id": "fastapi-template-summary",
+      "target": "fastapi-template",
+      "mode": "summary",
+      "golden": "static-mcp-fastapi-template-summary-golden.md",
+      "sha256": "8ccf0ede5fd658500eabc3cc02a254878e608fc139eac035bd1e0c3e4d44f692"
+    },
+    {
+      "id": "fastapi-template-detailed",
+      "target": "fastapi-template",
+      "mode": "detailed",
+      "golden": "static-mcp-fastapi-template-detailed-golden.md",
+      "sha256": "95b30e77c34e90ee7fa98ad27f1b31baf3e8ef472cb5c5a1d0811d711e92eb31"
+    }
+  ]
+}
