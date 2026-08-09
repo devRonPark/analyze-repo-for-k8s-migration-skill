@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "catalog": "static",
+  "tools": [
+    "start_analysis",
+    "read_evidence",
+    "list_target_paths",
+    "locate_evidence",
+    "get_target_git_metadata",
+    "submit_discovery",
+    "submit_execution",
+    "submit_relationships",
+    "submit_boundaries",
+    "submit_contracts",
+    "reopen_analysis",
+    "finalize_analysis"
+  ]
+}

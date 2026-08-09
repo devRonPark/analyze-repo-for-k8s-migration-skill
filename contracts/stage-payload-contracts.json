@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "stages": {
+    "discovery": {"required": ["evidence", "claims", "signals", "candidate_ids", "decisions"], "fact_ref_fields": []},
+    "execution": {"required": ["evidence", "claims", "discovery_fact_refs", "process_ids"], "fact_ref_fields": ["discovery_fact_refs"]},
+    "relationships": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "graph_edge_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs"]},
+    "boundaries": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "unit_ids", "deployable_unit_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs"]},
+    "contracts": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "boundaries_fact_refs", "contract_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "boundaries_fact_refs"]}
+  }
+}
