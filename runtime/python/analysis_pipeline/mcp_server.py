@@ -53,6 +53,8 @@ class Server:
                 return {"metadata": git_metadata(self.session.target_root)}, False
             if name == "submit_discovery":
                 return self.session.submit_discovery(arguments), False
+            if name == "submit_execution":
+                return self.session.submit_execution(arguments), False
             if name in STAGE_TOOL_BY_STAGE.values():
                 self.session.assert_envelope(arguments)
                 return self._error("stage_not_ready", "stage_payload_validation_is_not_delivered"), True

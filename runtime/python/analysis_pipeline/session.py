@@ -7,7 +7,14 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .observations import ObservationRegistry, TargetSnapshot
-from .stage_contracts import promote_discovery_facts, project_discovery_handoff, validate_discovery_payload
+from .stage_contracts import (
+    promote_discovery_facts,
+    promote_execution_facts,
+    project_discovery_handoff,
+    project_execution_handoff,
+    validate_discovery_payload,
+    validate_execution_payload,
+)
 from .state import ANALYSIS_STAGES, PipelineState, create_state
 
 
@@ -140,6 +147,29 @@ class AnalysisSession:
         self.transition_token = self._token()
         return self.handoff("discovery")
 
+    def submit_execution(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        self.assert_envelope(arguments)
+        if self.current_stage != "execution":
+            raise ValueError("stage_order")
+        assert self.registry is not None
+        assert self.snapshot is not None
+        assert self.binding is not None
+        assert self.pipeline is not None
+        discovery_input = project_discovery_handoff(self.pipeline)
+        payload = validate_execution_payload(
+            arguments.get("payload"),
+            self.registry,
+            self.snapshot,
+            self.binding,
+            discovery_input["discovery_fact_refs"],
+        )
+        next_pipeline = promote_execution_facts(self.pipeline, payload)
+        self.pipeline = next_pipeline
+        self.current_stage = next_pipeline.current_stage
+        self.revision = next_pipeline.revision
+        self.transition_token = self._token()
+        return self.handoff("execution")
+
     def handoff(self, completed_stage: str | None) -> dict[str, Any]:
         if not self.active or self.mode is None or self.transition_token is None or self.current_stage is None:
             raise ValueError("analysis_not_started")
@@ -150,6 +180,10 @@ class AnalysisSession:
         elif self.current_stage == "execution":
             assert self.pipeline is not None
             accepted_output = project_discovery_handoff(self.pipeline)
+            stage_input.update(accepted_output)
+        elif self.current_stage == "relationships":
+            assert self.pipeline is not None
+            accepted_output = project_execution_handoff(self.pipeline)
             stage_input.update(accepted_output)
         return {
             "status": "accepted",

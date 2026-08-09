@@ -11,7 +11,7 @@ CLAIM_STATUSES = {"confirmed", "inferred", "unknown", "conflicted", "not_applica
 
 ALLOWED_STAGE_FIELDS = {
     "discovery": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "signals", "candidate_ids", "decisions"},
-    "execution": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "process_ids"},
+    "execution": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "discovery_fact_refs", "process_ids"},
     "relationships": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "graph_edge_ids"},
     "boundaries": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "unit_ids", "deployable_unit_ids", "decisions"},
     "contracts": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "contract_ids"},

@@ -14,7 +14,19 @@
       },
       "accepted_output": ["candidate_ids", "discovery_fact_refs", "unknown_ids"]
     },
-    "execution": {"required": ["evidence", "claims", "discovery_fact_refs", "process_ids"], "fact_ref_fields": ["discovery_fact_refs"]},
+    "execution": {
+      "required": ["evidence", "claims", "discovery_fact_refs", "process_ids"],
+      "fact_ref_fields": ["discovery_fact_refs"],
+      "client_payload": {
+        "schema_version": 1,
+        "stage": "execution",
+        "required": ["schema_version", "stage", "evidence", "claims", "rule_applications", "discovery_fact_refs", "process_ids"],
+        "evidence": {"alias": "identifier", "observation_ref": "opaque observation reference"},
+        "claims": {"id": "identifier", "status": "confirmed|inferred|unknown|conflicted|not_applicable", "evidence_aliases": ["identifier"]},
+        "rule_applications": {"rule_id": "identifier", "evidence_aliases": ["identifier"], "process_or_candidate_ids": ["identifier"], "decision_id": "identifier"}
+      },
+      "accepted_output": ["process_ids", "execution_fact_refs", "unknown_ids"]
+    },
     "relationships": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "graph_edge_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs"]},
     "boundaries": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "unit_ids", "deployable_unit_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs"]},
     "contracts": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "boundaries_fact_refs", "contract_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "boundaries_fact_refs"]}

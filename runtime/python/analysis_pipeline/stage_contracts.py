@@ -26,6 +26,20 @@ def stage_contract(stage: str, path: Path = CONTRACT_PATH) -> dict[str, Any]:
         raise ValueError("unknown_stage_contract") from exc
 
 
+def client_payload_required_fields(stage: str) -> set[str]:
+    """Read the required client fields from the sealed stage contract."""
+    payload = stage_contract(stage).get("client_payload")
+    required = payload.get("required") if isinstance(payload, Mapping) else None
+    if not isinstance(required, list) or not required or any(not isinstance(field, str) for field in required):
+        raise ValueError("invalid_stage_payload_contract")
+    return set(required)
+
+
+def _require_contract_fields(stage: str, payload: Mapping[str, Any]) -> None:
+    if missing := client_payload_required_fields(stage).difference(payload):
+        raise ValueError(f"missing {stage} payload field")
+
+
 _IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
 
 
@@ -46,12 +60,7 @@ def validate_discovery_payload(
     """Resolve Discovery aliases strictly to process-private observations."""
     if not isinstance(payload, Mapping):
         raise ValueError("payload must be object")
-    required = {
-        "schema_version", "stage", "evidence", "claims", "rule_applications",
-        "signals", "candidate_ids", "decisions",
-    }
-    if missing := required.difference(payload):
-        raise ValueError("missing discovery payload field")
+    _require_contract_fields("discovery", payload)
     raw_evidence = payload.get("evidence")
     if not isinstance(raw_evidence, list) or not raw_evidence:
         raise ValueError("discovery requires trusted evidence")
@@ -89,4 +98,62 @@ def project_discovery_handoff(state: PipelineState) -> dict[str, list[str]]:
         "candidate_ids": list(payload.get("candidate_ids", [])),
         "discovery_fact_refs": fact_refs,
         "unknown_ids": unknown_ids,
+    }
+
+
+def validate_execution_payload(
+    payload: Mapping[str, Any],
+    registry: ObservationRegistry,
+    snapshot: TargetSnapshot,
+    binding: Mapping[str, Any],
+    discovery_fact_refs: list[str],
+) -> dict[str, Any]:
+    """Resolve Execution evidence and consume exactly the trusted discovery facts."""
+    if not isinstance(payload, Mapping):
+        raise ValueError("payload must be object")
+    _require_contract_fields("execution", payload)
+    raw_evidence = payload.get("evidence")
+    if not isinstance(raw_evidence, list) or not raw_evidence:
+        raise ValueError("execution requires trusted evidence")
+    raw_claims = payload.get("claims")
+    if not isinstance(raw_claims, list) or not raw_claims:
+        raise ValueError("execution requires grounded claims")
+    observations: dict[str, dict[str, Any]] = {}
+    for item in raw_evidence:
+        if isinstance(item, Mapping) and isinstance(item.get("observation_ref"), str):
+            reference = item["observation_ref"]
+            observations[reference] = registry.resolve(reference, "execution", snapshot)
+    normalized, _ = normalize_submission_payload(payload, observations, binding)
+    submitted_refs = normalized.get("discovery_fact_refs")
+    _require_identifier_list(normalized, "process_ids")
+    if not isinstance(submitted_refs, list) or submitted_refs != discovery_fact_refs:
+        raise ValueError("unknown discovery fact reference")
+    return normalized
+
+
+def promote_execution_facts(state: PipelineState, payload: Mapping[str, Any]) -> PipelineState:
+    """Atomically promote a validated Execution payload into trusted state."""
+    return submit(state, "execution", dict(payload), state.revision, state.state_hash)
+
+
+def project_execution_handoff(state: PipelineState) -> dict[str, list[str]]:
+    """Expose only trusted execution identifiers to the current successor."""
+    payload = state.outputs.get("execution")
+    if not isinstance(payload, Mapping):
+        raise ValueError("execution output is unavailable")
+    claims = payload.get("claims")
+    if not isinstance(claims, list):
+        raise ValueError("execution claims are unavailable")
+    return {
+        "process_ids": list(payload.get("process_ids", [])),
+        "execution_fact_refs": [
+            f"fact_execution_{claim['id']}"
+            for claim in claims
+            if isinstance(claim, Mapping) and claim.get("status") != "unknown"
+        ],
+        "unknown_ids": [
+            claim["id"]
+            for claim in claims
+            if isinstance(claim, Mapping) and claim.get("status") == "unknown"
+        ],
     }

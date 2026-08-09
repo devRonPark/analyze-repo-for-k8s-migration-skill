@@ -12,12 +12,10 @@ entrypoints, and database or broker configuration. Start from manifests and
 runtime configuration; expand to README, CI, logs, migrations, or source only
 when needed to support a candidate decision.
 
-For a Maven candidate, prioritize `pom.xml`, its adjacent wrapper and
-build/package settings, `Dockerfile`, Compose, `web.xml`, and
-`applicationContext.xml`. When a launch definition selects a profile, inspect
-that profile definition and retain conflicts rather than selecting the more
-plausible value. Keep explicit container-base-image versions separate from
-compiled-target versions.
+For a Maven candidate, prioritize `pom.xml`, its adjacent wrapper and module
+settings, `Dockerfile`, Compose, `web.xml`, and `applicationContext.xml` to
+establish candidate scope. Defer command, profile, image, port, and startup
+interpretation until the next current stage.
 
 ## Candidate decisions
 
@@ -27,10 +25,6 @@ or excluded item. Evaluate migration and initialization commands as one-time
 job candidates before exclusion. Generated output, caches, vendored code,
 binaries, and test-only dependencies are excluded unless direct evidence makes
 them runtime material.
-
-Record installation, application build, image build, and production startup as
-separate signals. A local Compose definition, source default, or development
-script is not production operating evidence. Do not invent operating values.
 
 For an unknown claim, use a scoped absence observation and name the decision it
 blocks. For confirmed or inferred claims, use only the alias returned by an

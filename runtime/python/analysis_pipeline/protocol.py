@@ -97,7 +97,12 @@ TOOLS.extend(
             "Submit only when the current Discovery Vertical Slice has grounded its candidate claims. "
             "Submit observation aliases, never raw repository evidence."
             if stage == "discovery"
-            else f"Submit the current {stage} Vertical Slice with trusted observations."
+            else (
+                "Submit only when the current Execution Vertical Slice has grounded its build, runtime, startup, image, or port claims. "
+                "Submit observation aliases, never raw repository evidence."
+                if stage == "execution"
+                else f"Submit the current {stage} Vertical Slice with trusted observations."
+            )
         ),
         list(_ENVELOPE),
         dict(_ENVELOPE),

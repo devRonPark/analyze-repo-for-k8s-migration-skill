@@ -33,9 +33,13 @@ SKILL_POLICIES = {
         "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_discovery"],
         "references": ["references/workflow.md", "references/language-discovery-rules.md", "references/payload-contract.json"],
     },
+    "analyze-k8s-execution": {
+        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_execution"],
+        "references": ["references/execution-rules.md", "references/payload-contract.json"],
+    },
     **{
         f"analyze-k8s-{stage}": {"tools": [], "references": ["references/payload-contract.json"]}
-        for stage in STAGE_IDS if stage != "discovery"
+        for stage in STAGE_IDS if stage not in {"discovery", "execution"}
     },
     "analyze-k8s-finalize": {"tools": [], "references": []},
 }

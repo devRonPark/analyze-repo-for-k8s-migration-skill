@@ -2,49 +2,38 @@
 
 Load this reference only after a language signal is confirmed.
 
-## Shared command boundary
-
-Keep dependency installation, application build, image build, and production
-startup as four distinct facts. A dependency install is not an application
-build; an application build is not image creation; a development server is not
-production startup.
-
 ## Node.js and TypeScript
 
 Inspect the nearest component `package.json`, workspace declaration, framework
-configuration, source entrypoint, environment access, and scripts. Prefer the
+configuration, and source entrypoint to establish component scope. Prefer the
 component `packageManager`, then its owning workspace declaration, then the
-nearest manifest; use a matching lockfile only when that boundary remains
-ambiguous. Report conflicting equally-applicable signals without resolving them.
+nearest manifest. Use a matching lockfile only when the component boundary is
+ambiguous. Keep equally-applicable package-manager signals visible.
 
 ## Python
 
 Inspect `pyproject.toml`, requirements files, framework entrypoints, WSGI or
-ASGI configuration, settings modules, migration tools, and startup scripts.
-Do not treat a development server as production process evidence.
+ASGI configuration, settings modules, and migration tools to establish scope.
 
 ## Go
 
-Inspect `go.mod`, `cmd/`, main packages, flags, environment access, embedded
-assets, server binding code, and build workflows.
+Inspect `go.mod`, `cmd/`, and main packages to establish scope.
 
 ## Java and Kotlin
 
 Inspect adjacent Maven or Gradle wrappers and build files, module settings,
-application configuration, main classes, profiles, ports, and executable
-packaging. Determine module scope before selecting a toolchain. When Maven and
-Gradle coexist, preserve both scopes unless evidence excludes one.
+application configuration, and main classes. Determine module scope before
+selecting a toolchain. When Maven and Gradle coexist, preserve both scopes
+unless evidence excludes one.
 
 ## Other languages
 
-For .NET inspect solutions/projects, `Program.cs`, and hosting configuration;
-launch settings are development evidence. For Rust inspect `Cargo.toml`,
-workspace members, binaries, features, configuration loading, and server
-binding. For any other language, identify the nearest manifest, entrypoint,
-runtime configuration, and executable command before deciding candidacy.
+For .NET inspect solutions/projects and `Program.cs`. For Rust inspect
+`Cargo.toml`, workspace members, and binaries. For any other language, identify
+the nearest manifest and entrypoint before deciding candidacy.
 
 ## Evidence limits
 
-A dependency declaration does not prove runtime use. Framework defaults may
-support an inferred finding but never a confirmed finding without repository
-evidence.
+A dependency declaration alone does not prove that an item is deployable.
+Framework defaults may support an inferred candidate signal but never a
+confirmed runtime fact without repository evidence.
