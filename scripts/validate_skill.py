@@ -39,9 +39,13 @@ BUNDLE_SKILL_IDS = (
 BUNDLE_STAGE_IDS = ("discovery", "execution", "relationships", "boundaries", "contracts")
 BUNDLE_SKILL_POLICIES = {
     "analyze-repo-for-kubernetes": {"tools": ["start_analysis"], "references": []},
+    "analyze-k8s-discovery": {
+        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_discovery"],
+        "references": ["references/workflow.md", "references/language-discovery-rules.md", "references/payload-contract.json"],
+    },
     **{
         f"analyze-k8s-{stage}": {"tools": [], "references": ["references/payload-contract.json"]}
-        for stage in BUNDLE_STAGE_IDS
+        for stage in BUNDLE_STAGE_IDS if stage != "discovery"
     },
     "analyze-k8s-finalize": {"tools": [], "references": []},
 }

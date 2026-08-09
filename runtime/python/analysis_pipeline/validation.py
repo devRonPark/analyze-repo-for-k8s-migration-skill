@@ -245,13 +245,19 @@ def normalize_submission_payload(
 
 
 def validate_claims(payload: Mapping[str, Any]) -> None:
-    for claim in payload.get("claims", []):
+    claims = payload.get("claims")
+    if not isinstance(claims, list):
+        raise ValueError("invalid claims")
+    claim_ids: set[str] = set()
+    for claim in claims:
         if not isinstance(claim, Mapping):
             raise ValueError("invalid claim")
         ensure_exact_keys(claim, ALLOWED_CLAIM_FIELDS, "claim")
-        if not claim.get("id") or not isinstance(claim.get("evidence_ids"), list):
+        claim_id = _require_identifier(claim.get("id"), "claim id")
+        if claim_id in claim_ids or not isinstance(claim.get("evidence_ids"), list):
             raise ValueError("invalid claim")
-        if claim["status"] not in CLAIM_STATUSES:
+        claim_ids.add(claim_id)
+        if claim.get("status") not in CLAIM_STATUSES:
             raise ValueError("invalid claim status")
         if claim["status"] == "unknown":
             if not claim.get("scope") or not claim.get("blocked_decision"):

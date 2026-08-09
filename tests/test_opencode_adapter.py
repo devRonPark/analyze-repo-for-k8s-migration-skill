@@ -139,16 +139,19 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertIn("not enabled yet", finalizer)
         self.assertNotIn("finalize_analysis", finalizer)
 
-    def test_stage_skeletons_use_leading_words_and_opaque_handoffs(self):
+    def test_discovery_is_enabled_without_leaking_the_later_stage_procedure(self):
         discovery = (ROOT / "runtime/stage-skills/analyze-k8s-discovery/SKILL.md").read_text(encoding="utf-8")
         execution = (ROOT / "runtime/stage-skills/analyze-k8s-execution/SKILL.md").read_text(encoding="utf-8")
         self.assertIn("Vertical Slice", discovery)
         self.assertIn("Grounding", discovery)
         self.assertIn("Quality Gate", execution)
         self.assertIn("incoming handoff only", discovery)
-        for text in (discovery, execution):
-            self.assertIn("do not read", text)
-            self.assertNotIn("submit_", text)
+        self.assertIn("submit_discovery", discovery)
+        self.assertNotIn("reopen_analysis", discovery)
+        self.assertNotIn("analyze-k8s-execution", discovery)
+        self.assertNotIn("submit_execution", discovery)
+        self.assertIn("do not read", execution)
+        self.assertNotIn("submit_", execution)
 
     def test_progressive_disclosure_events_allow_only_dispatcher_then_discovery(self):
         valid = [
@@ -159,8 +162,18 @@ class OpenCodeAdapterTests(unittest.TestCase):
         future = valid + [
             {"type": "tool_use", "tool": "read", "input": {"path": "skills/analyze-k8s-execution/references/canary.md"}},
         ]
+        accepted = valid + [
+            {"type": "tool_use", "tool": "submit_discovery", "input": {}, "result": {"status": "accepted"}},
+            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-execution"}},
+        ]
+        unaccepted = valid + [
+            {"type": "tool_use", "tool": "submit_discovery", "input": {}, "result": {"code": "invalid"}},
+            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-execution"}},
+        ]
         self.assertEqual(adapter.progressive_disclosure_errors(valid), [])
         self.assertTrue(adapter.progressive_disclosure_errors(future))
+        self.assertEqual(adapter.progressive_disclosure_errors(accepted), [])
+        self.assertTrue(adapter.progressive_disclosure_errors(unaccepted))
 
     def test_acceptance_cases_enforce_mode_specific_reads(self):
         cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]

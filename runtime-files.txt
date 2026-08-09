@@ -29,6 +29,8 @@ runtime/python/analysis_pipeline/tools/locate_evidence.py
 runtime/python/analysis_pipeline/tools/read.py
 runtime/python/analysis_pipeline/tools/safe_paths.py
 runtime/stage-skills/analyze-k8s-discovery/SKILL.md
+runtime/stage-skills/analyze-k8s-discovery/references/workflow.md
+runtime/stage-skills/analyze-k8s-discovery/references/language-discovery-rules.md
 runtime/stage-skills/analyze-k8s-execution/SKILL.md
 runtime/stage-skills/analyze-k8s-relationships/SKILL.md
 runtime/stage-skills/analyze-k8s-boundaries/SKILL.md

@@ -33,6 +33,7 @@ class SkillBundleTests(unittest.TestCase):
         self.assertEqual(projection, source["stages"]["discovery"])
         self.assertEqual(set(manifest["skill_policies"]), set(SKILLS))
         self.assertEqual(manifest["skill_policies"]["analyze-repo-for-kubernetes"]["tools"], ["start_analysis"])
+        self.assertNotIn("reopen_analysis", manifest["skill_policies"]["analyze-k8s-discovery"]["tools"])
 
 
 if __name__ == "__main__":

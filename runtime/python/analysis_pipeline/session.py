@@ -4,10 +4,11 @@ from __future__ import annotations
 import secrets
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from .observations import ObservationRegistry, TargetSnapshot
-from .state import ANALYSIS_STAGES
+from .stage_contracts import promote_discovery_facts, project_discovery_handoff, validate_discovery_payload
+from .state import ANALYSIS_STAGES, PipelineState, create_state
 
 
 SKILL_BY_STAGE = {
@@ -15,7 +16,8 @@ SKILL_BY_STAGE = {
     "execution": "analyze-k8s-execution",
     "relationships": "analyze-k8s-relationships",
     "boundaries": "analyze-k8s-boundaries",
-    "contracts": "analyze-k8s-finalize",
+    "contracts": "analyze-k8s-contracts",
+    "finalize": "analyze-k8s-finalize",
 }
 
 
@@ -29,6 +31,8 @@ class AnalysisSession:
         self.target_subdirectory: str | None = None
         self.snapshot: TargetSnapshot | None = None
         self.registry: ObservationRegistry | None = None
+        self.binding: dict[str, Any] | None = None
+        self.pipeline: PipelineState | None = None
         self.current_stage: str | None = None
         self.revision = 0
         self.transition_token: str | None = None
@@ -98,13 +102,15 @@ class AnalysisSession:
         self.target_subdirectory = selected.relative_to(git_root).as_posix() or "."
         self.snapshot = snapshot
         self.registry = ObservationRegistry(selected, binding)
-        self.current_stage = ANALYSIS_STAGES[0]
-        self.revision = 0
+        self.binding = binding
+        self.pipeline = create_state(binding)
+        self.current_stage = self.pipeline.current_stage
+        self.revision = self.pipeline.revision
         self.transition_token = self._token()
         return self.handoff(None)
 
     def assert_active(self) -> None:
-        if not self.active or self.target_root is None or self.registry is None or self.current_stage is None:
+        if not self.active or self.target_root is None or self.registry is None or self.current_stage is None or self.snapshot is None or self.binding is None or self.pipeline is None:
             raise ValueError("analysis_not_started")
         if TargetSnapshot.capture(self.target_root).digest != self.snapshot.digest:
             raise ValueError("target_snapshot_changed")
@@ -118,16 +124,33 @@ class AnalysisSession:
         if arguments.get("transition_token") != self.transition_token:
             raise ValueError("stale_transition")
 
+    def submit_discovery(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        self.assert_envelope(arguments)
+        if self.current_stage != "discovery":
+            raise ValueError("stage_order")
+        assert self.registry is not None
+        assert self.snapshot is not None
+        assert self.binding is not None
+        assert self.pipeline is not None
+        payload = validate_discovery_payload(arguments.get("payload"), self.registry, self.snapshot, self.binding)
+        next_pipeline = promote_discovery_facts(self.pipeline, payload)
+        self.pipeline = next_pipeline
+        self.current_stage = next_pipeline.current_stage
+        self.revision = next_pipeline.revision
+        self.transition_token = self._token()
+        return self.handoff("discovery")
+
     def handoff(self, completed_stage: str | None) -> dict[str, Any]:
         if not self.active or self.mode is None or self.transition_token is None or self.current_stage is None:
             raise ValueError("analysis_not_started")
-        stage_input: dict[str, Any] = {
-            "mode": self.mode,
-            "accepted_fact_refs": [],
-            "unknown_ids": [],
-        }
+        stage_input: dict[str, Any] = {"mode": self.mode}
+        accepted_output: dict[str, Any] = {}
         if self.current_stage == "discovery":
-            stage_input["candidate_ids"] = []
+            stage_input.update({"accepted_fact_refs": [], "unknown_ids": [], "candidate_ids": []})
+        elif self.current_stage == "execution":
+            assert self.pipeline is not None
+            accepted_output = project_discovery_handoff(self.pipeline)
+            stage_input.update(accepted_output)
         return {
             "status": "accepted",
             "analysis_id": self.analysis_id,
@@ -136,6 +159,7 @@ class AnalysisSession:
             "revision": self.revision,
             "transition_token": self.transition_token,
             "next_skill": SKILL_BY_STAGE[self.current_stage],
+            "accepted_output": accepted_output,
             "stage_input": stage_input,
         }
 

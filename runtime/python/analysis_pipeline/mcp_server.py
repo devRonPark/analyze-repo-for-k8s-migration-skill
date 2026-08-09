@@ -51,6 +51,8 @@ class Server:
                 return locate_evidence(self.session.target_root, **arguments, observation_registry=self.session.registry, stage=self.session.current_stage), False
             if name == "get_target_git_metadata":
                 return {"metadata": git_metadata(self.session.target_root)}, False
+            if name == "submit_discovery":
+                return self.session.submit_discovery(arguments), False
             if name in STAGE_TOOL_BY_STAGE.values():
                 self.session.assert_envelope(arguments)
                 return self._error("stage_not_ready", "stage_payload_validation_is_not_delivered"), True
@@ -62,7 +64,7 @@ class Server:
                 return self._error("finalize_not_ready", "finalize_is_not_delivered"), True
             raise KeyError(name)
         except KeyError:
-            raise
+            return self._error("invalid_submission", "invalid_submission"), True
         except (TypeError, ValueError, OSError) as exc:
             return self._error(str(exc), str(exc)), True
 

@@ -450,9 +450,16 @@ def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
     errors: list[str] = []
     loaded: list[str] = []
     current_skill: str | None = None
+    accepted_discovery = False
     for event in events:
         tool = event.get("tool")
         arguments = event.get("input", {})
+        result = event.get("result", event.get("output", {}))
+        if tool == "submit_discovery":
+            if current_skill != "analyze-k8s-discovery":
+                errors.append("discovery submit was called outside the discovery Skill")
+            elif isinstance(result, dict) and result.get("status") == "accepted":
+                accepted_discovery = True
         if tool == "skill" and isinstance(arguments, dict):
             skill_id = arguments.get("name")
             if skill_id not in BUNDLE_SKILL_IDS:
@@ -464,8 +471,12 @@ def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
                 errors.append("dispatcher must be the first loaded Skill")
             if len(loaded) == 2 and loaded[1] != "analyze-k8s-discovery":
                 errors.append("only discovery may follow the start handoff")
-            if len(loaded) > 2:
-                errors.append("skeletal stages must stop before another Skill loads")
+            if len(loaded) == 3 and loaded[2] != "analyze-k8s-execution":
+                errors.append("only an accepted discovery handoff may load execution")
+            if len(loaded) == 3 and not accepted_discovery:
+                errors.append("execution was loaded without an accepted discovery handoff")
+            if len(loaded) > 3:
+                errors.append("later skeletal stages must stop before another Skill loads")
         if tool in {"read", "skill"} and isinstance(arguments, dict):
             path = arguments.get("path") or arguments.get("filePath")
             if isinstance(path, str) and "analyze-k8s-" in path:

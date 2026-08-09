@@ -29,9 +29,13 @@ SKILL_IDS = (
 STAGE_IDS = tuple(skill.removeprefix("analyze-k8s-") for skill in SKILL_IDS[1:] if skill != "analyze-k8s-finalize")
 SKILL_POLICIES = {
     "analyze-repo-for-kubernetes": {"tools": ["start_analysis"], "references": []},
+    "analyze-k8s-discovery": {
+        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_discovery"],
+        "references": ["references/workflow.md", "references/language-discovery-rules.md", "references/payload-contract.json"],
+    },
     **{
         f"analyze-k8s-{stage}": {"tools": [], "references": ["references/payload-contract.json"]}
-        for stage in STAGE_IDS
+        for stage in STAGE_IDS if stage != "discovery"
     },
     "analyze-k8s-finalize": {"tools": [], "references": []},
 }

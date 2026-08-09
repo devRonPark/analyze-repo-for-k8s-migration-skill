@@ -35,7 +35,7 @@ ERROR_SCHEMA = {
 HANDOFF_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["status", "analysis_id", "mode", "completed_stage", "revision", "transition_token", "next_skill", "stage_input"],
+    "required": ["status", "analysis_id", "mode", "completed_stage", "revision", "transition_token", "next_skill", "accepted_output", "stage_input"],
     "properties": {
         "status": {"const": "accepted"},
         "analysis_id": {"type": "string", "pattern": "^an_[A-Za-z0-9_-]{8,}$"},
@@ -44,6 +44,7 @@ HANDOFF_SCHEMA = {
         "revision": {"type": "integer", "minimum": 0},
         "transition_token": {"type": "string", "pattern": "^tr_[A-Za-z0-9_-]{8,}$"},
         "next_skill": {"type": "string"},
+        "accepted_output": {"type": "object"},
         "stage_input": {"type": "object"},
     },
 }
@@ -92,7 +93,12 @@ TOOLS = [
 TOOLS.extend(
     _tool(
         STAGE_TOOL_BY_STAGE[stage],
-        f"Submit the current {stage} Vertical Slice with trusted observations.",
+        (
+            "Submit only when the current Discovery Vertical Slice has grounded its candidate claims. "
+            "Submit observation aliases, never raw repository evidence."
+            if stage == "discovery"
+            else f"Submit the current {stage} Vertical Slice with trusted observations."
+        ),
         list(_ENVELOPE),
         dict(_ENVELOPE),
     )

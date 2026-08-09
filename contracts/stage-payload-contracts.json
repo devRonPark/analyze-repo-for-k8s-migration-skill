@@ -1,7 +1,19 @@
 {
   "version": "1.0",
   "stages": {
-    "discovery": {"required": ["evidence", "claims", "signals", "candidate_ids", "decisions"], "fact_ref_fields": []},
+    "discovery": {
+      "required": ["evidence", "claims", "signals", "candidate_ids", "decisions"],
+      "fact_ref_fields": [],
+      "client_payload": {
+        "schema_version": 1,
+        "stage": "discovery",
+        "required": ["schema_version", "stage", "evidence", "claims", "rule_applications", "signals", "candidate_ids", "decisions"],
+        "evidence": {"alias": "identifier", "observation_ref": "opaque observation reference"},
+        "claims": {"id": "identifier", "status": "confirmed|inferred|unknown|conflicted|not_applicable", "evidence_aliases": ["identifier"]},
+        "rule_applications": {"rule_id": "identifier", "evidence_aliases": ["identifier"], "process_or_candidate_ids": ["identifier"], "decision_id": "identifier"}
+      },
+      "accepted_output": ["candidate_ids", "discovery_fact_refs", "unknown_ids"]
+    },
     "execution": {"required": ["evidence", "claims", "discovery_fact_refs", "process_ids"], "fact_ref_fields": ["discovery_fact_refs"]},
     "relationships": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "graph_edge_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs"]},
     "boundaries": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "unit_ids", "deployable_unit_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs"]},
