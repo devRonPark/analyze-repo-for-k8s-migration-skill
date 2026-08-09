@@ -17,6 +17,10 @@ class RelationshipsStageTests(unittest.TestCase):
         target.mkdir(parents=True)
         (target / "Dockerfile").write_text("FROM python:3.13\nCMD [\"python\", \"app.py\"]\n", encoding="utf-8")
         (target / "app.py").write_text("print('ready')\n", encoding="utf-8")
+        for index in range(1, 6):
+            (target / f"contract-evidence-{index}.txt").write_text(
+                f"contract evidence {index}\n", encoding="utf-8"
+            )
         subprocess.run(["git", "init"], cwd=target, check=True, capture_output=True)
         subprocess.run(["git", "add", "."], cwd=target, check=True, capture_output=True)
         subprocess.run(

@@ -59,6 +59,8 @@ class Server:
                 return self.session.submit_relationships(arguments), False
             if name == "submit_boundaries":
                 return self.session.submit_boundaries(arguments), False
+            if name == "submit_contracts":
+                return self.session.submit_contracts(arguments), False
             if name in STAGE_TOOL_BY_STAGE.values():
                 self.session.assert_envelope(arguments)
                 return self._error("stage_not_ready", "stage_payload_validation_is_not_delivered"), True

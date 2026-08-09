@@ -19,7 +19,7 @@ ALLOWED_STAGE_FIELDS = {
         "discovery_fact_refs", "execution_fact_refs", "graph_edges", "graph_edge_ids",
     },
     "boundaries": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "workload_units", "candidate_exclusions", "unit_ids", "deployable_unit_ids", "included_candidate_ids", "excluded_candidate_ids", "decisions"},
-    "contracts": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "contract_ids"},
+    "contracts": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "boundaries_fact_refs", "report_slots", "contract_ids", "report_slot_ids"},
 }
 
 ALLOWED_CLAIM_FIELDS = {"id", "status", "evidence_ids", "scope", "blocked_decision"}

@@ -257,7 +257,15 @@ def copy_skill(source_root: Path, destination: Path) -> None:
     destination.mkdir(parents=True, exist_ok=True)
     for entry in entries:
         source = source_root / entry
-        target = destination / entry
+        relative = Path(entry)
+        # This legacy dispatcher-only fixture is not the seven-Skill bundle.
+        # Flatten the otherwise redundant `runtime/` prefix for stage files so
+        # its Windows temporary path remains below MAX_PATH.
+        target = (
+            destination / "stage-skills" / Path(*relative.parts[2:])
+            if relative.parts[:2] == ("runtime", "stage-skills")
+            else destination / relative
+        )
         if not source.is_file():
             raise FileNotFoundError(f"runtime Skill file is missing: {source}")
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -454,6 +462,7 @@ def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
     accepted_execution = False
     accepted_relationships = False
     accepted_boundaries = False
+    accepted_contracts = False
     for event in events:
         tool = event.get("tool")
         arguments = event.get("input", {})
@@ -478,6 +487,11 @@ def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
                 errors.append("boundaries submit was called outside the boundaries Skill")
             elif isinstance(result, dict) and result.get("status") == "accepted":
                 accepted_boundaries = True
+        if tool == "submit_contracts":
+            if current_skill != "analyze-k8s-contracts":
+                errors.append("contracts submit was called outside the contracts Skill")
+            elif isinstance(result, dict) and result.get("status") == "accepted":
+                accepted_contracts = True
         if tool == "skill" and isinstance(arguments, dict):
             skill_id = arguments.get("name")
             if skill_id not in BUNDLE_SKILL_IDS:
@@ -505,8 +519,12 @@ def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
                 errors.append("only an accepted boundaries handoff may load contracts")
             if len(loaded) == 6 and not accepted_boundaries:
                 errors.append("contracts was loaded without an accepted boundaries handoff")
-            if len(loaded) > 6:
-                errors.append("later skeletal stages must stop before another Skill loads")
+            if len(loaded) == 7 and loaded[6] != "analyze-k8s-finalize":
+                errors.append("only an accepted contracts handoff may load finalize")
+            if len(loaded) == 7 and not accepted_contracts:
+                errors.append("finalize was loaded without an accepted contracts handoff")
+            if len(loaded) > 7:
+                errors.append("no additional Skill may load after finalize")
         if tool in {"read", "skill"} and isinstance(arguments, dict):
             path = arguments.get("path") or arguments.get("filePath")
             if isinstance(path, str) and "analyze-k8s-" in path:

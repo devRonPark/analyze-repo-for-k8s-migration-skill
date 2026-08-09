@@ -7,6 +7,7 @@ contracts/mcp-static-catalog.json
 contracts/project-metadata.json
 contracts/skill-bundle-manifest.schema.json
 contracts/stage-payload-contracts.json
+contracts/accepted-report-state.schema.json
 runtime/agents/kubernetes-migration-analyzer.md
 runtime/commands/analyze-repo-for-kubernetes.md
 runtime/python/launch_mcp.py
@@ -38,4 +39,7 @@ runtime/stage-skills/analyze-k8s-relationships/references/dependency-analysis.md
 runtime/stage-skills/analyze-k8s-boundaries/SKILL.md
 runtime/stage-skills/analyze-k8s-boundaries/references/workload-boundary.md
 runtime/stage-skills/analyze-k8s-contracts/SKILL.md
+runtime/stage-skills/analyze-k8s-contracts/references/configuration-timing.md
+runtime/stage-skills/analyze-k8s-contracts/references/evidence-and-readiness.md
+runtime/stage-skills/analyze-k8s-contracts/references/repository-analysis-checklist.md
 runtime/stage-skills/analyze-k8s-finalize/SKILL.md

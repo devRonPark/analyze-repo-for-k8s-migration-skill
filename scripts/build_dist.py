@@ -45,9 +45,9 @@ SKILL_POLICIES = {
         "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_boundaries"],
         "references": ["references/workload-boundary.md", "references/payload-contract.json"],
     },
-    **{
-        f"analyze-k8s-{stage}": {"tools": [], "references": ["references/payload-contract.json"]}
-        for stage in STAGE_IDS if stage not in {"discovery", "execution", "relationships", "boundaries"}
+    "analyze-k8s-contracts": {
+        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_contracts"],
+        "references": ["references/configuration-timing.md", "references/evidence-and-readiness.md", "references/repository-analysis-checklist.md", "references/report-slots.json", "references/payload-contract.json"],
     },
     "analyze-k8s-finalize": {"tools": [], "references": []},
 }
@@ -70,6 +70,10 @@ def project_contracts(root: Path, skills: Path) -> None:
         path = skills / f"analyze-k8s-{stage}" / "references" / "payload-contract.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(source["stages"][stage], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    report_slots = json.loads((root / "contracts" / "accepted-report-state.schema.json").read_text(encoding="utf-8"))
+    report_path = skills / "analyze-k8s-contracts" / "references" / "report-slots.json"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(report_slots, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def declared_runtime_files(root: Path) -> list[Path]:

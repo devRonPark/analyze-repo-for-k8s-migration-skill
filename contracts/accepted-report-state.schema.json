@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "report_slot": {
+    "id": "identifier",
+    "status": "confirmed|inferred|unknown|conflicted|not_applicable",
+    "fact_refs": ["accepted prior fact reference"],
+    "claim_ids": ["current contracts claim identifier"]
+  },
+  "slot_definitions": {
+    "deployment_targets": {"allowed_fact_stages": ["discovery"]},
+    "build_image_start": {"allowed_fact_stages": ["execution"]},
+    "reachable_port_or_path": {"allowed_fact_stages": ["execution"]},
+    "runtime_dependencies_state": {"allowed_fact_stages": ["relationships", "boundaries"]},
+    "execution_conflicts": {"allowed_fact_stages": ["discovery", "execution", "relationships", "boundaries"]},
+    "credential_exposure": {"allowed_fact_stages": ["discovery", "execution"]},
+    "minimum_design_inputs": {"allowed_fact_stages": ["boundaries"]},
+    "configuration_timing": {"allowed_fact_stages": ["execution", "boundaries"]},
+    "lifecycle_recovery": {"allowed_fact_stages": ["execution", "boundaries"]},
+    "observability": {"allowed_fact_stages": ["execution"]},
+    "deployment_evidence": {"allowed_fact_stages": ["discovery", "execution"]},
+    "readiness_verdict": {"allowed_fact_stages": ["boundaries"]}
+  },
+  "modes": {
+    "summary": {
+      "required_report_slots": [
+        "deployment_targets",
+        "build_image_start",
+        "reachable_port_or_path",
+        "runtime_dependencies_state",
+        "execution_conflicts",
+        "credential_exposure",
+        "minimum_design_inputs"
+      ]
+    },
+    "detailed": {
+      "required_report_slots": [
+        "deployment_targets",
+        "build_image_start",
+        "reachable_port_or_path",
+        "runtime_dependencies_state",
+        "execution_conflicts",
+        "credential_exposure",
+        "minimum_design_inputs",
+        "configuration_timing",
+        "lifecycle_recovery",
+        "observability",
+        "deployment_evidence",
+        "readiness_verdict"
+      ]
+    }
+  }
+}

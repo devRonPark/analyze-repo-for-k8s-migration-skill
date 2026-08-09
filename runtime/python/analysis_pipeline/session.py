@@ -12,14 +12,19 @@ from .stage_contracts import (
     promote_execution_facts,
     promote_relationship_facts,
     promote_boundary_facts,
+    promote_contract_facts,
     project_discovery_handoff,
     project_execution_handoff,
     project_relationships_handoff,
     project_boundaries_handoff,
+    project_contracts_handoff,
+    project_predecessor_fact_statuses,
+    required_report_slot_ids,
     validate_discovery_payload,
     validate_execution_payload,
     validate_relationships_payload,
     validate_boundaries_payload,
+    validate_contracts_payload,
 )
 from .state import ANALYSIS_STAGES, PipelineState, create_state
 
@@ -215,6 +220,20 @@ class AnalysisSession:
         self.current_stage, self.revision, self.transition_token = self.pipeline.current_stage, self.pipeline.revision, self._token()
         return self.handoff("boundaries")
 
+    def submit_contracts(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        self.assert_envelope(arguments)
+        if self.current_stage != "contracts":
+            raise ValueError("stage_order")
+        assert self.registry is not None and self.snapshot is not None and self.binding is not None and self.pipeline is not None and self.mode is not None
+        discovery = project_discovery_handoff(self.pipeline)
+        execution = project_execution_handoff(self.pipeline)
+        relationships = project_relationships_handoff(self.pipeline)
+        boundaries = project_boundaries_handoff(self.pipeline)
+        payload = validate_contracts_payload(arguments.get("payload"), self.registry, self.snapshot, self.binding, self.mode, discovery["discovery_fact_refs"], execution["execution_fact_refs"], relationships["relationship_fact_refs"], boundaries["boundaries_fact_refs"], project_predecessor_fact_statuses(self.pipeline))
+        self.pipeline = promote_contract_facts(self.pipeline, payload)
+        self.current_stage, self.revision, self.transition_token = self.pipeline.current_stage, self.pipeline.revision, self._token()
+        return self.handoff("contracts")
+
     def handoff(self, completed_stage: str | None) -> dict[str, Any]:
         if not self.active or self.mode is None or self.transition_token is None or self.current_stage is None:
             raise ValueError("analysis_not_started")
@@ -246,6 +265,12 @@ class AnalysisSession:
             stage_input["discovery_fact_refs"] = project_discovery_handoff(self.pipeline)["discovery_fact_refs"]
             stage_input["execution_fact_refs"] = project_execution_handoff(self.pipeline)["execution_fact_refs"]
             stage_input["relationship_fact_refs"] = project_relationships_handoff(self.pipeline)["relationship_fact_refs"]
+            stage_input["required_report_slot_ids"] = required_report_slot_ids(self.mode)
+            stage_input["fact_statuses"] = project_predecessor_fact_statuses(self.pipeline)
+        elif self.current_stage == "finalize":
+            assert self.pipeline is not None
+            accepted_output = project_contracts_handoff(self.pipeline)
+            stage_input.update(accepted_output)
         return {
             "status": "accepted",
             "analysis_id": self.analysis_id,

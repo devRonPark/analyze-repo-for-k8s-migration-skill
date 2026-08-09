@@ -12,6 +12,7 @@ from .transitions import submit
 from .validation import CLAIM_STATUSES, ensure_exact_keys, normalize_submission_payload
 
 CONTRACT_PATH = Path(__file__).resolve().parents[3] / "contracts" / "stage-payload-contracts.json"
+REPORT_STATE_PATH = Path(__file__).resolve().parents[3] / "contracts" / "accepted-report-state.schema.json"
 
 
 def load_contracts(path: Path = CONTRACT_PATH) -> dict[str, Any]:
@@ -58,6 +59,47 @@ def candidate_exclusion_contract() -> dict[str, Any]:
     if not isinstance(exclusions, Mapping) or not exclusions:
         raise ValueError("invalid_candidate_exclusion_contract")
     return dict(exclusions)
+
+
+def report_state_contract() -> dict[str, Any]:
+    try:
+        state = json.loads(REPORT_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("invalid_report_state_contract") from exc
+    if state.get("schema_version") != 1 or not isinstance(state.get("report_slot"), Mapping) or not isinstance(state.get("slot_definitions"), Mapping) or not isinstance(state.get("modes"), Mapping):
+        raise ValueError("invalid_report_state_contract")
+    return state
+
+
+def required_report_slot_ids(mode: str) -> list[str]:
+    mode_contract = report_state_contract()["modes"].get(mode)
+    slots = mode_contract.get("required_report_slots") if isinstance(mode_contract, Mapping) else None
+    if not isinstance(slots, list) or not slots or len(slots) != len(set(slots)) or any(not isinstance(slot, str) or not _IDENTIFIER.fullmatch(slot) for slot in slots):
+        raise ValueError("invalid_report_state_contract")
+    return list(slots)
+
+
+def report_slot_definition(slot_id: str) -> dict[str, Any]:
+    definition = report_state_contract()["slot_definitions"].get(slot_id)
+    stages = definition.get("allowed_fact_stages") if isinstance(definition, Mapping) else None
+    if not isinstance(stages, list) or not stages or len(stages) != len(set(stages)) or any(stage not in {"discovery", "execution", "relationships", "boundaries"} for stage in stages):
+        raise ValueError("invalid_report_state_contract")
+    return dict(definition)
+
+
+def project_predecessor_fact_statuses(state: PipelineState) -> dict[str, str]:
+    statuses: dict[str, str] = {}
+    for stage in ("discovery", "execution", "relationships", "boundaries"):
+        payload = state.outputs.get(stage)
+        claims = payload.get("claims") if isinstance(payload, Mapping) else None
+        if not isinstance(claims, list):
+            raise ValueError("predecessor facts are unavailable")
+        for claim in claims:
+            if not isinstance(claim, Mapping) or not isinstance(claim.get("id"), str) or claim.get("status") not in CLAIM_STATUSES:
+                raise ValueError("predecessor claim is invalid")
+            if claim["status"] != "unknown":
+                statuses[f"fact_{stage}_{claim['id']}"] = claim["status"]
+    return statuses
 
 
 def _require_contract_fields(stage: str, payload: Mapping[str, Any]) -> None:
@@ -486,3 +528,108 @@ def project_boundaries_handoff(state: PipelineState) -> dict[str, list[str]]:
         raise ValueError("boundaries output is unavailable")
     claims = payload["claims"]
     return {"unit_ids": list(payload.get("unit_ids", [])), "deployable_unit_ids": list(payload.get("deployable_unit_ids", [])), "included_candidate_ids": list(payload.get("included_candidate_ids", [])), "excluded_candidate_ids": list(payload.get("excluded_candidate_ids", [])), "boundaries_fact_refs": [f"fact_boundaries_{claim['id']}" for claim in claims if isinstance(claim, Mapping) and claim.get("status") != "unknown"], "unknown_ids": [claim["id"] for claim in claims if isinstance(claim, Mapping) and claim.get("status") == "unknown"]}
+
+
+def validate_contracts_payload(payload: Mapping[str, Any], registry: ObservationRegistry, snapshot: TargetSnapshot, binding: Mapping[str, Any], mode: str, discovery_fact_refs: list[str], execution_fact_refs: list[str], relationship_fact_refs: list[str], boundaries_fact_refs: list[str], fact_statuses: Mapping[str, str]) -> dict[str, Any]:
+    if not isinstance(payload, Mapping):
+        raise ValueError("payload must be object")
+    _require_contract_fields("contracts", payload)
+    evidence, claims = payload.get("evidence"), payload.get("claims")
+    if not isinstance(evidence, list) or not evidence or not isinstance(claims, list) or not claims:
+        raise ValueError("contracts requires trusted evidence and claims")
+    observations: dict[str, dict[str, Any]] = {}
+    for item in evidence:
+        if isinstance(item, Mapping) and isinstance(item.get("observation_ref"), str):
+            observations[item["observation_ref"]] = registry.resolve(item["observation_ref"], "contracts", snapshot)
+    normalized, _ = normalize_submission_payload(payload, observations, binding)
+    accepted_by_field = {
+        "discovery_fact_refs": discovery_fact_refs,
+        "execution_fact_refs": execution_fact_refs,
+        "relationship_fact_refs": relationship_fact_refs,
+        "boundaries_fact_refs": boundaries_fact_refs,
+    }
+    for field, accepted in accepted_by_field.items():
+        if normalized.get(field) != accepted:
+            raise ValueError(f"unknown {field[:-1].replace('_', ' ')}")
+    expected_slots = required_report_slot_ids(mode)
+    report_contract = report_state_contract()
+    slot_contract = report_contract["report_slot"]
+    slot_fields = set(slot_contract)
+    statuses = _edge_enum(slot_contract, "status")
+    slots = normalized.get("report_slots")
+    if not isinstance(slots, list):
+        raise ValueError("invalid report slots")
+    claim_status = {claim.get("id"): claim.get("status") for claim in normalized["claims"] if isinstance(claim, Mapping)}
+    known_fact_refs = {fact_ref for values in accepted_by_field.values() for fact_ref in values}
+    if set(fact_statuses) != known_fact_refs or any(status not in CLAIM_STATUSES - {"unknown"} for status in fact_statuses.values()):
+        raise ValueError("invalid predecessor fact status")
+    seen_slots: set[str] = set()
+    linked_claims: set[str] = set()
+    linked_fact_refs: set[str] = set()
+    linked_evidence_ids: set[str] = set()
+    for slot in slots:
+        if not isinstance(slot, Mapping):
+            raise ValueError("invalid report slot")
+        ensure_exact_keys(slot, slot_fields, "report slot")
+        slot_id = _edge_identifier(slot.get("id"), "report slot id")
+        if slot_id in seen_slots:
+            raise ValueError("duplicate report slot")
+        seen_slots.add(slot_id)
+        allowed_fact_stages = set(report_slot_definition(slot_id)["allowed_fact_stages"])
+        status = slot.get("status")
+        if status not in statuses:
+            raise ValueError("invalid report slot status")
+        fact_refs = slot.get("fact_refs")
+        if not isinstance(fact_refs, list) or len(fact_refs) != len(set(fact_refs)) or not set(fact_refs).issubset(known_fact_refs):
+            raise ValueError("report slot fact dangling")
+        if any(fact_ref.split("_", 2)[1] not in allowed_fact_stages for fact_ref in fact_refs):
+            raise ValueError("report slot fact stage mismatch")
+        if any(fact_statuses[fact_ref] != status for fact_ref in fact_refs):
+            raise ValueError("report slot fact status mismatch")
+        if linked_fact_refs.intersection(fact_refs):
+            raise ValueError("report slot fact duplicate")
+        claim_ids = slot.get("claim_ids")
+        if not isinstance(claim_ids, list) or len(claim_ids) != len(set(claim_ids)) or not set(claim_ids).issubset(claim_status):
+            raise ValueError("report slot claim dangling")
+        if not fact_refs and not claim_ids:
+            raise ValueError("report slot lacks evidence")
+        if any(claim_status[claim_id] != status for claim_id in claim_ids):
+            raise ValueError("report slot claim status mismatch")
+        if linked_claims.intersection(claim_ids):
+            raise ValueError("report slot claim duplicate")
+        slot_evidence_ids = {
+            evidence_id
+            for claim in normalized["claims"]
+            if isinstance(claim, Mapping) and claim.get("id") in claim_ids
+            for evidence_id in claim.get("evidence_ids", [])
+        }
+        if linked_evidence_ids.intersection(slot_evidence_ids):
+            raise ValueError("report slot evidence duplicate")
+        linked_evidence_ids.update(slot_evidence_ids)
+        if status == "unknown" and not claim_ids:
+            raise ValueError("unknown report slot requires scoped claim")
+        linked_claims.update(claim_ids)
+        linked_fact_refs.update(fact_refs)
+    if seen_slots != set(expected_slots):
+        raise ValueError("report slots do not close the selected mode")
+    if set(claim_status) != linked_claims:
+        raise ValueError("contracts claim requires report slot")
+    normalized["report_slot_ids"] = expected_slots
+    normalized["contract_ids"] = [f"contract_{slot_id.replace('-', '_').replace('.', '_')}" for slot_id in expected_slots]
+    return normalized
+
+
+def promote_contract_facts(state: PipelineState, payload: Mapping[str, Any]) -> PipelineState:
+    return submit(state, "contracts", dict(payload), state.revision, state.state_hash)
+
+
+def project_contracts_handoff(state: PipelineState) -> dict[str, list[str]]:
+    payload = state.outputs.get("contracts")
+    if not isinstance(payload, Mapping) or not isinstance(payload.get("claims"), list):
+        raise ValueError("contracts output is unavailable")
+    claims = payload["claims"]
+    return {
+        "contract_ids": list(payload.get("contract_ids", [])),
+        "report_slot_ids": list(payload.get("report_slot_ids", [])),
+        "unknown_ids": [claim["id"] for claim in claims if isinstance(claim, Mapping) and claim.get("status") == "unknown"],
+    }

@@ -108,7 +108,7 @@ TOOLS.extend(
                 else (
                     "Submit only when the current Workload Boundary Vertical Slice has grounded unit and lifecycle claims. Submit observation aliases, never raw repository evidence."
                     if stage == "boundaries"
-                    else f"Submit the current {stage} Vertical Slice with trusted observations."
+                    else "Submit only when the current Gap Analysis Quality Gate has closed every server-selected report slot with an accepted fact reference or a scoped evidence claim. Submit observation aliases, never raw repository evidence."
                 )
                 )
             )

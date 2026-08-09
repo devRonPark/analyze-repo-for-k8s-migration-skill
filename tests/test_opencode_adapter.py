@@ -192,6 +192,14 @@ class OpenCodeAdapterTests(unittest.TestCase):
             {"type": "tool_use", "tool": "submit_boundaries", "input": {}, "result": {"code": "invalid"}},
             {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-contracts"}},
         ]
+        contracts_accepted = boundaries_accepted + [
+            {"type": "tool_use", "tool": "submit_contracts", "input": {}, "result": {"status": "accepted"}},
+            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-finalize"}},
+        ]
+        contracts_rejected = boundaries_accepted + [
+            {"type": "tool_use", "tool": "submit_contracts", "input": {}, "result": {"code": "invalid"}},
+            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-finalize"}},
+        ]
         self.assertEqual(adapter.progressive_disclosure_errors(valid), [])
         self.assertTrue(adapter.progressive_disclosure_errors(future))
         self.assertEqual(adapter.progressive_disclosure_errors(accepted), [])
@@ -201,6 +209,8 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertTrue(adapter.progressive_disclosure_errors(relationships_rejected))
         self.assertEqual(adapter.progressive_disclosure_errors(boundaries_accepted), [])
         self.assertTrue(adapter.progressive_disclosure_errors(boundaries_rejected))
+        self.assertEqual(adapter.progressive_disclosure_errors(contracts_accepted), [])
+        self.assertTrue(adapter.progressive_disclosure_errors(contracts_rejected))
 
     def test_acceptance_cases_enforce_mode_specific_reads(self):
         cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]

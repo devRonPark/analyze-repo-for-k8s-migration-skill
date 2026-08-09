@@ -55,9 +55,9 @@ BUNDLE_SKILL_POLICIES = {
         "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_boundaries"],
         "references": ["references/workload-boundary.md", "references/payload-contract.json"],
     },
-    **{
-        f"analyze-k8s-{stage}": {"tools": [], "references": ["references/payload-contract.json"]}
-        for stage in BUNDLE_STAGE_IDS if stage not in {"discovery", "execution", "relationships", "boundaries"}
+    "analyze-k8s-contracts": {
+        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_contracts"],
+        "references": ["references/configuration-timing.md", "references/evidence-and-readiness.md", "references/repository-analysis-checklist.md", "references/report-slots.json", "references/payload-contract.json"],
     },
     "analyze-k8s-finalize": {"tools": [], "references": []},
 }
