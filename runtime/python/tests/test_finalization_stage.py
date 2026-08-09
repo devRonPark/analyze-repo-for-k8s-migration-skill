@@ -18,10 +18,9 @@ class FinalizationStageTests(unittest.TestCase):
     def complete_contracts(self, mode: str) -> tuple[object, object, dict]:
         helper = ContractsStageTests()
         temporary, server, boundaries = helper.start_with_boundaries(mode)
-        observations = helper.contract_observations(server, mode)
         contracts, failed = server.tool_call(
             "submit_contracts",
-            {**self.envelope(boundaries), "payload": helper.payload(observations, boundaries, mode)},
+            {**self.envelope(boundaries), "payload": helper.payload(boundaries, mode)},
         )
         self.assertFalse(failed, contracts)
         return temporary, server, contracts
@@ -136,16 +135,15 @@ class FinalizationStageTests(unittest.TestCase):
         helper = ContractsStageTests()
         temporary, server, boundaries = helper.start_with_boundaries("summary")
         with temporary:
-            observations = helper.contract_observations(server, "summary")
             absence = server.session.registry.issue_absence("contracts", "config", "*.yaml", "DATABASE_URL")
-            payload = helper.payload(observations, boundaries, "summary")
+            payload = helper.payload(boundaries, "summary")
             credential_claim = next(claim for claim in payload["claims"] if claim["id"] == "claim-credential_exposure")
             payload["evidence"].append({"alias": "absence", "observation_ref": absence["observation_ref"]})
             credential_claim.update({
                 "status": "unknown",
                 "scope": "config",
                 "blocked_decision": "credential_exposure",
-                "evidence_aliases": ["slot-1", "absence"],
+                "evidence_aliases": ["slot-credential_exposure", "absence"],
             })
             credential_slot = next(slot for slot in payload["report_slots"] if slot["id"] == "credential_exposure")
             credential_slot["status"] = "unknown"
@@ -156,7 +154,6 @@ class FinalizationStageTests(unittest.TestCase):
             result, failed = server.tool_call("finalize_analysis", self.envelope(contracts))
 
         self.assertFalse(failed, result)
-        self.assertIn("contract-evidence-2.txt:1-1", result["markdown"])
         self.assertIn("검색(scope=config, pattern=DATABASE_URL, result=없음)", result["markdown"])
 
 

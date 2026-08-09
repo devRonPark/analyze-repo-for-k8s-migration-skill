@@ -87,6 +87,28 @@ def report_slot_definition(slot_id: str) -> dict[str, Any]:
     return dict(definition)
 
 
+def assign_report_slot_facts(required_slots: list[str], fact_statuses: Mapping[str, str]) -> dict[str, str | None]:
+    """Greedily assign at most one predecessor fact per report slot.
+
+    Each accepted predecessor fact can ground only one slot (see "report slot
+    fact duplicate" in validate_contracts_payload below), so this claims one
+    available fact per slot in required_slots order rather than just checking
+    allowed-stage availability, which would let every slot look groundable
+    even when the fact pool is smaller than the slot count. A slot mapped to
+    None has no unclaimed eligible predecessor fact and needs its own fresh
+    Contracts-stage claim and evidence instead.
+    """
+    remaining = {ref for ref in fact_statuses}
+    assignment: dict[str, str | None] = {}
+    for slot_id in required_slots:
+        allowed = set(report_slot_definition(slot_id).get("allowed_fact_stages", ()))
+        claimable = next((ref for ref in sorted(remaining) if ref.split("_", 2)[1] in allowed), None)
+        assignment[slot_id] = claimable
+        if claimable is not None:
+            remaining.discard(claimable)
+    return assignment
+
+
 def project_predecessor_fact_statuses(state: PipelineState) -> dict[str, str]:
     statuses: dict[str, str] = {}
     for stage in ("discovery", "execution", "relationships", "boundaries"):

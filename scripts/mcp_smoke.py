@@ -12,9 +12,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "runtime" / "python"))
 
 from scripts.build_dist import build
 from scripts.install_distribution import PROJECT_ID, install_bundle
+from analysis_pipeline.stage_contracts import assign_report_slot_facts
 
 
 CLIENT_CONFIGS = ("opencode-mcp.json", "claude-code-mcp.json", "gemini-cli-mcp.json")
@@ -154,31 +156,40 @@ def boundaries_payload(observation_ref: str, handoff: dict[str, Any]) -> dict[st
     }
 
 
-def contracts_payload(observation_refs: list[str], handoff: dict[str, Any]) -> dict[str, Any]:
+def contracts_payload(handoff: dict[str, Any]) -> dict[str, Any]:
+    """Build a valid contracts payload from the handoff's pushed survey.
+
+    Report slots either reuse a predecessor fact (assign_report_slot_facts,
+    the same greedy exclusive assignment the server's survey uses to decide
+    which slots need fresh evidence) or ground a fresh Contracts claim from
+    the survey's per-slot observation (stage_input.survey.observations,
+    tagged category="report_slot:<slot_id>"). No independent read_evidence
+    call is needed: the one-call precision budget is reserved for a
+    genuinely blocked decision, not routine per-slot grounding.
+    """
     slots = (
         "deployment_targets", "build_image_start", "reachable_port_or_path",
         "runtime_dependencies_state", "execution_conflicts", "credential_exposure",
         "minimum_design_inputs",
     )
-    fact_source = {
-        "deployment_targets": ("discovery_fact_refs", 0),
-        "build_image_start": ("execution_fact_refs", 0),
-        "runtime_dependencies_state": ("relationship_fact_refs", 0),
-        "execution_conflicts": ("boundaries_fact_refs", 0),
-        "minimum_design_inputs": ("boundaries_fact_refs", 1),
-    }
-    claim_slots = ("reachable_port_or_path", "credential_exposure")
     stage_input = handoff["stage_input"]
+    assignment = assign_report_slot_facts(list(slots), stage_input["fact_statuses"])
+    survey_observations = {
+        observation["category"].split(":", 1)[1]: observation["observation_ref"]
+        for observation in stage_input["survey"]["observations"]
+        if observation["category"].startswith("report_slot:")
+    }
+    claim_slots = [slot_id for slot_id in slots if assignment[slot_id] is None]
     return {
         "schema_version": 1,
         "stage": "contracts",
         "evidence": [
-            {"alias": f"slot-{index}", "observation_ref": observation_ref}
-            for index, observation_ref in enumerate(observation_refs)
+            {"alias": f"slot-{slot_id}", "observation_ref": survey_observations[slot_id]}
+            for slot_id in claim_slots
         ],
         "claims": [
-            {"id": f"claim-{slot_id}", "status": "confirmed", "evidence_aliases": [f"slot-{index}"]}
-            for index, slot_id in enumerate(claim_slots)
+            {"id": f"claim-{slot_id}", "status": "confirmed", "evidence_aliases": [f"slot-{slot_id}"]}
+            for slot_id in claim_slots
         ],
         "rule_applications": [],
         "discovery_fact_refs": stage_input["discovery_fact_refs"],
@@ -189,7 +200,7 @@ def contracts_payload(observation_refs: list[str], handoff: dict[str, Any]) -> d
             {
                 "id": slot_id,
                 "status": "confirmed",
-                "fact_refs": [stage_input[fact_source[slot_id][0]][fact_source[slot_id][1]]] if slot_id in fact_source else [],
+                "fact_refs": [assignment[slot_id]] if assignment[slot_id] is not None else [],
                 "claim_ids": [f"claim-{slot_id}"] if slot_id in claim_slots else [],
             }
             for slot_id in slots
@@ -285,8 +296,6 @@ def make_external_fixture(directory: Path) -> Path:
     target.mkdir()
     (target / "Dockerfile").write_text('FROM python:3.13\nCMD ["python", "app.py"]\n', encoding="utf-8")
     (target / "app.py").write_text("print('ready')\n", encoding="utf-8")
-    for index in range(1, 3):
-        (target / f"contract-evidence-{index}.txt").write_text(f"contract evidence {index}\n", encoding="utf-8")
     for command in (
         ["git", "init"],
         ["git", "add", "."],
@@ -343,10 +352,7 @@ def exercise_installed_server(template: Path, launcher: Path, target: Path) -> N
         ))
         contracts = accepted(client.tool(
             "submit_contracts",
-            {**envelope(boundaries), "payload": contracts_payload(
-                [read_observation(client, "contract-evidence-1.txt"), read_observation(client, "contract-evidence-2.txt")],
-                boundaries,
-            )},
+            {**envelope(boundaries), "payload": contracts_payload(boundaries)},
         ))
         final = client.tool("finalize_analysis", envelope(contracts))
         assert not final.get("isError"), final

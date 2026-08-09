@@ -37,6 +37,7 @@ runtime/python/analysis_pipeline/tools/glob.py
 runtime/python/analysis_pipeline/tools/locate_evidence.py
 runtime/python/analysis_pipeline/tools/read.py
 runtime/python/analysis_pipeline/tools/safe_paths.py
+runtime/python/analysis_pipeline/tools/survey.py
 runtime/stage-skills/analyze-k8s-discovery/SKILL.md
 runtime/stage-skills/analyze-k8s-discovery/references/workflow.md
 runtime/stage-skills/analyze-k8s-discovery/references/language-discovery-rules.md

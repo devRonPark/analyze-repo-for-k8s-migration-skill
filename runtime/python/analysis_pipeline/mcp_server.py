@@ -7,9 +7,23 @@ from pathlib import Path
 from typing import Any
 
 from .protocol import SERVER_INFO, STAGE_TOOL_BY_STAGE, TOOLS, error, markdown_result, response, text_result
-from .session import AnalysisSession
+from .session import PRECISION_CALL_LIMIT, SUBMIT_REJECTION_LIMIT, AnalysisSession
 from .stage_contracts import candidate_exclusion_contract, relationship_edge_contract, report_state_contract, workload_unit_contract
 from .tools import git_metadata, glob_paths, locate_evidence, read
+
+PRECISION_BUDGET_TOOLS = ("read_evidence", "locate_evidence", "list_target_paths")
+# submit_<stage> and finalize_analysis share one per-stage retry budget: a
+# stuck model repeating the identical envelope error (stage_order, stale
+# revision/token) on either call is the same unbounded-loop shape the
+# precision budget exists to prevent, just later in the stage. An earlier
+# draft excluded envelope-class codes from this count on the theory that a
+# well-behaved caller would stop and reconsider; a live run against a real
+# repository (2026-08-09) showed a noncompliant model instead calling
+# finalize_analysis 30+ times in a row against a repeating "stage_order"
+# response, so only the two truly degenerate calling-convention codes are
+# excluded now.
+RETRY_BUDGET_TOOLS = (*STAGE_TOOL_BY_STAGE.values(), "finalize_analysis")
+NON_PAYLOAD_ERROR_CODES = frozenset({"invalid_arguments", "invalid_submission"})
 
 
 def catalog_changed_notification() -> None:
@@ -37,6 +51,23 @@ class Server:
     def _error(self, code: str, issue: str, *, retryable: bool = False) -> dict[str, Any]:
         return {"code": code, "retryable": retryable, "issues": [issue]}
 
+    def _budget(self) -> dict[str, int]:
+        return {
+            "precision_calls_remaining": max(0, PRECISION_CALL_LIMIT - self.session.precision_calls_used),
+            "submit_rejections_remaining": max(0, SUBMIT_REJECTION_LIMIT - self.session.submit_rejections),
+        }
+
+    def _precision_budget_error(self) -> dict[str, Any]:
+        stage = self.session.current_stage or "current"
+        return self._error(
+            "precision_budget_exhausted",
+            (
+                f"the current {stage} stage's one-call content-search budget "
+                "(read_evidence/locate_evidence/list_target_paths) is exhausted; "
+                "submit now with unknown/inferred status for anything still ungrounded"
+            ),
+        )
+
     @staticmethod
     def _nested_contract_issue(message: str) -> str | None:
         contracts = {
@@ -52,20 +83,45 @@ class Server:
         return f"{path} permits only: {', '.join(sorted(contract))}"
 
     def tool_call(self, name: str, arguments: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+        result, is_error = self._dispatch(name, arguments)
+        if is_error and name in RETRY_BUDGET_TOOLS and result["code"] not in NON_PAYLOAD_ERROR_CODES:
+            self.session.submit_rejections += 1
+            if self.session.submit_rejections > SUBMIT_REJECTION_LIMIT:
+                stage = self.session.current_stage or "current"
+                result = self._error(
+                    result["code"],
+                    (
+                        f"{result['issues'][0]} - this is beyond the current {stage} stage's "
+                        "submission retry budget; resubmitting the same payload will not succeed, "
+                        "resolve the specific issue above or submit with unknown/inferred status on "
+                        "whatever it cannot ground"
+                    ),
+                )
+        return result, is_error
+
+    def _dispatch(self, name: str, arguments: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         if not isinstance(arguments, dict):
             return self._error("invalid_arguments", "arguments_must_be_object"), True
         try:
             if name == "start_analysis":
                 return self.session.start(arguments.get("target_path"), arguments.get("mode")), False
             self.session.assert_active()
+            if name in PRECISION_BUDGET_TOOLS and self.session.precision_calls_used >= PRECISION_CALL_LIMIT:
+                return self._precision_budget_error(), True
             if name == "read_evidence":
-                return read(self.session.target_root, **arguments, observation_registry=self.session.registry, stage=self.session.current_stage), False
+                result = read(self.session.target_root, **arguments, observation_registry=self.session.registry, stage=self.session.current_stage)
+                self.session.precision_calls_used += 1
+                return {**result, "budget": self._budget()}, False
             if name == "list_target_paths":
-                return {"paths": glob_paths(self.session.target_root, **arguments).splitlines()}, False
+                paths = glob_paths(self.session.target_root, **arguments).splitlines()
+                self.session.precision_calls_used += 1
+                return {"paths": paths, "budget": self._budget()}, False
             if name == "locate_evidence":
-                return locate_evidence(self.session.target_root, **arguments, observation_registry=self.session.registry, stage=self.session.current_stage), False
+                result = locate_evidence(self.session.target_root, **arguments, observation_registry=self.session.registry, stage=self.session.current_stage)
+                self.session.precision_calls_used += 1
+                return {**result, "budget": self._budget()}, False
             if name == "get_target_git_metadata":
-                return {"metadata": git_metadata(self.session.target_root)}, False
+                return {"metadata": git_metadata(self.session.target_root), "budget": self._budget()}, False
             if name == "submit_discovery":
                 return self.session.submit_discovery(arguments), False
             if name == "submit_execution":
@@ -135,6 +191,15 @@ def handle(server: Server, request: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def main(command_directory: str | Path | None = None) -> None:
+    # JSON-RPC over stdio must not depend on the parent process's console
+    # codepage. Korean report text and non-ASCII punctuation in error
+    # messages are both routine here; on a non-UTF-8 default (e.g. cp949 on
+    # Korean Windows), an un-reconfigured stdout raises UnicodeEncodeError
+    # on the first such character and silently kills this process, which
+    # the client only sees as a dropped connection.
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     server = Server(command_directory=command_directory or Path.cwd())
     for line in sys.stdin:
         try:

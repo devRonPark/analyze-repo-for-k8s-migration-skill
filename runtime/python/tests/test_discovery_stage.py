@@ -77,13 +77,25 @@ class DiscoveryStageTests(unittest.TestCase):
             "discovery_fact_refs": ["fact_discovery_claim-container"],
             "unknown_ids": [],
         })
-        self.assertEqual(result["stage_input"], result["accepted_output"] | {"mode": "summary"})
+        stage_input = dict(result["stage_input"])
+        survey = stage_input.pop("survey")
+        budget = stage_input.pop("budget")
+        self.assertEqual(stage_input, result["accepted_output"] | {"mode": "summary"})
+        self.assertEqual(survey["stage"], "execution")
+        self.assertTrue(survey["surveyed"])
+        self.assertLessEqual(len(survey["observations"]), 12)
+        self.assertEqual(budget, {"precision_calls_remaining": 1, "submit_rejections_remaining": 3})
         self.assertEqual(result["revision"], 1)
         self.assertNotEqual(result["transition_token"], started["transition_token"])
         rendered = json.dumps(result, sort_keys=True)
         self.assertNotIn("should-not-escape", rendered)
-        self.assertNotIn("Dockerfile", rendered)
-        self.assertNotIn("observation_ref", rendered)
+        handoff_only = json.dumps({**result, "stage_input": stage_input}, sort_keys=True)
+        self.assertNotIn("Dockerfile", handoff_only)
+        self.assertNotIn("observation_ref", handoff_only)
+        # The pushed execution survey legitimately carries its own fresh
+        # observation refs and safe path:line references for the next stage.
+        self.assertIn("Dockerfile", json.dumps(survey, sort_keys=True))
+        self.assertIn("observation_ref", json.dumps(survey, sort_keys=True))
 
     def test_rejects_forged_cross_stage_and_invalid_payloads_without_advancing(self) -> None:
         temporary, server, target, started, observation = self.start_with_observation()

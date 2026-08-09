@@ -40,6 +40,44 @@ ERROR_SCHEMA = {
         "issues": {"type": "array", "maxItems": 10, "items": {"type": "string", "maxLength": 300}},
     },
 }
+_IDENTIFIER = {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"}
+
+# A stage-bounded survey observation: server-issued, redacted, and either a
+# present finding (with a safe path:line reference) or a scoped absence
+# marker for a category with no match. See "survey" in HANDOFF_SCHEMA below
+# and docs/superpowers/specs/2026-08-09-bounded-stage-surveys-design.md.
+_SURVEY_OBSERVATION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["observation_ref", "status", "category"],
+    "properties": {
+        "observation_ref": _IDENTIFIER,
+        "status": {"type": "string", "enum": ["confirmed", "unknown"]},
+        "category": {"type": "string"},
+        "reference": {"type": "string"},
+    },
+}
+_SURVEY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["stage", "surveyed", "categories", "observations"],
+    "properties": {
+        "stage": {"type": "string", "enum": list(STAGES)},
+        "surveyed": {"const": True},
+        "categories": {"type": "object"},
+        "observations": {"type": "array", "maxItems": 12, "items": _SURVEY_OBSERVATION_SCHEMA},
+    },
+}
+_BUDGET_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["precision_calls_remaining", "submit_rejections_remaining"],
+    "properties": {
+        "precision_calls_remaining": {"type": "integer", "minimum": 0},
+        "submit_rejections_remaining": {"type": "integer", "minimum": 0},
+    },
+}
+
 HANDOFF_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -53,7 +91,13 @@ HANDOFF_SCHEMA = {
         "transition_token": {"type": "string", "pattern": "^tr_[A-Za-z0-9_-]{8,}$"},
         "next_skill": {"type": "string"},
         "accepted_output": {"type": "object"},
-        "stage_input": {"type": "object"},
+        # stage_input's other keys vary per stage, so this stays open
+        # (no additionalProperties:False); survey/budget are constrained
+        # because every non-finalize stage_input carries them in this shape.
+        "stage_input": {
+            "type": "object",
+            "properties": {"survey": _SURVEY_SCHEMA, "budget": _BUDGET_SCHEMA},
+        },
     },
 }
 
@@ -85,7 +129,6 @@ _ENVELOPE = {
     "transition_token": {"type": "string", "pattern": "^tr_[A-Za-z0-9_-]{8,}$"},
 }
 
-_IDENTIFIER = {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"}
 _IDENTIFIER_LIST = {"type": "array", "items": _IDENTIFIER}
 _EVIDENCE_DECLARATION = {
     "type": "object",

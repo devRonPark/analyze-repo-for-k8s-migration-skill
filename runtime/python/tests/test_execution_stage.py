@@ -110,16 +110,24 @@ class ExecutionStageTests(unittest.TestCase):
             "execution_fact_refs": ["fact_execution_claim-process"],
             "unknown_ids": [],
         })
-        self.assertEqual(result["stage_input"], result["accepted_output"] | {
+        stage_input = dict(result["stage_input"])
+        survey = stage_input.pop("survey")
+        budget = stage_input.pop("budget")
+        self.assertEqual(stage_input, result["accepted_output"] | {
             "mode": "summary",
             "discovery_fact_refs": ["fact_discovery_claim-container"],
         })
+        self.assertEqual(survey["stage"], "relationships")
+        self.assertTrue(survey["surveyed"])
+        self.assertLessEqual(len(survey["observations"]), 12)
+        self.assertEqual(budget, {"precision_calls_remaining": 1, "submit_rejections_remaining": 3})
         self.assertEqual(result["revision"], discovery["revision"] + 1)
         self.assertNotEqual(result["transition_token"], discovery["transition_token"])
         self.assertTrue(stale_failed)
         self.assertEqual(stale["code"], "stale_revision")
-        self.assertNotIn("Dockerfile", json.dumps(result, sort_keys=True))
-        self.assertNotIn("observation_ref", json.dumps(result, sort_keys=True))
+        handoff_only = json.dumps({**result, "stage_input": stage_input}, sort_keys=True)
+        self.assertNotIn("Dockerfile", handoff_only)
+        self.assertNotIn("observation_ref", handoff_only)
 
     def test_rejects_execution_before_discovery_with_a_current_envelope(self) -> None:
         temporary, command_directory, _ = self.fixture()

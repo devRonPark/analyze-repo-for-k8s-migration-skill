@@ -17,10 +17,6 @@ class RelationshipsStageTests(unittest.TestCase):
         target.mkdir(parents=True)
         (target / "Dockerfile").write_text("FROM python:3.13\nCMD [\"python\", \"app.py\"]\n", encoding="utf-8")
         (target / "app.py").write_text("print('ready')\n", encoding="utf-8")
-        for index in range(1, 6):
-            (target / f"contract-evidence-{index}.txt").write_text(
-                f"contract evidence {index}\n", encoding="utf-8"
-            )
         subprocess.run(["git", "init"], cwd=target, check=True, capture_output=True)
         subprocess.run(["git", "add", "."], cwd=target, check=True, capture_output=True)
         subprocess.run(
@@ -150,15 +146,23 @@ class RelationshipsStageTests(unittest.TestCase):
             "relationship_fact_refs": ["fact_relationships_claim-api-db"],
             "unknown_ids": [],
         })
-        self.assertEqual(result["stage_input"], result["accepted_output"] | {
+        stage_input = dict(result["stage_input"])
+        survey = stage_input.pop("survey")
+        budget = stage_input.pop("budget")
+        self.assertEqual(stage_input, result["accepted_output"] | {
             "mode": "summary",
             "discovery_fact_refs": ["fact_discovery_claim-container"],
             "execution_fact_refs": ["fact_execution_claim-process"],
             "candidate_ids": ["candidate-web"],
             "process_ids": ["process-web"],
         })
-        self.assertNotIn("app.py", json.dumps(result, sort_keys=True))
-        self.assertNotIn("observation_ref", json.dumps(result, sort_keys=True))
+        self.assertEqual(survey["stage"], "boundaries")
+        self.assertTrue(survey["surveyed"])
+        self.assertLessEqual(len(survey["observations"]), 12)
+        self.assertEqual(budget, {"precision_calls_remaining": 1, "submit_rejections_remaining": 3})
+        handoff_only = json.dumps({**result, "stage_input": stage_input}, sort_keys=True)
+        self.assertNotIn("app.py", handoff_only)
+        self.assertNotIn("observation_ref", handoff_only)
 
     def test_rejects_foreign_fact_or_observation_without_advancing(self) -> None:
         temporary, server, target, discovery, execution = self.start_with_execution()
