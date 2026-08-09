@@ -101,7 +101,11 @@ def bundle_destination(staging: Path, relative: Path) -> Path:
         return staging / "agents" / Path(*parts[2:])
     if parts[:2] == ("runtime", "commands"):
         return staging / "commands" / Path(*parts[2:])
+    if parts[:2] == ("runtime", "configs"):
+        return staging / "configs" / Path(*parts[2:])
     if parts[0] == "scripts":
+        return staging / "runtime" / "python" / relative
+    if parts[0] == "schemas":
         return staging / "runtime" / "python" / relative
     if parts[0] in {"assets", "contracts"}:
         return staging / relative

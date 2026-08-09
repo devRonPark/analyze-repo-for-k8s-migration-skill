@@ -8,11 +8,15 @@ contracts/project-metadata.json
 contracts/skill-bundle-manifest.schema.json
 contracts/stage-payload-contracts.json
 contracts/accepted-report-state.schema.json
+schemas/analysis-result.schema.json
 scripts/markdown_contract.py
 scripts/report_contract.py
 scripts/validate_report.py
 runtime/agents/kubernetes-migration-analyzer.md
 runtime/commands/analyze-repo-for-kubernetes.md
+runtime/configs/opencode-mcp.json
+runtime/configs/claude-code-mcp.json
+runtime/configs/gemini-cli-mcp.json
 runtime/python/launch_mcp.py
 runtime/python/pyproject.toml
 runtime/python/requirements.lock

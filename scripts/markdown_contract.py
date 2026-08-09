@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Any
 
 
-CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contracts/markdown-report-contract.json"
+_SOURCE_CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contracts/markdown-report-contract.json"
+_INSTALLED_CONTRACT_PATH = Path(__file__).resolve().parents[3] / "contracts/markdown-report-contract.json"
+CONTRACT_PATH = _SOURCE_CONTRACT_PATH if _SOURCE_CONTRACT_PATH.is_file() else _INSTALLED_CONTRACT_PATH
 
 
 def load(path: Path = CONTRACT_PATH) -> dict[str, Any]:

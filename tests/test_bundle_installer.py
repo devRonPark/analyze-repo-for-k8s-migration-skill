@@ -56,8 +56,12 @@ class BundleInstallerTests(unittest.TestCase):
             original_replace = Path.replace
 
             for failure_target in targets:
+                injected = False
+
                 def fail_one(source: Path, destination: Path, *, expected=failure_target):
-                    if destination == expected and ".stage-" in source.name:
+                    nonlocal injected
+                    if not injected and destination == expected and source != expected:
+                        injected = True
                         raise OSError("injected bundle swap failure")
                     return original_replace(source, destination)
 

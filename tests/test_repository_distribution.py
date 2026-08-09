@@ -189,9 +189,12 @@ class RepositoryDistributionTests(unittest.TestCase):
                 (target / "version").write_text("old", encoding="utf-8")
 
             real_replace = Path.replace
+            injected = False
 
             def fail_second_swap(source_path, target_path):
-                if source_path.name.startswith(".skill.stage-") and target_path == targets[1]:
+                nonlocal injected
+                if not injected and source_path != target_path and target_path == targets[1]:
+                    injected = True
                     raise OSError("injected swap failure")
                 return real_replace(source_path, target_path)
 

@@ -53,12 +53,12 @@ def install_entries(entries: list[tuple[Path, Path]]) -> None:
     try:
         for source, target in entries:
             target.parent.mkdir(parents=True, exist_ok=True)
-            stage = target.parent / f".{target.name}.stage-{uuid.uuid4().hex}"
+            stage = target.parent / f".{target.name}.new-{uuid.uuid4().hex[:8]}"
             copy_entry(source, stage)
             stages.append((target, stage))
 
         for target, stage in stages:
-            backup = target.parent / f".{target.name}.backup-{uuid.uuid4().hex}" if (target.exists() or target.is_symlink()) else None
+            backup = target.parent / f".{target.name}.old-{uuid.uuid4().hex[:8]}" if (target.exists() or target.is_symlink()) else None
             if backup is not None:
                 target.replace(backup)
             committed.append((target, backup))
