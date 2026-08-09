@@ -5,7 +5,12 @@ from pathlib import Path
 
 
 def _is_reparse_or_link(path: Path) -> bool:
-    stat = path.lstat()
+    try:
+        stat = path.lstat()
+    except FileNotFoundError:
+        # A missing path has no link target to follow.  Callers may turn this
+        # into a bounded absence observation, but it must remain inside root.
+        return False
     attributes = getattr(stat, "st_file_attributes", 0)
     return path.is_symlink() or bool(attributes & 0x400)
 

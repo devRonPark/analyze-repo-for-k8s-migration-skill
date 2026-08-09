@@ -19,5 +19,12 @@ Use the incoming handoff only. Apply Vertical Slice, Grounding, and Quality Gate
    edges and observation aliases; never copy raw evidence into claims.
 4. Submit `submit_relationships` once with the incoming envelope.
 
+**Boundary:** incoming `*_fact_refs` are accepted facts, not observation
+references. Every `payload.evidence[].observation_ref` must be issued by an
+evidence tool in this current stage.
+
+**Checkpoint:** an `accepted` `submit_relationships` response is this stage's
+only completion. Do not draft or send user-facing Markdown before it returns.
+
 Do not load another Skill, read another stage's references, or infer a later
 procedure. End this stage after the server response.

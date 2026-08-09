@@ -18,5 +18,8 @@ Use the incoming handoff only. Apply Vertical Slice and Grounding.
    contract. Keep raw evidence in MCP observations; do not copy it into claims.
 4. Submit `submit_discovery` once with the incoming envelope.
 
+**Checkpoint:** an `accepted` `submit_discovery` response is this stage's only
+completion. Do not draft or send user-facing Markdown before it returns.
+
 Do not load another Skill, read another stage's references, or infer a later
 procedure. End this stage after the server response.

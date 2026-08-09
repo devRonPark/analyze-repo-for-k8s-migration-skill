@@ -23,5 +23,12 @@ Use the incoming handoff only. Apply Gap Analysis and Quality Gate.
    create recommendation values.
 4. Submit `submit_contracts` once with the incoming envelope.
 
+**Boundary:** incoming `*_fact_refs` are accepted facts, not observation
+references. Every `payload.evidence[].observation_ref` must be issued by an
+evidence tool in this current stage.
+
+**Checkpoint:** an `accepted` `submit_contracts` response is this stage's only
+completion. Do not draft or send user-facing Markdown before it returns.
+
 Do not load another Skill, read another stage's references, or infer a later
 procedure. End this stage after the server response.

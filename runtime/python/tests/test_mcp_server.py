@@ -62,12 +62,30 @@ class MCPTests(unittest.TestCase):
         self.assertEqual(rejected["structuredContent"]["code"], "analysis_already_active")
         self.assertEqual(server.session.analysis_id, accepted["analysis_id"])
 
-    def test_submit_envelope_is_static_and_payload_is_opaque(self):
+    def test_submit_envelope_is_static_and_payload_contract_is_transparent(self):
         tools = handle(Server(), {"jsonrpc": "2.0", "id": 1, "method": "tools/list"})["result"]["tools"]
         submit = next(tool for tool in tools if tool["name"] == "submit_discovery")
         schema = submit["inputSchema"]
         self.assertEqual(schema["required"], ["analysis_id", "revision", "transition_token", "payload"])
-        self.assertEqual(schema["properties"]["payload"], {"type": "object"})
+        payload = schema["properties"]["payload"]
+        self.assertFalse(payload["additionalProperties"])
+        self.assertEqual(payload["properties"]["schema_version"], {"const": 1})
+        self.assertEqual(payload["properties"]["stage"], {"const": "discovery"})
+        self.assertEqual(
+            set(payload["required"]),
+            {"schema_version", "stage", "evidence", "claims", "rule_applications", "signals", "candidate_ids", "decisions"},
+        )
+        self.assertEqual(payload["properties"]["evidence"]["items"]["required"], ["alias", "observation_ref"])
+        relationships = next(tool for tool in tools if tool["name"] == "submit_relationships")
+        edge_schema = relationships["inputSchema"]["properties"]["payload"]["properties"]["graph_edges"]["items"]
+        self.assertFalse(edge_schema["additionalProperties"])
+        self.assertEqual(
+            set(edge_schema["required"]),
+            {
+                "id", "source_process_id", "target_id", "target_kind", "dependency_type", "mechanism", "endpoint_name",
+                "required_for_function", "startup_use", "management_boundary", "timing", "execution_location", "claim_ids", "status",
+            },
+        )
         evidence = next(tool for tool in tools if tool["name"] == "read_evidence")
         self.assertEqual(evidence["annotations"]["readOnlyHint"], True)
         self.assertEqual(evidence["annotations"]["destructiveHint"], False)

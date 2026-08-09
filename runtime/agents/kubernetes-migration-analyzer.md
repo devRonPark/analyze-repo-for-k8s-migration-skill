@@ -5,6 +5,10 @@ steps: 48
 permission:
   "*": deny
   analysis_*: allow
+  read:
+    "__INSTALLED_SKILL_ROOTS__": allow
+  external_directory:
+    "__INSTALLED_SKILL_ROOTS__": allow
   skill:
     "*": deny
     analyze-repo-for-kubernetes: allow

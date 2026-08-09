@@ -193,11 +193,32 @@ class RelationshipsStageTests(unittest.TestCase):
 
         self.assertTrue(foreign_fact_failed)
         self.assertTrue(foreign_observation_failed)
+        self.assertEqual(foreign_result["code"], "observation_stage_mismatch")
+        self.assertTrue(foreign_result["retryable"])
+        self.assertIn("current relationships stage", foreign_result["issues"][0])
         self.assertEqual(server.session.current_stage, "relationships")
         self.assertEqual(server.session.revision, execution["revision"])
         self.assertEqual(server.session.transition_token, execution["transition_token"])
         self.assertNotIn("foreign", json.dumps(foreign_fact, sort_keys=True))
         self.assertNotIn("app.py", json.dumps(foreign_result, sort_keys=True))
+
+    def test_unknown_relationship_edge_field_is_retryable_with_the_public_contract(self) -> None:
+        temporary, server, _, discovery, execution = self.start_with_execution()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            payload = self.relationships_payload(
+                observation["observation_ref"],
+                discovery["stage_input"]["discovery_fact_refs"],
+                execution["stage_input"]["execution_fact_refs"],
+            )
+            payload["graph_edges"][0]["invented_field"] = "nope"
+            result, failed = server.tool_call("submit_relationships", {**self.envelope(execution), "payload": payload})
+
+        self.assertTrue(failed)
+        self.assertEqual(result["code"], "invalid_nested_stage_payload")
+        self.assertTrue(result["retryable"])
+        self.assertIn("payload.graph_edges[] permits only", result["issues"][0])
 
     def test_relationships_accepts_scoped_unknown_with_absence_evidence(self) -> None:
         temporary, server, _, discovery, execution = self.start_with_execution("detailed")

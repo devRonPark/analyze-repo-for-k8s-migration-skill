@@ -324,16 +324,11 @@ def discovery_audit_bundle(
 
 def render_agent(source: Path, destination: Path, skill_path: Path) -> None:
     text = source.read_text(encoding="utf-8")
-    temporary_rule = '    "/tmp/opencode-acceptance-*/config/skills/analyze-repo-for-kubernetes/**": allow'
-    exact_rule = f'    "{skill_path.resolve().as_posix()}/**": allow'
-    text = text.replace(temporary_rule, exact_rule)
-    # Isolated HOME must not inherit global external-directory exceptions.
-    # The exact temporary Skill path above is the only external Skill path.
-    text = "\n".join(
-        line
-        for line in text.splitlines()
-        if '"$HOME/' not in line
-    ) + "\n"
+    marker = '"__INSTALLED_SKILL_ROOTS__": allow'
+    if text.count(marker) != 2:
+        raise ValueError("agent source must contain read and external-directory Skill root markers")
+    exact_rule = f'"{skill_path.resolve().as_posix()}/**": allow'
+    text = text.replace(marker, exact_rule)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(text, encoding="utf-8")
 

@@ -18,5 +18,12 @@ Use the incoming handoff only. Apply Workload Boundary, Grounding, and Quality G
    ports alone never create a unit.
 4. Submit `submit_boundaries` once with the incoming envelope.
 
+**Boundary:** incoming `*_fact_refs` are accepted facts, not observation
+references. Every `payload.evidence[].observation_ref` must be issued by an
+evidence tool in this current stage.
+
+**Checkpoint:** an `accepted` `submit_boundaries` response is this stage's only
+completion. Do not draft or send user-facing Markdown before it returns.
+
 Do not load another Skill, read another stage's references, or infer a later
 procedure. End this stage after the server response.

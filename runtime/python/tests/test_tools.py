@@ -13,6 +13,11 @@ class ToolTests(unittest.TestCase):
   root=str(Path(__file__).resolve().parents[1])
   self.assertIn('pyproject.toml',glob_paths(root,'*.toml'))
   self.assertEqual(locate_evidence(root,'*.toml')['status'],'found')
+ def test_locate_missing_in_root_path_returns_scoped_absence(self):
+  root=Path(__file__).resolve().parents[1]
+  result=locate_evidence(root,'*.yaml',path='missing-directory',pattern='DATABASE_URL')
+  self.assertEqual(result['status'],'not_found')
+  self.assertEqual(result['searched'],{'scope':'missing-directory','glob':'*.yaml','pattern':'DATABASE_URL'})
  def test_safe_path_rejects_an_in_root_symlink(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=Path(tmp); source=root/'source.txt'; source.write_text('safe',encoding='utf-8')

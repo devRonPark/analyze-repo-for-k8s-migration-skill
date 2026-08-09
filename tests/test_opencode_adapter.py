@@ -57,10 +57,11 @@ class OpenCodeAdapterTests(unittest.TestCase):
             agent = root / "config" / "agents" / f"{adapter.AGENT_ID}.md"
             adapter.render_agent(ROOT / "runtime/agents/kubernetes-migration-analyzer.md", agent, skill)
             text = agent.read_text(encoding="utf-8")
-            self.assertNotIn("external_directory:", text)
-            self.assertNotIn('"$HOME/.config/opencode/skills', text)
-            self.assertNotIn('"$HOME/.agents/skills', text)
-            self.assertNotIn('"$HOME/.claude/skills', text)
+            rule = f'"{skill.resolve().as_posix()}/**": allow'
+            self.assertEqual(text.count(rule), 2)
+            self.assertNotIn("__INSTALLED_SKILL_ROOTS__", text)
+            self.assertNotIn(str(ROOT), text)
+            self.assertNotIn('"$HOME/', text)
 
     def test_discovery_audit_reports_stale_and_unexpected_skills(self):
         with tempfile.TemporaryDirectory() as tmp:

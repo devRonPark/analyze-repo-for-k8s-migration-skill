@@ -8,6 +8,7 @@ from typing import Any
 
 from .protocol import SERVER_INFO, STAGE_TOOL_BY_STAGE, TOOLS, error, markdown_result, response, text_result
 from .session import AnalysisSession
+from .stage_contracts import candidate_exclusion_contract, relationship_edge_contract, report_state_contract, workload_unit_contract
 from .tools import git_metadata, glob_paths, locate_evidence, read
 
 
@@ -35,6 +36,20 @@ class Server:
 
     def _error(self, code: str, issue: str, *, retryable: bool = False) -> dict[str, Any]:
         return {"code": code, "retryable": retryable, "issues": [issue]}
+
+    @staticmethod
+    def _nested_contract_issue(message: str) -> str | None:
+        contracts = {
+            "unknown relationship edge field": ("payload.graph_edges[]", relationship_edge_contract()),
+            "unknown workload unit field": ("payload.workload_units[]", workload_unit_contract()),
+            "unknown candidate exclusion field": ("payload.candidate_exclusions[]", candidate_exclusion_contract()),
+            "unknown report slot field": ("payload.report_slots[]", report_state_contract()["report_slot"]),
+        }
+        entry = contracts.get(message)
+        if entry is None:
+            return None
+        path, contract = entry
+        return f"{path} permits only: {', '.join(sorted(contract))}"
 
     def tool_call(self, name: str, arguments: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         if not isinstance(arguments, dict):
@@ -73,6 +88,15 @@ class Server:
         except KeyError:
             return self._error("invalid_submission", "invalid_submission"), True
         except (TypeError, ValueError, OSError) as exc:
+            if str(exc) == "observation stage mismatch":
+                stage = self.session.current_stage or "current"
+                return self._error(
+                    "observation_stage_mismatch",
+                    f"payload.evidence observation_ref values must be issued in the current {stage} stage; incoming *_fact_refs are accepted facts, not observation_ref values",
+                    retryable=True,
+                ), True
+            if issue := self._nested_contract_issue(str(exc)):
+                return self._error("invalid_nested_stage_payload", issue, retryable=True), True
             return self._error(str(exc), str(exc)), True
 
 

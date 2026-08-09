@@ -4,6 +4,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from .stage_contracts import (
+    candidate_exclusion_contract,
+    relationship_edge_contract,
+    report_state_contract,
+    workload_unit_contract,
+)
+from .validation import CLIENT_STAGE_FIELDS
+
 SERVER_INFO = {"name": "trusted-analysis-pipeline", "version": "0.2.0"}
 STAGES = ("discovery", "execution", "relationships", "boundaries", "contracts")
 STAGE_TOOL_BY_STAGE = {stage: f"submit_{stage}" for stage in STAGES}
@@ -75,8 +83,99 @@ _ENVELOPE = {
     "analysis_id": {"type": "string", "pattern": "^an_[A-Za-z0-9_-]{8,}$"},
     "revision": {"type": "integer", "minimum": 0},
     "transition_token": {"type": "string", "pattern": "^tr_[A-Za-z0-9_-]{8,}$"},
-    "payload": {"type": "object"},
 }
+
+_IDENTIFIER = {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"}
+_IDENTIFIER_LIST = {"type": "array", "items": _IDENTIFIER}
+_EVIDENCE_DECLARATION = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["alias", "observation_ref"],
+    "properties": {"alias": _IDENTIFIER, "observation_ref": _IDENTIFIER},
+}
+_CLAIM_DECLARATION = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["id", "status", "evidence_aliases"],
+    "properties": {
+        "id": _IDENTIFIER,
+        "status": {"type": "string", "enum": ["confirmed", "inferred", "unknown", "conflicted", "not_applicable"]},
+        "evidence_aliases": _IDENTIFIER_LIST,
+        "scope": {"type": "string"},
+        "blocked_decision": _IDENTIFIER,
+    },
+}
+_RULE_APPLICATION = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["rule_id", "evidence_aliases", "process_or_candidate_ids", "decision_id"],
+    "properties": {
+        "rule_id": _IDENTIFIER,
+        "evidence_aliases": _IDENTIFIER_LIST,
+        "process_or_candidate_ids": _IDENTIFIER_LIST,
+        "decision_id": _IDENTIFIER,
+    },
+}
+
+
+def _contract_value_schema(value: Any) -> dict[str, Any]:
+    """Translate an executable contract field into its public JSON Schema."""
+    if isinstance(value, list):
+        return {"type": "array", "items": _IDENTIFIER}
+    if value == "boolean":
+        return {"type": "boolean"}
+    if value in {"identifier", "identifier|unknown"} or isinstance(value, str) and value.endswith(" identifier"):
+        return _IDENTIFIER
+    if isinstance(value, str) and "|" in value:
+        return {"type": "string", "enum": value.split("|")}
+    raise ValueError("invalid public stage payload contract")
+
+
+def _contract_object_schema(contract: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": sorted(contract),
+        "properties": {field: _contract_value_schema(value) for field, value in contract.items()},
+    }
+
+
+def _stage_payload_schema(stage: str) -> dict[str, Any]:
+    """Expose the stage-specific client payload contract in the MCP catalog."""
+    properties: dict[str, Any] = {
+        "schema_version": {"const": 1},
+        "stage": {"const": stage},
+        "evidence": {"type": "array", "items": _EVIDENCE_DECLARATION},
+        "claims": {"type": "array", "items": _CLAIM_DECLARATION},
+        "rule_applications": {"type": "array", "items": _RULE_APPLICATION},
+    }
+    for field in sorted(CLIENT_STAGE_FIELDS[stage] - set(properties)):
+        properties[field] = _IDENTIFIER_LIST
+    if stage == "relationships":
+        properties["graph_edges"] = {
+            "type": "array",
+            "items": _contract_object_schema(relationship_edge_contract()),
+        }
+    if stage == "boundaries":
+        properties["workload_units"] = {
+            "type": "array",
+            "items": _contract_object_schema(workload_unit_contract()),
+        }
+        properties["candidate_exclusions"] = {
+            "type": "array",
+            "items": _contract_object_schema(candidate_exclusion_contract()),
+        }
+    if stage == "contracts":
+        properties["report_slots"] = {
+            "type": "array",
+            "items": _contract_object_schema(report_state_contract()["report_slot"]),
+        }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": sorted(CLIENT_STAGE_FIELDS[stage]),
+        "properties": properties,
+    }
 
 TOOLS = [
     _tool(
@@ -94,27 +193,39 @@ TOOLS.extend(
     _tool(
         STAGE_TOOL_BY_STAGE[stage],
         (
-            "Submit only when the current Discovery Vertical Slice has grounded its candidate claims. "
-            "Submit observation aliases, never raw repository evidence."
+            "Checkpoint: this is the only valid completion of the current Discovery Vertical Slice. "
+            "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+            "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
+            "Do not draft a user-facing report before an accepted response."
             if stage == "discovery"
             else (
-                "Submit only when the current Execution Vertical Slice has grounded its build, runtime, startup, image, or port claims. "
-                "Submit observation aliases, never raw repository evidence."
+                "Checkpoint: this is the only valid completion of the current Execution Vertical Slice after grounding build, runtime, startup, image, or port claims. "
+                "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+                "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
+                "Do not draft a user-facing report before an accepted response."
                 if stage == "execution"
                 else (
-                    "Submit only when the current Relationships Vertical Slice has grounded dependency and external runtime claims. "
-                    "Submit observation aliases, never raw repository evidence."
+                    "Checkpoint: this is the only valid completion of the current Relationships Vertical Slice after grounding dependency and external runtime claims. "
+                    "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+                    "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
+                    "Do not draft a user-facing report before an accepted response."
                     if stage == "relationships"
                 else (
-                    "Submit only when the current Workload Boundary Vertical Slice has grounded unit and lifecycle claims. Submit observation aliases, never raw repository evidence."
+                    "Checkpoint: this is the only valid completion of the current Workload Boundary Vertical Slice after grounding unit and lifecycle claims. "
+                    "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+                    "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
+                    "Do not draft a user-facing report before an accepted response."
                     if stage == "boundaries"
-                    else "Submit only when the current Gap Analysis Quality Gate has closed every server-selected report slot with an accepted fact reference or a scoped evidence claim. Submit observation aliases, never raw repository evidence."
+                    else "Checkpoint: this is the only valid completion of the current Gap Analysis Quality Gate after every server-selected report slot has an accepted fact reference or scoped evidence claim. "
+                    "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+                    "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
+                    "Do not draft a user-facing report before an accepted response."
                 )
                 )
             )
         ),
-        list(_ENVELOPE),
-        dict(_ENVELOPE),
+        [*list(_ENVELOPE), "payload"],
+        {**_ENVELOPE, "payload": _stage_payload_schema(stage)},
     )
     for stage in STAGES
 )

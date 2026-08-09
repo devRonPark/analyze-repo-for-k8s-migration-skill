@@ -28,6 +28,7 @@ SKILL_IDS = (
 PROJECT_ID = "analyze-repo-for-kubernetes"
 AGENT_NAME = "kubernetes-migration-analyzer.md"
 COMMAND_NAME = "analyze-repo-for-kubernetes.md"
+INSTALLED_SKILL_ROOTS_MARKER = '"__INSTALLED_SKILL_ROOTS__": allow'
 
 
 def remove(path: Path) -> None:
@@ -97,6 +98,18 @@ def render_opencode_mcp_fragment(runtime_root: Path) -> dict[str, object]:
     }
 
 
+def render_agent_for_installation(agent_source: Path, config_root: Path) -> str:
+    """Bind the sealed agent policy to this installation's seven Skill roots."""
+    text = agent_source.read_text(encoding="utf-8")
+    if text.count(INSTALLED_SKILL_ROOTS_MARKER) != 2:
+        raise ValueError("agent source must contain read and external-directory Skill root markers")
+    roots = "\n    ".join(
+        f'"{(config_root / "skills" / skill_id).resolve().as_posix()}/**": allow'
+        for skill_id in SKILL_IDS
+    )
+    return text.replace(INSTALLED_SKILL_ROOTS_MARKER, roots)
+
+
 def _load_manifest(source_bundle: Path) -> dict[str, object]:
     manifest_path = source_bundle / "bundle-manifest.json"
     try:
@@ -138,7 +151,7 @@ def bundle_targets(source_bundle: Path, config_root: Path) -> list[Path]:
         project_root / "runtime",
         project_root / "contracts",
         project_root / "assets",
-        config_root / "agent" / AGENT_NAME,
+        config_root / "agents" / AGENT_NAME,
         config_root / "command" / COMMAND_NAME,
         project_root / "opencode-mcp.json",
     ]
@@ -155,6 +168,7 @@ def install_bundle(source_bundle: Path, config_root: Path) -> None:
     _require_bundle_layout(source_bundle)
     project_root = config_root / PROJECT_ID
     fragment_source: Path | None = None
+    agent_source: Path | None = None
     try:
         runtime_source = source_bundle / "runtime"
         with tempfile.NamedTemporaryFile(
@@ -167,12 +181,20 @@ def install_bundle(source_bundle: Path, config_root: Path) -> None:
             stream.write(
                 json.dumps(render_opencode_mcp_fragment(project_root / "runtime"), ensure_ascii=False, indent=2) + "\n",
             )
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            suffix=".kubernetes-migration-analyzer.md",
+            delete=False,
+        ) as stream:
+            agent_source = Path(stream.name)
+            stream.write(render_agent_for_installation(source_bundle / "agents" / AGENT_NAME, config_root))
         entries = [
             *((source_bundle / "skills" / skill_id, config_root / "skills" / skill_id) for skill_id in SKILL_IDS),
             (runtime_source, project_root / "runtime"),
             (source_bundle / "contracts", project_root / "contracts"),
             (source_bundle / "assets", project_root / "assets"),
-            (source_bundle / "agents" / AGENT_NAME, config_root / "agent" / AGENT_NAME),
+            (agent_source, config_root / "agents" / AGENT_NAME),
             (source_bundle / "commands" / COMMAND_NAME, config_root / "command" / COMMAND_NAME),
             (fragment_source, project_root / "opencode-mcp.json"),
         ]
@@ -180,6 +202,8 @@ def install_bundle(source_bundle: Path, config_root: Path) -> None:
     finally:
         if fragment_source is not None:
             remove(fragment_source)
+        if agent_source is not None:
+            remove(agent_source)
 
 
 def main() -> int:
