@@ -1,0 +1,59 @@
+{
+  "suite": "static-mcp-opencode",
+  "cases": [
+    {
+      "id": "jpetstore-6-summary",
+      "target": "jpetstore-6",
+      "mode": "summary",
+      "golden": "static-mcp-jpetstore-6-summary-golden.md",
+      "path_style": "absolute",
+      "command_directory": "C:\\temp",
+      "target_path": "C:\\temp\\opencode-e2e-jpetstore-6"
+    },
+    {
+      "id": "jpetstore-6-detailed",
+      "target": "jpetstore-6",
+      "mode": "detailed",
+      "golden": "static-mcp-jpetstore-6-detailed-golden.md",
+      "path_style": "command-relative",
+      "command_directory": "C:\\temp",
+      "target_path": "opencode-e2e-jpetstore-6"
+    },
+    {
+      "id": "flask-celery-summary",
+      "target": "flask-celery",
+      "mode": "summary",
+      "golden": "static-mcp-flask-celery-summary-golden.md",
+      "path_style": "command-relative",
+      "command_directory": "C:\\temp",
+      "target_path": "opencode-e2e-flask-celery"
+    },
+    {
+      "id": "flask-celery-detailed",
+      "target": "flask-celery",
+      "mode": "detailed",
+      "golden": "static-mcp-flask-celery-detailed-golden.md",
+      "path_style": "absolute",
+      "command_directory": "C:\\temp",
+      "target_path": "C:\\temp\\opencode-e2e-flask-celery"
+    },
+    {
+      "id": "fastapi-template-summary",
+      "target": "fastapi-template",
+      "mode": "summary",
+      "golden": "static-mcp-fastapi-template-summary-golden.md",
+      "path_style": "absolute",
+      "command_directory": "C:\\temp",
+      "target_path": "C:\\temp\\opencode-e2e-fastapi"
+    },
+    {
+      "id": "fastapi-template-detailed",
+      "target": "fastapi-template",
+      "mode": "detailed",
+      "golden": "static-mcp-fastapi-template-detailed-golden.md",
+      "path_style": "command-relative",
+      "command_directory": "C:\\temp",
+      "target_path": "opencode-e2e-fastapi"
+    }
+  ]
+}

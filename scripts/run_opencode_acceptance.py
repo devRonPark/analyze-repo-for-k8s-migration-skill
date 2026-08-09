@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -348,7 +349,13 @@ def isolated_config(source: Path, destination: Path, skill_path: Path) -> None:
     )
 
 
-def isolated_config_bundle(source: Path, destination: Path, config_dir: Path) -> None:
+def isolated_config_bundle(
+    source: Path,
+    destination: Path,
+    config_dir: Path,
+    *,
+    runtime_python: str | None = None,
+) -> None:
     """Write an isolated OpenCode config with the exact installed Skill roots."""
     config = load_json(source)
     if not isinstance(config, dict):
@@ -363,9 +370,10 @@ def isolated_config_bundle(source: Path, destination: Path, config_dir: Path) ->
     mcp = config.setdefault("mcp", {})
     if not isinstance(mcp, dict):
         raise ValueError("OpenCode mcp must be an object")
-    mcp["analysis"] = render_opencode_mcp_fragment(
-        config_dir / "analyze-repo-for-kubernetes" / "runtime"
-    )["mcp"]["analysis"]
+    fragment = render_opencode_mcp_fragment(config_dir / "analyze-repo-for-kubernetes" / "runtime")
+    if runtime_python is not None:
+        fragment["mcp"]["analysis"]["command"][0] = runtime_python
+    mcp["analysis"] = fragment["mcp"]["analysis"]
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
         json.dumps(config, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -579,6 +587,181 @@ def case_command(case: dict[str, Any], use_command: bool = True) -> str | None:
     if not use_command or not isinstance(name, str) or not name:
         return None
     return name
+
+
+STATIC_MCP_TOOL_SEQUENCE = (
+    ("start_analysis", "accepted"),
+    ("submit_discovery", "accepted"),
+    ("submit_execution", "accepted"),
+    ("submit_relationships", "accepted"),
+    ("submit_boundaries", "accepted"),
+    ("submit_contracts", "accepted"),
+    ("finalize_analysis", "finalized"),
+)
+STATIC_MCP_PATH_STYLES = {"absolute", "command-relative"}
+
+
+def load_static_mcp_cases(path: Path) -> list[dict[str, Any]]:
+    """Load the provider-backed case manifest without inspecting a target."""
+    payload = load_json(path)
+    if not isinstance(payload, dict) or payload.get("suite") != "static-mcp-opencode":
+        raise ValueError("static MCP case manifest has an invalid suite")
+    cases = payload.get("cases")
+    if not isinstance(cases, list) or not all(isinstance(case, dict) for case in cases):
+        raise ValueError("static MCP case manifest must contain cases")
+    return cases
+
+
+def load_static_mcp_golden_manifest(path: Path) -> dict[str, dict[str, Any]]:
+    """Return sealed golden metadata indexed by case ID after digest validation."""
+    payload = load_json(path)
+    cases = payload.get("cases") if isinstance(payload, dict) else None
+    if payload.get("schema_version") != 1 or not isinstance(cases, list):
+        raise ValueError("static MCP golden manifest is invalid")
+    indexed: dict[str, dict[str, Any]] = {}
+    for item in cases:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            raise ValueError("static MCP golden manifest has an invalid case")
+        golden_name = item.get("golden")
+        expected_hash = item.get("sha256")
+        golden = path.parent / golden_name if isinstance(golden_name, str) else None
+        if golden is None or not golden.is_file() or not isinstance(expected_hash, str):
+            raise ValueError(f"static MCP golden is unavailable for {item['id']}")
+        if sha256_file(golden) != expected_hash:
+            raise ValueError(f"static MCP golden hash mismatch for {item['id']}")
+        if item["id"] in indexed:
+            raise ValueError(f"duplicate static MCP golden case: {item['id']}")
+        indexed[item["id"]] = item
+    return indexed
+
+
+def validate_static_mcp_cases(
+    cases: list[dict[str, Any]], golden_cases: dict[str, dict[str, Any]],
+) -> list[str]:
+    """Validate the fixed six provider cases before opening an interactive session."""
+    errors: list[str] = []
+    expected_ids = set(golden_cases)
+    observed_ids: set[str] = set()
+    styles: set[str] = set()
+    for case in cases:
+        case_id = case.get("id")
+        if not isinstance(case_id, str) or not case_id:
+            errors.append("case is missing an id")
+            continue
+        if case_id in observed_ids:
+            errors.append(f"duplicate case id: {case_id}")
+            continue
+        observed_ids.add(case_id)
+        sealed = golden_cases.get(case_id)
+        if sealed is None:
+            errors.append(f"case is not sealed by a golden: {case_id}")
+            continue
+        for field in ("target", "mode", "golden"):
+            if case.get(field) != sealed.get(field):
+                errors.append(f"case {case_id} does not match sealed {field}")
+        target_path = case.get("target_path")
+        style = case.get("path_style")
+        if not isinstance(target_path, str) or not target_path:
+            errors.append(f"case {case_id} is missing target_path")
+        if style not in STATIC_MCP_PATH_STYLES:
+            errors.append(f"case {case_id} has an invalid path_style")
+        else:
+            styles.add(style)
+        if case.get("mode") not in {"summary", "detailed"}:
+            errors.append(f"case {case_id} has an invalid mode")
+        if not isinstance(case.get("command_directory"), str) or not case.get("command_directory"):
+            errors.append(f"case {case_id} is missing command_directory")
+    missing = expected_ids - observed_ids
+    unexpected = observed_ids - expected_ids
+    if missing:
+        errors.append("missing sealed cases: " + ", ".join(sorted(missing)))
+    if unexpected:
+        errors.append("unexpected cases: " + ", ".join(sorted(unexpected)))
+    if len(cases) != 6:
+        errors.append("static MCP acceptance requires exactly six cases")
+    if styles != STATIC_MCP_PATH_STYLES:
+        errors.append("static MCP acceptance requires absolute and command-relative target paths")
+    return errors
+
+
+def static_mcp_command_prompt(case: dict[str, Any]) -> str:
+    """Render the single user-invoked command with its explicit target selection."""
+    target_path = case["target_path"]
+    selected_mode = "Detailed" if case["mode"] == "detailed" else "Summary"
+    prompt = f"/analyze-repo-for-kubernetes {target_path} {selected_mode}"
+    return prompt
+
+
+def static_mcp_command_keystrokes(case: dict[str, Any]) -> list[str]:
+    """Enter a custom command only after OpenCode has loaded its command catalog."""
+    prompt = static_mcp_command_prompt(case)
+    return ["/", prompt.removeprefix("/"), "\r"]
+
+
+def _tool_name(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    name = value.removeprefix("analysis_")
+    return name
+
+
+def _tool_result_status(value: Any) -> str | None:
+    if isinstance(value, str):
+        try:
+            return _tool_result_status(json.loads(value))
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(value, dict):
+        return None
+    direct = value.get("status")
+    if isinstance(direct, str):
+        return direct
+    for nested in ("result", "output", "structuredContent", "state"):
+        status = _tool_result_status(value.get(nested))
+        if status:
+            return status
+    return None
+
+
+def static_mcp_transition_errors(tool_calls: list[dict[str, Any]]) -> list[str]:
+    """Check the externally visible one-pass stage transition contract."""
+    errors: list[str] = []
+    for tool, expected_status in STATIC_MCP_TOOL_SEQUENCE:
+        matches = [
+            call for call in tool_calls
+            if _tool_name(call.get("name", call.get("tool"))) == tool
+            and _tool_result_status(call) == expected_status
+        ]
+        if len(matches) != 1:
+            errors.append(f"{tool} must be {expected_status} exactly once")
+    known_tools = {tool for tool, _ in STATIC_MCP_TOOL_SEQUENCE}
+    seen = [_tool_name(call.get("name", call.get("tool"))) for call in tool_calls]
+    sequence = [tool for tool in seen if tool in known_tools]
+    if sequence != [tool for tool, _ in STATIC_MCP_TOOL_SEQUENCE]:
+        errors.append("accepted static MCP tools are out of order or repeated")
+    return errors
+
+
+def _required_golden_citations(golden: Path) -> list[str]:
+    text = golden.read_text(encoding="utf-8")
+    findings = text.partition("## Required findings\n")[2].partition("## Required blockers and unknowns")[0]
+    citations = re.findall(
+        r"`((?:(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+|[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|Dockerfile):\d+(?:-\d+)?)`",
+        findings,
+    )
+    return list(dict.fromkeys(citations))
+
+
+def score_static_mcp_markdown(markdown: str, golden: Path) -> dict[str, Any]:
+    """Measure citation coverage only; a human scorecard owns semantic judgment."""
+    citations = _required_golden_citations(golden)
+    matched = [citation for citation in citations if citation in markdown]
+    return {
+        "required_citations": len(citations),
+        "matched_citations": len(matched),
+        "missing_citations": [citation for citation in citations if citation not in matched],
+        "semantic_score_claimed": False,
+    }
 
 
 def collect_tool_calls(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1305,6 +1488,446 @@ def run_case(
     return trace
 
 
+def _static_git_status(repository_root: Path) -> dict[str, Any]:
+    result = subprocess.run(
+        ["git", "-C", str(repository_root), "status", "--short", "--branch"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    return {
+        "returncode": result.returncode,
+        "stdout": result.stdout,
+        "stderr": redact(result.stderr),
+    }
+
+
+def _golden_revision(golden: Path) -> str:
+    match = re.search(r"^- Revision: `([0-9a-f]{40})`$", golden.read_text(encoding="utf-8"), re.MULTILINE)
+    if match is None:
+        raise ValueError(f"golden has no pinned revision: {golden}")
+    return match.group(1)
+
+
+def _target_revision(repository_root: Path) -> str | None:
+    result = subprocess.run(
+        ["git", "-C", str(repository_root), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _static_db_records(database: Path) -> list[dict[str, Any]]:
+    """Read JSON-bearing OpenCode rows with table and column provenance."""
+    if not database.is_file():
+        return []
+    try:
+        connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=1)
+        try:
+            records: list[dict[str, Any]] = []
+            tables = [
+                row[0]
+                for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+                if isinstance(row[0], str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", row[0])
+            ]
+            for table in tables:
+                columns = [row[1] for row in connection.execute(f'PRAGMA table_info("{table}")')]
+                for row in connection.execute(f'SELECT rowid, * FROM "{table}" ORDER BY rowid'):
+                    records.append(
+                        {
+                            "table": table,
+                            "rowid": row[0],
+                            "columns": dict(zip(columns, row[1:], strict=True)),
+                        }
+                    )
+            return records
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return []
+
+
+def _static_json_objects(record: dict[str, Any]) -> list[dict[str, Any]]:
+    objects: list[dict[str, Any]] = []
+    for value in record.get("columns", {}).values():
+        if isinstance(value, bytes):
+            value = value.decode("utf-8", errors="replace")
+        if not isinstance(value, str):
+            continue
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(decoded, dict):
+            objects.append(decoded)
+    return objects
+
+
+def _static_message_id(record: dict[str, Any], payload: dict[str, Any]) -> str | None:
+    for source in (payload, record.get("columns", {})):
+        for key in ("messageID", "messageId", "message_id", "id"):
+            value = source.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return None
+
+
+def _static_assistant_markdown(database: Path) -> str:
+    """Return text parts that belong to persisted assistant messages only.
+
+    Tool input/output rows are intentionally excluded: a valid final report must
+    be authored by the agent rather than reconstructed from MCP results.
+    """
+    records = _static_db_records(database)
+    assistant_ids: set[str] = set()
+    for record in records:
+        for payload in _static_json_objects(record):
+            if payload.get("role") == "assistant":
+                identifier = _static_message_id(record, payload)
+                if identifier is not None:
+                    assistant_ids.add(identifier)
+
+    text_parts: list[str] = []
+    for record in records:
+        for payload in _static_json_objects(record):
+            if payload.get("type") != "text":
+                continue
+            message_id = _static_message_id(record, payload)
+            text = payload.get("text")
+            if message_id in assistant_ids and isinstance(text, str):
+                text_parts.append(text)
+    return "\n".join(text_parts)
+
+
+def _static_tool_calls(database: Path) -> list[dict[str, Any]]:
+    """Extract named MCP tool parts while preserving their emitted state."""
+    expected_tools = {tool for tool, _ in STATIC_MCP_TOOL_SEQUENCE}
+    calls: list[dict[str, Any]] = []
+    for record in _static_db_records(database):
+        for payload in _static_json_objects(record):
+            name = payload.get("name", payload.get("tool"))
+            if payload.get("type") == "tool" and _tool_name(name) in expected_tools:
+                calls.append({"name": name, "state": payload.get("state", payload)})
+    unique: list[dict[str, Any]] = []
+    for call in calls:
+        if call not in unique:
+            unique.append(call)
+    return unique
+
+
+def static_mcp_runtime_environment(
+    base: dict[str, str],
+    *,
+    home: Path,
+    config: Path,
+    config_dir: Path,
+    log_root: Path,
+) -> dict[str, str]:
+    """Create an isolated Windows-native PTY environment.
+
+    Only OS launch prerequisites and the explicit provider credential are
+    inherited. User profile directories are redirected into the temporary
+    acceptance home so global OpenCode state cannot influence a result.
+    """
+    allowed = (
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "ComSpec",
+        "LANG",
+        "LC_ALL",
+        "TERM",
+        "COLORTERM",
+        "NO_COLOR",
+        "UPSTAGE_API_KEY",
+    )
+    environment = {key: base[key] for key in allowed if base.get(key)}
+    environment.setdefault("TERM", "xterm-256color")
+    environment.setdefault("COLORTERM", "truecolor")
+    private_tmp = home / "tmp"
+    environment.update(
+        {
+            "HOME": str(home.resolve()),
+            "USERPROFILE": str(home.resolve()),
+            "APPDATA": str((home / "AppData" / "Roaming").resolve()),
+            "LOCALAPPDATA": str((home / "AppData" / "Local").resolve()),
+            "OPENCODE_CONFIG": str(config.resolve()),
+            "OPENCODE_CONFIG_DIR": str(config_dir.resolve()),
+            "XDG_CONFIG_HOME": str((home / ".config").resolve()),
+            "XDG_DATA_HOME": str((home / ".local" / "share").resolve()),
+            "XDG_STATE_HOME": str((home / ".local" / "state").resolve()),
+            "XDG_CACHE_HOME": str((home / ".cache").resolve()),
+            "TEMP": str(private_tmp.resolve()),
+            "TMP": str(private_tmp.resolve()),
+            "OPENCODE_DISABLE_AUTOUPDATE": "1",
+            "OPENCODE_TRACE_LOG_ROOT": str(log_root.resolve()),
+            "PYWINPTY_BLOCK": "0",
+        }
+    )
+    return environment
+
+
+def windows_pty_process(package_root: Path | None) -> Any:
+    """Load the test-only Windows PTY dependency without making it runtime code."""
+    if os.name != "nt":
+        raise ValueError("static MCP acceptance requires a Windows PTY")
+    if package_root is not None:
+        resolved = package_root.resolve()
+        if not resolved.is_dir():
+            raise ValueError(f"Windows PTY package directory does not exist: {resolved}")
+        sys.path.insert(0, str(resolved))
+    try:
+        from winpty import PtyProcess
+    except ImportError as error:
+        raise ValueError(
+            "Windows PTY support is unavailable; install pywinpty for this test or pass --windows-pty-root"
+        ) from error
+    return PtyProcess
+
+
+def spawn_windows_pty(
+    pty_process: Any,
+    launch: list[str],
+    *,
+    cwd: str,
+    environment: dict[str, str],
+) -> Any:
+    """Spawn with nonblocking reads in the harness process, not only its child."""
+    previous = os.environ.get("PYWINPTY_BLOCK")
+    os.environ["PYWINPTY_BLOCK"] = "0"
+    try:
+        return pty_process.spawn(launch, cwd=cwd, env=environment, dimensions=(50, 180))
+    finally:
+        if previous is None:
+            os.environ.pop("PYWINPTY_BLOCK", None)
+        else:
+            os.environ["PYWINPTY_BLOCK"] = previous
+
+
+def read_windows_pty(pty: Any) -> str:
+    """Read a bounded terminal chunk while dropping pywinpty's idle sentinel."""
+    try:
+        return pty.read(65536).replace("0011Ignore", "")
+    except EOFError:
+        return ""
+
+
+def _static_opencode_databases(home: Path) -> list[Path]:
+    """Discover OpenCode databases beneath the per-case isolated profile only."""
+    return sorted(path for path in home.rglob("opencode.db") if path.is_file())
+
+
+def _static_assistant_markdown_from_home(home: Path) -> str:
+    return "\n".join(_static_assistant_markdown(database) for database in _static_opencode_databases(home))
+
+
+def static_mcp_terminal_stop_reason(terminal: str) -> str | None:
+    """Recognize an idle OpenCode agent before the PTY timeout elapses."""
+    marker = "No further tool calls can be made until the next user interaction or handoff acceptance."
+    if marker in terminal:
+        return "OpenCode agent stopped before the MCP workflow finalized"
+    return None
+
+
+def _run_static_mcp_case(
+    case: dict[str, Any],
+    golden: dict[str, Any],
+    *,
+    source_config: Path,
+    output_dir: Path,
+    opencode: str,
+    model: str | None,
+    timeout: float,
+    runtime_python: str,
+    pty_process: Any,
+) -> dict[str, Any]:
+    """Run one fresh user command in a Windows-native PTY and preserve evidence."""
+    command_directory = Path(case["command_directory"]).resolve()
+    selected = case["target_path"]
+    target = (Path(selected) if case["path_style"] == "absolute" else command_directory / selected).resolve()
+    case_dir = output_dir / case["id"]
+    case_dir.mkdir(parents=True, exist_ok=True)
+    before = _static_git_status(target)
+    golden_path = ROOT / "tests" / "evaluation" / golden["golden"]
+    expected_revision = _golden_revision(golden_path)
+    actual_revision = _target_revision(target)
+    trace: dict[str, Any] = {
+        "case_id": case["id"],
+        "mode": case["mode"],
+        "target": str(target),
+        "target_status_before": before,
+        "golden": golden["golden"],
+        "golden_sha256": golden["sha256"],
+        "expected_revision": expected_revision,
+        "actual_revision": actual_revision,
+        "status": "FAIL",
+    }
+    if before["returncode"]:
+        trace["reason"] = "target Git status could not be read"
+        return trace
+    if actual_revision != expected_revision:
+        trace["reason"] = "target revision does not match its sealed golden"
+        return trace
+
+    with tempfile.TemporaryDirectory(prefix="opencode-acceptance-") as temporary:
+        temporary_root = Path(temporary)
+        bundle = copy_bundle(ROOT, temporary_root / "bundle")
+        config_dir = temporary_root / "config"
+        install_bundle(bundle, config_dir)
+        config_path = temporary_root / "opencode.json"
+        isolated_config_bundle(
+            source_config,
+            config_path,
+            config_dir,
+            runtime_python=runtime_python,
+        )
+        home = temporary_root / "home"
+        for directory in (
+            home,
+            home / "tmp",
+            home / "AppData" / "Roaming",
+            home / "AppData" / "Local",
+            case_dir / "logs",
+        ):
+            directory.mkdir(parents=True, exist_ok=True)
+        environment = static_mcp_runtime_environment(
+            os.environ,
+            home=home,
+            config=config_path,
+            config_dir=config_dir,
+            log_root=case_dir / "logs",
+        )
+        launch = [opencode, str(command_directory), "--mini", "--agent", AGENT_ID]
+        if model:
+            launch.extend(["--model", model])
+        terminal = ""
+        pty: Any | None = None
+        try:
+            pty = spawn_windows_pty(pty_process, launch, cwd=str(command_directory), environment=environment)
+            ready_deadline = time.monotonic() + min(30, timeout)
+            while time.monotonic() < ready_deadline:
+                terminal = (terminal + read_windows_pty(pty))[-1_000_000:]
+                if "Ask anything" in terminal:
+                    break
+                time.sleep(0.1)
+            else:
+                trace["reason"] = "OpenCode Windows PTY did not reach the input-ready state"
+                return trace
+            command_prefix, command_body, submit = static_mcp_command_keystrokes(case)
+            pty.write(command_prefix)
+            catalog_deadline = time.monotonic() + min(4, timeout)
+            while time.monotonic() < catalog_deadline:
+                terminal = (terminal + read_windows_pty(pty))[-1_000_000:]
+                time.sleep(0.1)
+            pty.write(command_body)
+            time.sleep(0.25)
+            terminal = (terminal + read_windows_pty(pty))[-1_000_000:]
+            pty.write(submit)
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                terminal = (terminal + read_windows_pty(pty))[-1_000_000:]
+                stopped = static_mcp_terminal_stop_reason(terminal)
+                if stopped is not None:
+                    trace["reason"] = stopped
+                    return trace
+                database_text = _static_assistant_markdown_from_home(home)
+                try:
+                    extract_markdown_report(database_text, mode=case["mode"])
+                    break
+                except ValueError:
+                    time.sleep(0.25)
+            else:
+                trace["reason"] = "OpenCode PTY did not produce a complete final Markdown report before timeout"
+                return trace
+
+            report = retain_agent_markdown(database_text, case_dir, target, mode=case["mode"])
+            tool_calls = [
+                call
+                for database in _static_opencode_databases(home)
+                for call in _static_tool_calls(database)
+            ]
+            transition_errors = static_mcp_transition_errors(tool_calls)
+            after = _static_git_status(target)
+            score = score_static_mcp_markdown(report, golden_path)
+            trace.update(
+                {
+                    "status": "PASS" if not transition_errors and before == after else "FAIL",
+                    "target_status_after": after,
+                    "target_unchanged": before == after,
+                    "tool_calls": tool_calls,
+                    "transition_errors": transition_errors,
+                    "score": score,
+                    "report_file": str((case_dir / "report.md").resolve()),
+                }
+            )
+            if trace["status"] == "FAIL":
+                trace["reason"] = "; ".join(transition_errors) or "target repository changed"
+            return trace
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            trace["reason"] = redact(str(error))
+            trace["target_status_after"] = _static_git_status(target)
+            return trace
+        finally:
+            if pty is not None and pty.isalive():
+                try:
+                    pty.terminate(force=True)
+                except OSError:
+                    pass
+            if terminal:
+                (case_dir / "terminal.log").write_text(redact(terminal), encoding="utf-8")
+            trace.setdefault("terminal_file", str((case_dir / "terminal.log").resolve()))
+            (case_dir / "trace.json").write_text(
+                json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+
+def _run_static_mcp_acceptance(args: argparse.Namespace, cases_path: Path) -> int:
+    golden_manifest_path = ROOT / "tests" / "evaluation" / "static-mcp-golden-manifest.json"
+    sealed = load_static_mcp_golden_manifest(golden_manifest_path)
+    cases = load_static_mcp_cases(cases_path)
+    errors = validate_static_mcp_cases(cases, sealed)
+    if errors:
+        raise ValueError("static MCP case manifest is invalid: " + "; ".join(errors))
+    selected = set(args.case_ids or [])
+    if selected:
+        unknown = selected - {case["id"] for case in cases}
+        if unknown:
+            raise ValueError("unknown static MCP case ID: " + ", ".join(sorted(unknown)))
+        cases = [case for case in cases if case["id"] in selected]
+    if not args.interactive:
+        raise ValueError("static MCP acceptance requires --interactive for every case")
+    runtime_python = args.runtime_python or sys.executable
+    pty_process = windows_pty_process(args.windows_pty_root)
+    output_dir = args.output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    results = [
+        _run_static_mcp_case(
+            case,
+            sealed[case["id"]],
+            source_config=args.config.resolve(),
+            output_dir=output_dir,
+            opencode=args.opencode,
+            model=args.model,
+            timeout=args.timeout,
+            runtime_python=runtime_python,
+            pty_process=pty_process,
+        )
+        for case in cases
+    ]
+    (output_dir / "static-mcp-results.json").write_text(
+        json.dumps(redact({"cases": results}), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    for result in results:
+        print(f"static-mcp/{result['case_id']}: {result['status']}" + (f" ({result['reason']})" if result.get("reason") else ""))
+    return 0 if all(result["status"] == "PASS" for result in results) else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="OpenCode Skill acceptance adapter")
     parser.add_argument(
@@ -1352,10 +1975,22 @@ def main() -> int:
         type=Path,
         help="모든 acceptance case를 이 read-only Repository 경로에서 실행합니다.",
     )
+    parser.add_argument("--runtime-python", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--windows-pty-root",
+        type=Path,
+        help="Windows interactive E2E에만 사용하는 pywinpty 설치 경로입니다.",
+    )
     args = parser.parse_args()
     if args.repeat < 1:
         parser.error("--repeat must be at least 1")
     payload = load_json(args.cases)
+    if isinstance(payload, dict) and payload.get("suite") == "static-mcp-opencode":
+        if args.mode != "isolated":
+            parser.error("static MCP acceptance requires --mode isolated")
+        if args.config is None:
+            parser.error("static MCP acceptance requires --config")
+        return _run_static_mcp_acceptance(args, args.cases.resolve())
     cases = payload.get("cases", []) if isinstance(payload, dict) else []
     if args.case_ids:
         selected = set(args.case_ids)
@@ -1392,7 +2027,7 @@ def main() -> int:
             install_bundle(installed_bundle, config_dir)
             config_path = temporary_root / "runtime" / "opencode.json"
             isolated_config_bundle(source_config, config_path, config_dir)
-            agent_path = config_dir / "agent" / f"{AGENT_ID}.md"
+            agent_path = config_dir / "agents" / f"{AGENT_ID}.md"
             home.mkdir(parents=True, exist_ok=True)
         else:
             # User mode is intentionally read-only with respect to all config
