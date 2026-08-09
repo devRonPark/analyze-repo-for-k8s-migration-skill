@@ -59,7 +59,7 @@ BUNDLE_SKILL_POLICIES = {
         "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_contracts"],
         "references": ["references/configuration-timing.md", "references/evidence-and-readiness.md", "references/repository-analysis-checklist.md", "references/report-slots.json", "references/payload-contract.json"],
     },
-    "analyze-k8s-finalize": {"tools": [], "references": []},
+    "analyze-k8s-finalize": {"tools": ["finalize_analysis"], "references": []},
 }
 
 

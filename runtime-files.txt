@@ -8,6 +8,9 @@ contracts/project-metadata.json
 contracts/skill-bundle-manifest.schema.json
 contracts/stage-payload-contracts.json
 contracts/accepted-report-state.schema.json
+scripts/markdown_contract.py
+scripts/report_contract.py
+scripts/validate_report.py
 runtime/agents/kubernetes-migration-analyzer.md
 runtime/commands/analyze-repo-for-kubernetes.md
 runtime/python/launch_mcp.py
@@ -18,6 +21,7 @@ runtime/python/analysis_pipeline/handoffs.py
 runtime/python/analysis_pipeline/mcp_server.py
 runtime/python/analysis_pipeline/observations.py
 runtime/python/analysis_pipeline/protocol.py
+runtime/python/analysis_pipeline/report_projection.py
 runtime/python/analysis_pipeline/session.py
 runtime/python/analysis_pipeline/stage_contracts.py
 runtime/python/analysis_pipeline/state.py

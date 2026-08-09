@@ -40,6 +40,18 @@ class ObservationRegistryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "stage"):
                 registry.resolve(issued["observation_ref"], "execution", snapshot)
 
+    def test_absence_resolution_preserves_the_tool_issued_search_descriptor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "Dockerfile").write_text("FROM python\n", encoding="utf-8")
+            snapshot = TargetSnapshot.capture(root)
+            registry = ObservationRegistry(root, {"binding_id": "bind-1", "target_snapshot_hash": snapshot.digest})
+            issued = registry.issue_absence("contracts", "config", "*.yaml", "DATABASE_URL")
+
+            resolved = registry.resolve(issued["observation_ref"], "contracts", TargetSnapshot.capture(root))
+
+            self.assertEqual(resolved["absence"], {"scope": "config", "glob": "*.yaml", "pattern": "DATABASE_URL"})
+
 
 if __name__ == "__main__":
     unittest.main()

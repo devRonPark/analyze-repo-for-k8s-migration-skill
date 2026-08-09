@@ -23,7 +23,7 @@ ALLOWED_STAGE_FIELDS = {
 }
 
 ALLOWED_CLAIM_FIELDS = {"id", "status", "evidence_ids", "scope", "blocked_decision"}
-ALLOWED_EVIDENCE_FIELDS = {"location", "range", "status", "content_fingerprint", "redacted"}
+ALLOWED_EVIDENCE_FIELDS = {"location", "range", "status", "content_fingerprint", "redacted", "absence"}
 ALLOWED_RULE_FIELDS = {"rule_id", "evidence_ids", "process_or_candidate_ids", "decision_id"}
 
 
@@ -54,6 +54,9 @@ CLIENT_EVIDENCE_FIELDS = {"alias", "observation_ref"}
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
 
 SECRET_PATTERN = re.compile(r"password|secret|token|api[_-]?key|private[_-]?key", re.IGNORECASE)
+SECRET_LITERAL_PATTERN = re.compile(
+    r"(?i)((?:password|passwd|secret|token|api[_ -]?key|private[_ -]?key)\s*[:=]\s*)([^\s,;]+)"
+)
 REOPEN_REASON_PATTERN = re.compile(r"^.{3,500}$", re.DOTALL)
 
 REOPEN_PERMITTED = {
@@ -129,6 +132,21 @@ def _require_identifier(value: Any, label: str) -> str:
     return value
 
 
+def _canonical_absence_descriptor(value: Any) -> dict[str, str | None]:
+    if not isinstance(value, Mapping) or set(value) != {"scope", "glob", "pattern"}:
+        raise ValueError("unknown observation requires absence descriptor")
+    scope, glob, pattern = value["scope"], value["glob"], value["pattern"]
+    if not isinstance(scope, str) or not scope or not isinstance(glob, str) or not glob or (pattern is not None and not isinstance(pattern, str)):
+        raise ValueError("invalid absence descriptor")
+    if any("\n" in item or "\r" in item or len(item) > 500 for item in (scope, glob, pattern or "")):
+        raise ValueError("invalid absence descriptor")
+    return {
+        "scope": scope,
+        "glob": glob,
+        "pattern": SECRET_LITERAL_PATTERN.sub(r"\1[REDACTED]", pattern) if pattern else None,
+    }
+
+
 def _canonical_observation(raw: Any, binding: Mapping[str, Any]) -> dict[str, Any]:
     """Extract only server-owned canonical fields from a trusted observation."""
     if not isinstance(raw, Mapping):
@@ -149,6 +167,11 @@ def _canonical_observation(raw: Any, binding: Mapping[str, Any]) -> dict[str, An
     snapshot = raw.get("snapshot_hash")
     if snapshot is not None and snapshot != binding["target_snapshot_hash"]:
         raise ValueError("trusted observation snapshot mismatch")
+    absence = raw.get("absence")
+    if evidence["status"] == "unknown":
+        evidence["absence"] = _canonical_absence_descriptor(absence)
+    elif absence is not None:
+        raise ValueError("present observation has absence descriptor")
     return evidence
 
 
@@ -309,6 +332,10 @@ def validate_evidence_inputs(payload: Mapping[str, Any], snapshot_hash: str) -> 
             raise ValueError("unverified evidence")
         if SECRET_PATTERN.search(f"{input_dict['location']} {input_dict['content_fingerprint']}"):
             raise ValueError("secret-bearing evidence")
+        if input_dict["status"] == "unknown":
+            input_dict["absence"] = _canonical_absence_descriptor(input_dict.get("absence"))
+        elif "absence" in input_dict:
+            raise ValueError("present evidence has absence descriptor")
         expected = derive_evidence_id({"snapshot_hash": snapshot_hash, **input_dict})
         if evidence_id != expected:
             raise ValueError("forged evidence")

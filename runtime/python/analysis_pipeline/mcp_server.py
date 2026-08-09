@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .protocol import SERVER_INFO, STAGE_TOOL_BY_STAGE, TOOLS, error, response, text_result
+from .protocol import SERVER_INFO, STAGE_TOOL_BY_STAGE, TOOLS, error, markdown_result, response, text_result
 from .session import AnalysisSession
 from .tools import git_metadata, glob_paths, locate_evidence, read
 
@@ -68,8 +68,7 @@ class Server:
                 self.session.assert_envelope(arguments)
                 return self._error("reopen_not_ready", "reopen_is_not_delivered"), True
             if name == "finalize_analysis":
-                self.session.assert_envelope(arguments)
-                return self._error("finalize_not_ready", "finalize_is_not_delivered"), True
+                return self.session.finalize_and_render(arguments), False
             raise KeyError(name)
         except KeyError:
             return self._error("invalid_submission", "invalid_submission"), True
@@ -99,6 +98,14 @@ def handle(server: Server, request: dict[str, Any]) -> dict[str, Any] | None:
         if name not in {tool["name"] for tool in TOOLS}:
             return error(request_id, -32601, "unknown tool")
         result, is_error = server.tool_call(name, params.get("arguments", {}))
+        if name == "finalize_analysis" and not is_error:
+            try:
+                structured = {key: result[key] for key in ("status", "analysis_id", "mode", "revision")}
+                final_response = response(request_id, markdown_result(result["markdown"], structured))
+            except (KeyError, TypeError, ValueError) as exc:
+                return response(request_id, text_result(server._error("finalize_response_failed", str(exc)), is_error=True))
+            server.session.clear()
+            return final_response
         return response(request_id, text_result(result, is_error=is_error))
     return error(request_id, -32601, "method not found")
 

@@ -156,10 +156,13 @@ class ObservationRegistry:
             identity, content_hash = _digest_file(path)
             if relative != observation["source"] or identity != observation["identity"] or content_hash != observation["content_hash"]:
                 raise ValueError("observation source changed")
-        return {
+        resolved = {
             "snapshot_hash": observation["snapshot_hash"],
             "canonical_evidence": dict(observation["canonical_evidence"]),
         }
+        if "absence" in observation:
+            resolved["absence"] = dict(observation["absence"])
+        return resolved
 
     def invalidate_from(self, stage: str) -> None:
         boundary = ANALYSIS_STAGES.index(stage)

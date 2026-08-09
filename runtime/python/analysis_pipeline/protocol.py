@@ -142,3 +142,7 @@ def text_result(value: Any, *, is_error: bool = False) -> dict[str, Any]:
     if is_error:
         result["isError"] = True
     return result
+
+
+def markdown_result(markdown: str, structured: dict[str, Any]) -> dict[str, Any]:
+    return {"content": [{"type": "text", "text": markdown}], "structuredContent": structured}

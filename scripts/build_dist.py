@@ -49,7 +49,7 @@ SKILL_POLICIES = {
         "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_contracts"],
         "references": ["references/configuration-timing.md", "references/evidence-and-readiness.md", "references/repository-analysis-checklist.md", "references/report-slots.json", "references/payload-contract.json"],
     },
-    "analyze-k8s-finalize": {"tools": [], "references": []},
+    "analyze-k8s-finalize": {"tools": ["finalize_analysis"], "references": []},
 }
 
 
@@ -101,6 +101,8 @@ def bundle_destination(staging: Path, relative: Path) -> Path:
         return staging / "agents" / Path(*parts[2:])
     if parts[:2] == ("runtime", "commands"):
         return staging / "commands" / Path(*parts[2:])
+    if parts[0] == "scripts":
+        return staging / "runtime" / "python" / relative
     if parts[0] in {"assets", "contracts"}:
         return staging / relative
     raise ValueError(f"runtime file has no bundle destination: {relative.as_posix()}")

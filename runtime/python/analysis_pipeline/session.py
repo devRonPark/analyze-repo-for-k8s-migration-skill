@@ -27,6 +27,7 @@ from .stage_contracts import (
     validate_contracts_payload,
 )
 from .state import ANALYSIS_STAGES, PipelineState, create_state
+from .report_projection import project_and_render
 
 
 SKILL_BY_STAGE = {
@@ -233,6 +234,30 @@ class AnalysisSession:
         self.pipeline = promote_contract_facts(self.pipeline, payload)
         self.current_stage, self.revision, self.transition_token = self.pipeline.current_stage, self.pipeline.revision, self._token()
         return self.handoff("contracts")
+
+    def finalize_and_render(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        self.assert_envelope(arguments)
+        if self.current_stage != "finalize":
+            raise ValueError("stage_order")
+        assert self.pipeline is not None and self.mode is not None and self.analysis_id is not None
+        target_metadata = {
+            "대상 유형": "local Git repository",
+            "Repository URL 또는 Local path": self.target_subdirectory or ".",
+            "접근 방식": "read-only static MCP",
+            "확인된 저장소 루트": ".",
+            "branch, tag 또는 commit": str(self.binding.get("git_revision", "unknown")) if self.binding else "unknown",
+            "분석 경로": self.target_subdirectory or ".",
+            "출력 모드": self.mode,
+        }
+        markdown = project_and_render(self.pipeline, self.mode, target_metadata)
+        result = {
+            "status": "finalized",
+            "analysis_id": self.analysis_id,
+            "mode": self.mode,
+            "revision": self.revision,
+            "markdown": markdown,
+        }
+        return result
 
     def handoff(self, completed_stage: str | None) -> dict[str, Any]:
         if not self.active or self.mode is None or self.transition_token is None or self.current_stage is None:

@@ -136,8 +136,10 @@ class OpenCodeAdapterTests(unittest.TestCase):
 
     def test_detailed_final_output_uses_the_finalized_markdown_contract(self):
         finalizer = (ROOT / "runtime/stage-skills/analyze-k8s-finalize/SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("not enabled yet", finalizer)
-        self.assertNotIn("finalize_analysis", finalizer)
+        self.assertIn("finalize_analysis", finalizer)
+        self.assertIn("canonical Markdown", finalizer)
+        self.assertIn("Relay", finalizer)
+        self.assertNotIn("read_evidence", finalizer)
 
     def test_enabled_stages_do_not_leak_the_later_stage_procedure(self):
         discovery = (ROOT / "runtime/stage-skills/analyze-k8s-discovery/SKILL.md").read_text(encoding="utf-8")
