@@ -1,5 +1,13 @@
 # PIPE-002 — Add Python MCP pipeline tool and secure evidence snapshot
 
+## Static MCP Stage Skills amendment
+
+This ticket is superseded by Ticket 2 of Static MCP Stage Skills. A stdio
+Python server exposes a fixed twelve-tool catalog from its first tools/list
+response, binds target_path relative to process-start command_directory, and
+uses one active analysis per fresh server process. It has no dynamic catalog
+refresh, host session identity, SDK dependency, or replay receipt.
+
 ## Outcome
 
 Expose the explicit trusted analysis stage tools through a Python MCP stdio

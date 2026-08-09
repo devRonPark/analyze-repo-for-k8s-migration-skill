@@ -1,5 +1,12 @@
 # PIPE-005 — Verify pipeline invariants and interactive behavior
 
+## Static MCP Stage Skills amendment
+
+This ticket is superseded by Tickets 10 through 12 of Static MCP Stage Skills.
+OpenCode, Claude Code, and Gemini CLI receive the same Python stdio contract;
+only OpenCode has provider-backed detached-PTY acceptance. Mode-specific
+goldens are committed before scorecards and target immutability remains a gate.
+
 ## Outcome
 
 Prove that the complete pipeline produces useful, evidence-disciplined reports

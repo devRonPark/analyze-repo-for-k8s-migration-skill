@@ -2,6 +2,15 @@
 
 ## Status
 
+### Static MCP Stage Skills supersession
+
+The approved 2026-08-09 Static MCP Stage Skills Design supersedes this
+planning design for implementation. It retains Python-only, process-private
+state and target safety, but replaces dynamic tools/list, active tool schemas,
+replay receipts, SDK/wheelhouse requirements, and host-session assumptions
+with a fixed twelve-tool stdlib catalog, opaque common submit envelope,
+server-issued handoffs, and seven installed Skills.
+
 Approved for planning on 2026-08-08. This design supersedes the TypeScript
 implementation choice in PIPE-001 and later PIPE tickets. It does not change
 the public `/analyze-repo-for-kubernetes` command.

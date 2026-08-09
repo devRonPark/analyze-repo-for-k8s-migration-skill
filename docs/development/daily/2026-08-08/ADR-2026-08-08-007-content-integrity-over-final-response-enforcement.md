@@ -4,6 +4,14 @@
 - Date: 2026-08-08
 - Related: ADR-2026-08-08-004, ADR-2026-08-08-005, ADR-2026-08-08-006, PIPE-000
 
+## Static MCP Stage Skills amendment
+
+Static MCP Stage Skills retains content integrity but replaces the assumed
+OpenCode session identity with a process-private server lifecycle. The final
+Skill relays canonical Markdown produced by finalize_analysis; direct-TUI
+formatting remains an acceptance concern. Static client configurations may
+launch the same Python stdio server without a custom-tool API.
+
 ## Context
 
 The review-driven PIPE-000 gate originally required two host-owned runtime

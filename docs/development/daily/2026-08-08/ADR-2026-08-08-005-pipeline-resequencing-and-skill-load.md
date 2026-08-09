@@ -4,6 +4,16 @@
 - Date: 2026-08-08
 - Related: ADR-2026-08-08-004, PIPE-001 through PIPE-005, VS-027
 
+## Static MCP Stage Skills amendment
+
+The approved Static MCP Stage Skills implementation supersedes PIPE-000's
+host-identity gate and the single deep-tool sequencing in this ADR. A fresh
+stdio server process is the supported lifecycle boundary. The fixed catalog is
+available from connection start, while server transition validation and
+success-handoff-directed Skill loading provide progressive procedural
+disclosure. The twelve Vertical Slice tickets replace the former PIPE execution
+sequence without weakening target safety or evidence validation.
+
 ## Context
 
 The VS-028 experiment proved that a Markdown reference named by a Skill or

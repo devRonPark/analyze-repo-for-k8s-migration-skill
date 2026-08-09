@@ -4,6 +4,13 @@
 - Date: 2026-08-08
 - Related: ADR-2026-08-08-005, ADR-2026-08-08-008, PIPE-003, PIPE-005, PIPE-006
 
+## Static MCP Stage Skills amendment
+
+The Static MCP Stage Skills terminal sweep applies to the installed bundle,
+runtime launcher, copied contracts, client fragments, and acceptance adapter.
+It verifies the delivered analysis runtime contains no TypeScript, JavaScript,
+Node, or Bun artifact and that canonical rule ownership remains singular.
+
 ## Context
 
 `SKILL.md` is always-loaded context. A sentence that does not change an

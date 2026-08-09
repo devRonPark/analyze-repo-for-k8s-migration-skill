@@ -1,5 +1,12 @@
 # PIPE-001 — Define deterministic pipeline state and pure validator
 
+## Static MCP Stage Skills amendment
+
+This ticket's pure Python state work is superseded by Ticket 2 of the approved
+Static MCP Stage Skills plan. The final contract uses process-private
+AnalysisSession state, opaque server-issued analysis IDs and transition tokens,
+static transport schemas, and no state-hash public field or replay ledger.
+
 ## Outcome
 
 Create the closed internal state schema and pure Python validator for the

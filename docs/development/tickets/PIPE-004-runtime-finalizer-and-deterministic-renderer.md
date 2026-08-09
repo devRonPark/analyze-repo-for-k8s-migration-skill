@@ -1,5 +1,12 @@
 # PIPE-004 — Move final rendering into the runtime pipeline
 
+## Static MCP Stage Skills amendment
+
+This ticket is superseded by Ticket 9 of Static MCP Stage Skills. The final
+public tool accepts analysis_id, revision, and transition_token only; mode is
+server-owned. A pure in-memory projector and Markdown validator render the
+canonical report before process-private cleanup.
+
 ## Outcome
 
 Make `analysis_pipeline.finalize()` validate completed pipeline state, project

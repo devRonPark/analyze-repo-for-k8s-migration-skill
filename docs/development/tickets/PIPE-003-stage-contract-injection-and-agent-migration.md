@@ -1,5 +1,13 @@
 # PIPE-003 — Inject canonical stage contracts and migrate the Agent
 
+## Static MCP Stage Skills amendment
+
+This ticket is superseded by Ticket 3 and Tickets 4 through 8 of Static MCP
+Stage Skills. The installed bundle has one user dispatcher and six
+model-invoked Skills. The common submit envelope is static; only the current
+stage's generated payload-contract reference and validator fragment are loaded
+after its predecessor handoff succeeds.
+
 ## Outcome
 
 Move required analysis instructions from optional Markdown reads into

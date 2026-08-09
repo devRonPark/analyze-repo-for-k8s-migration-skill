@@ -5,6 +5,20 @@
 - Supersedes: the implementation mechanism proposed by [VS-028](../../tickets/VS-028-prose-only-process-discovery.md)
 - Related: [analysis pipeline handoff](../../current/analysis-pipeline-handoff-2026-08-08.md), ADR-2026-08-07-001, ADR-2026-08-07-002
 
+## Static MCP Stage Skills amendment
+
+The approved 2026-08-09 Static MCP Stage Skills design supersedes this ADR's
+implementation details. The public command now starts a static, twelve-tool
+Python stdio MCP catalog rather than one dynamic analysis_pipeline tool. The
+server uses one process-private active analysis, target-path binding, accepted
+handoffs, and deterministic final Markdown. The dispatcher and six
+model-invoked Skills provide progressive procedural disclosure; it is not a
+host identity or filesystem-secrecy guarantee. The runtime is deliberately
+stdlib-only and does not require a Python MCP SDK or offline wheelhouse.
+
+Earlier language about active catalog refresh, receipt replay, and a model or
+host session identifier is historical and not normative for this milestone.
+
 ## Context
 
 VS-028's repeated Flask/Celery runs showed that prompt-only staging does not

@@ -1,5 +1,12 @@
 # PIPE-006 — Prune no-op Skill text after complete pipeline verification
 
+## Static MCP Stage Skills amendment
+
+This ticket is superseded by the terminal checks in Ticket 12 of Static MCP
+Stage Skills. The scan includes bundled Skill roots, Python runtime, launcher,
+client fragments, copy/install scripts, and acceptance harnesses. It rejects
+any delivered .ts, .js, Node, or Bun analysis-runtime artifact.
+
 ## Outcome
 
 Reduce `SKILL.md` and the public Agent/command text to the smallest behaviour-

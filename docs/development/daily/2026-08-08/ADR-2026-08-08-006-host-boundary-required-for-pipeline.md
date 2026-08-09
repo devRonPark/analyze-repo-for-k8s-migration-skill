@@ -4,6 +4,14 @@
 - Date: 2026-08-08
 - Related: ADR-2026-08-08-004, ADR-2026-08-08-005, PIPE-000 completion
 
+## Static MCP Stage Skills amendment
+
+This ADR remains superseded. Static MCP Stage Skills does not select a host
+session API: one fresh server process owns one active analysis. Server-issued
+analysis IDs, revisions, transition tokens, target snapshots, and trusted
+observations replace any proposed host identity. No model-supplied identifier
+is accepted as state authority.
+
 ## Context
 
 PIPE-000's local inspection found no session-identity use in this repository's

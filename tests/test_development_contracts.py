@@ -13,6 +13,7 @@ ADR_AND_TICKETS = {
     "pipe_005": ROOT / "docs/development/tickets/PIPE-005-pipeline-acceptance-and-interactive-e2e.md",
     "pipe_006": ROOT / "docs/development/tickets/PIPE-006-terminal-skill-pruning.md",
 }
+RULE_OWNERSHIP = ROOT / "docs/development/specifications/static-stage-rule-ownership-2026-08-09.md"
 
 
 class DevelopmentContractTests(unittest.TestCase):
@@ -55,6 +56,24 @@ class DevelopmentContractTests(unittest.TestCase):
         ]
         for term in forbidden_terms:
             self.assertNotIn(term, self.combined)
+
+    def test_static_stage_skill_amendment_and_rule_ownership_are_present(self):
+        for content in self.contents.values():
+            self.assertIn("Static MCP Stage Skills", content)
+
+        ownership = RULE_OWNERSHIP.read_text(encoding="utf-8")
+        for heading in [
+            "Canonical owner",
+            "Validator owner",
+            "Skill stage",
+            "Summary/Detailed condition",
+            "Report fields",
+            "Characterization or golden test",
+            "workflow.md",
+            "migration-summary-template.md",
+            "migration-assessment-template.md",
+        ]:
+            self.assertIn(heading, ownership)
 
 
 if __name__ == "__main__":

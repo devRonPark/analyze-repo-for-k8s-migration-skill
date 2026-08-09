@@ -4,6 +4,14 @@
 - Date: 2026-08-08
 - Related: ADR-2026-08-08-004, PIPE-001, PIPE-003, Leading Words design
 
+## Static MCP Stage Skills amendment
+
+Static MCP Stage Skills narrows this ADR's guarantee to progressive procedural
+disclosure. The fixed MCP catalog may reveal tool names, and OpenCode has a
+static allowlist for the seven installed Skill roots. The invariant is that a
+future Skill body or reference is not loaded before predecessor acceptance;
+the server rejects out-of-order calls even though every tool is listed.
+
 ## Context
 
 An Agent that can see a complete multi-stage roadmap while performing an early
