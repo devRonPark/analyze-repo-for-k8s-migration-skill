@@ -150,6 +150,8 @@ class RelationshipsStageTests(unittest.TestCase):
             "mode": "summary",
             "discovery_fact_refs": ["fact_discovery_claim-container"],
             "execution_fact_refs": ["fact_execution_claim-process"],
+            "candidate_ids": ["candidate-web"],
+            "process_ids": ["process-web"],
         })
         self.assertNotIn("app.py", json.dumps(result, sort_keys=True))
         self.assertNotIn("observation_ref", json.dumps(result, sort_keys=True))

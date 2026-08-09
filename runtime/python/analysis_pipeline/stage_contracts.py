@@ -44,6 +44,22 @@ def relationship_edge_contract() -> dict[str, Any]:
     return dict(edges)
 
 
+def workload_unit_contract() -> dict[str, Any]:
+    payload = stage_contract("boundaries").get("client_payload")
+    units = payload.get("workload_units") if isinstance(payload, Mapping) else None
+    if not isinstance(units, Mapping) or not units:
+        raise ValueError("invalid_workload_unit_contract")
+    return dict(units)
+
+
+def candidate_exclusion_contract() -> dict[str, Any]:
+    payload = stage_contract("boundaries").get("client_payload")
+    exclusions = payload.get("candidate_exclusions") if isinstance(payload, Mapping) else None
+    if not isinstance(exclusions, Mapping) or not exclusions:
+        raise ValueError("invalid_candidate_exclusion_contract")
+    return dict(exclusions)
+
+
 def _require_contract_fields(stage: str, payload: Mapping[str, Any]) -> None:
     required = client_payload_required_fields(stage)
     if missing := required.difference(payload):
@@ -343,3 +359,130 @@ def project_relationships_handoff(state: PipelineState) -> dict[str, list[str]]:
             if isinstance(claim, Mapping) and claim.get("status") == "unknown"
         ],
     }
+
+
+def validate_boundaries_payload(payload: Mapping[str, Any], registry: ObservationRegistry, snapshot: TargetSnapshot, binding: Mapping[str, Any], discovery_fact_refs: list[str], execution_fact_refs: list[str], relationship_fact_refs: list[str], process_ids: list[str], candidate_ids: list[str]) -> dict[str, Any]:
+    if not isinstance(payload, Mapping):
+        raise ValueError("payload must be object")
+    _require_contract_fields("boundaries", payload)
+    evidence, claims = payload.get("evidence"), payload.get("claims")
+    if not isinstance(evidence, list) or not evidence or not isinstance(claims, list) or not claims:
+        raise ValueError("boundaries requires trusted evidence and claims")
+    observations: dict[str, dict[str, Any]] = {}
+    for item in evidence:
+        if isinstance(item, Mapping) and isinstance(item.get("observation_ref"), str):
+            observations[item["observation_ref"]] = registry.resolve(item["observation_ref"], "boundaries", snapshot)
+    normalized, _ = normalize_submission_payload(payload, observations, binding)
+    for field, accepted in (("discovery_fact_refs", discovery_fact_refs), ("execution_fact_refs", execution_fact_refs), ("relationship_fact_refs", relationship_fact_refs)):
+        if normalized.get(field) != accepted:
+            raise ValueError(f"unknown {field[:-1].replace('_', ' ')}")
+    units = normalized.get("workload_units")
+    if not isinstance(units, list):
+        raise ValueError("invalid workload units")
+    known_processes, known_candidates = set(process_ids), set(candidate_ids)
+    claim_status = {claim.get("id"): claim.get("status") for claim in normalized["claims"] if isinstance(claim, Mapping)}
+    unit_ids: list[str] = []
+    deployable_ids: list[str] = []
+    assigned: set[str] = set()
+    included_candidates: set[str] = set()
+    linked_claims: set[str] = set()
+    unit_contract = workload_unit_contract()
+    required = set(unit_contract)
+    condition_statuses = _edge_enum(unit_contract, "start_definition_status")
+    lifecycle_statuses = _edge_enum(unit_contract, "lifecycle")
+    state_statuses = _edge_enum(unit_contract, "state_decision")
+    deployability_statuses = _edge_enum(unit_contract, "deployability_status")
+
+    def link_claims(claim_ids: Any, allowed_statuses: set[str]) -> None:
+        if not isinstance(claim_ids, list) or not claim_ids or len(claim_ids) != len(set(claim_ids)) or not set(claim_ids).issubset(claim_status):
+            raise ValueError("workload claim dangling")
+        if linked_claims.intersection(claim_ids):
+            raise ValueError("workload claim duplicate")
+        if any(claim_status[claim_id] not in allowed_statuses for claim_id in claim_ids):
+            raise ValueError("workload claim status mismatch")
+        linked_claims.update(claim_ids)
+
+    for unit in units:
+        if not isinstance(unit, Mapping):
+            raise ValueError("invalid workload unit")
+        ensure_exact_keys(unit, required, "workload unit")
+        unit_id = _edge_identifier(unit.get("id"), "unit id")
+        if unit_id in unit_ids:
+            raise ValueError("duplicate workload unit")
+        members = unit.get("process_ids")
+        if not isinstance(members, list) or not members or len(members) != len(set(members)) or not set(members).issubset(known_processes):
+            raise ValueError("workload process dangling")
+        if assigned.intersection(members):
+            raise ValueError("duplicate workload process")
+        assigned.update(members)
+        candidates = unit.get("candidate_ids")
+        if not isinstance(candidates, list) or len(candidates) != len(set(candidates)) or not set(candidates).issubset(known_candidates):
+            raise ValueError("workload candidate dangling")
+        included_candidates.update(candidates)
+        if unit.get("start_definition_status") not in condition_statuses or unit.get("independent_lifecycle_status") not in condition_statuses or unit.get("boundary_status") not in condition_statuses:
+            raise ValueError("invalid workload boundary status")
+        if unit.get("lifecycle") not in lifecycle_statuses or unit.get("state_decision") not in state_statuses or unit.get("deployability_status") not in deployability_statuses or unit_contract.get("deployable") != "boolean" or not isinstance(unit.get("deployable"), bool):
+            raise ValueError("invalid workload unit")
+        if unit["boundary_status"] == "confirmed" and (unit["start_definition_status"] != "confirmed" or unit["independent_lifecycle_status"] != "confirmed"):
+            raise ValueError("confirmed workload requires both boundary conditions")
+        if unit["deployable"] and (unit["boundary_status"] != "confirmed" or unit["start_definition_status"] != "confirmed" or unit["independent_lifecycle_status"] != "confirmed"):
+            raise ValueError("deployable workload requires both boundary conditions")
+        if unit["deployable"] and unit["deployability_status"] not in {"confirmed", "inferred"}:
+            raise ValueError("deployable workload requires grounded eligibility")
+
+        link_claims(unit.get("boundary_claim_ids"), {unit["boundary_status"]})
+        lifecycle_claim_statuses = {"unknown"} if unit["lifecycle"] == "unknown" else {"confirmed", "inferred"}
+        state_claim_statuses = (
+            {"unknown"} if unit["state_decision"] == "unknown"
+            else {"conflicted"} if unit["state_decision"] == "conflicted"
+            else {"confirmed", "inferred"}
+        )
+        link_claims(unit.get("lifecycle_claim_ids"), lifecycle_claim_statuses)
+        link_claims(unit.get("state_claim_ids"), state_claim_statuses)
+        link_claims(unit.get("deployability_claim_ids"), {unit["deployability_status"]})
+        unit_ids.append(unit_id)
+        if unit["deployable"]:
+            deployable_ids.append(unit_id)
+    if assigned != known_processes:
+        raise ValueError("workload process unassigned")
+    exclusions = normalized.get("candidate_exclusions")
+    if not isinstance(exclusions, list):
+        raise ValueError("invalid candidate exclusions")
+    exclusion_contract = candidate_exclusion_contract()
+    exclusion_fields = set(exclusion_contract)
+    dispositions = _edge_enum(exclusion_contract, "disposition")
+    excluded_candidates: set[str] = set()
+    for exclusion in exclusions:
+        if not isinstance(exclusion, Mapping):
+            raise ValueError("invalid candidate exclusion")
+        ensure_exact_keys(exclusion, exclusion_fields, "candidate exclusion")
+        candidate_id = _edge_identifier(exclusion.get("candidate_id"), "candidate id")
+        if candidate_id not in known_candidates or candidate_id in included_candidates or candidate_id in excluded_candidates:
+            raise ValueError("candidate exclusion dangling")
+        disposition = exclusion.get("disposition")
+        if disposition not in dispositions:
+            raise ValueError("invalid candidate disposition")
+        allowed_claim_statuses = {"confirmed", "inferred"} if disposition == "excluded" else {disposition}
+        link_claims(exclusion.get("claim_ids"), allowed_claim_statuses)
+        excluded_candidates.add(candidate_id)
+    if included_candidates | excluded_candidates != known_candidates:
+        raise ValueError("workload candidate unaccounted")
+    if any(status in {"confirmed", "inferred", "conflicted"} and claim_id not in linked_claims for claim_id, status in claim_status.items()):
+        raise ValueError("boundary claim requires workload unit")
+    normalized["unit_ids"] = unit_ids
+    normalized["deployable_unit_ids"] = deployable_ids
+    normalized["included_candidate_ids"] = [candidate_id for candidate_id in candidate_ids if candidate_id in included_candidates]
+    normalized["excluded_candidate_ids"] = [candidate_id for candidate_id in candidate_ids if candidate_id in excluded_candidates]
+    return normalized
+
+
+def promote_boundary_facts(state: PipelineState, payload: Mapping[str, Any]) -> PipelineState:
+    return submit(state, "boundaries", dict(payload), state.revision, state.state_hash)
+
+
+def project_boundaries_handoff(state: PipelineState) -> dict[str, list[str]]:
+    payload = state.outputs.get("boundaries")
+    if not isinstance(payload, Mapping) or not isinstance(payload.get("claims"), list):
+        raise ValueError("boundaries output is unavailable")
+    claims = payload["claims"]
+    return {"unit_ids": list(payload.get("unit_ids", [])), "deployable_unit_ids": list(payload.get("deployable_unit_ids", [])), "included_candidate_ids": list(payload.get("included_candidate_ids", [])), "excluded_candidate_ids": list(payload.get("excluded_candidate_ids", [])), "boundaries_fact_refs": [f"fact_boundaries_{claim['id']}" for claim in claims if isinstance(claim, Mapping) and claim.get("status") != "unknown"], "unknown_ids": [claim["id"] for claim in claims if isinstance(claim, Mapping) and claim.get("status") == "unknown"]}

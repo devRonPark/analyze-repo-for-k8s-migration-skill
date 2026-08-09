@@ -11,12 +11,15 @@ from .stage_contracts import (
     promote_discovery_facts,
     promote_execution_facts,
     promote_relationship_facts,
+    promote_boundary_facts,
     project_discovery_handoff,
     project_execution_handoff,
     project_relationships_handoff,
+    project_boundaries_handoff,
     validate_discovery_payload,
     validate_execution_payload,
     validate_relationships_payload,
+    validate_boundaries_payload,
 )
 from .state import ANALYSIS_STAGES, PipelineState, create_state
 
@@ -199,6 +202,19 @@ class AnalysisSession:
         self.transition_token = self._token()
         return self.handoff("relationships")
 
+    def submit_boundaries(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        self.assert_envelope(arguments)
+        if self.current_stage != "boundaries":
+            raise ValueError("stage_order")
+        assert self.registry is not None and self.snapshot is not None and self.binding is not None and self.pipeline is not None
+        discovery = project_discovery_handoff(self.pipeline)
+        execution = project_execution_handoff(self.pipeline)
+        relationships = project_relationships_handoff(self.pipeline)
+        payload = validate_boundaries_payload(arguments.get("payload"), self.registry, self.snapshot, self.binding, discovery["discovery_fact_refs"], execution["execution_fact_refs"], relationships["relationship_fact_refs"], execution["process_ids"], discovery["candidate_ids"])
+        self.pipeline = promote_boundary_facts(self.pipeline, payload)
+        self.current_stage, self.revision, self.transition_token = self.pipeline.current_stage, self.pipeline.revision, self._token()
+        return self.handoff("boundaries")
+
     def handoff(self, completed_stage: str | None) -> dict[str, Any]:
         if not self.active or self.mode is None or self.transition_token is None or self.current_stage is None:
             raise ValueError("analysis_not_started")
@@ -221,6 +237,15 @@ class AnalysisSession:
             stage_input.update(accepted_output)
             stage_input["discovery_fact_refs"] = project_discovery_handoff(self.pipeline)["discovery_fact_refs"]
             stage_input["execution_fact_refs"] = project_execution_handoff(self.pipeline)["execution_fact_refs"]
+            stage_input["candidate_ids"] = project_discovery_handoff(self.pipeline)["candidate_ids"]
+            stage_input["process_ids"] = project_execution_handoff(self.pipeline)["process_ids"]
+        elif self.current_stage == "contracts":
+            assert self.pipeline is not None
+            accepted_output = project_boundaries_handoff(self.pipeline)
+            stage_input.update(accepted_output)
+            stage_input["discovery_fact_refs"] = project_discovery_handoff(self.pipeline)["discovery_fact_refs"]
+            stage_input["execution_fact_refs"] = project_execution_handoff(self.pipeline)["execution_fact_refs"]
+            stage_input["relationship_fact_refs"] = project_relationships_handoff(self.pipeline)["relationship_fact_refs"]
         return {
             "status": "accepted",
             "analysis_id": self.analysis_id,

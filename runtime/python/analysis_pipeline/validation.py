@@ -18,7 +18,7 @@ ALLOWED_STAGE_FIELDS = {
         "stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications",
         "discovery_fact_refs", "execution_fact_refs", "graph_edges", "graph_edge_ids",
     },
-    "boundaries": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "unit_ids", "deployable_unit_ids", "decisions"},
+    "boundaries": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "workload_units", "candidate_exclusions", "unit_ids", "deployable_unit_ids", "included_candidate_ids", "excluded_candidate_ids", "decisions"},
     "contracts": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "contract_ids"},
 }
 
@@ -103,7 +103,7 @@ def stage_data_present(stage: str, payload: Mapping[str, Any]) -> bool:
     if stage == "relationships":
         return True
     if stage == "boundaries":
-        return bool(payload.get("unit_ids"))
+        return True
     if stage == "contracts":
         return bool(payload.get("contract_ids"))
     return True
@@ -387,6 +387,12 @@ def validate_boundaries_payload(payload: Mapping[str, Any]) -> None:
         raise ValueError("duplicate deployable membership")
     if not set(deployable_ids).issubset(set(unit_ids)):
         raise ValueError("deployable unit must reference a known unit")
+    included_candidates = payload.get("included_candidate_ids", [])
+    excluded_candidates = payload.get("excluded_candidate_ids", [])
+    if len(included_candidates) != len(set(included_candidates)) or len(excluded_candidates) != len(set(excluded_candidates)):
+        raise ValueError("duplicate boundary candidate membership")
+    if set(included_candidates).intersection(excluded_candidates):
+        raise ValueError("candidate cannot be both included and excluded")
 
 
 def validate_finalize_state(state: PipelineState) -> None:

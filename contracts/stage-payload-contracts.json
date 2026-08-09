@@ -56,7 +56,21 @@
       },
       "accepted_output": ["graph_edge_ids", "relationship_fact_refs", "unknown_ids"]
     },
-    "boundaries": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "unit_ids", "deployable_unit_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs"]},
+    "boundaries": {
+      "required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "workload_units", "candidate_exclusions", "unit_ids", "deployable_unit_ids", "included_candidate_ids", "excluded_candidate_ids"],
+      "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs"],
+      "client_payload": {
+        "schema_version": 1,
+        "stage": "boundaries",
+        "required": ["schema_version", "stage", "evidence", "claims", "rule_applications", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "workload_units", "candidate_exclusions"],
+        "evidence": {"alias": "identifier", "observation_ref": "opaque observation reference"},
+        "claims": {"id": "identifier", "status": "confirmed|inferred|unknown|conflicted|not_applicable", "evidence_aliases": ["identifier"]},
+        "rule_applications": {"rule_id": "identifier", "evidence_aliases": ["identifier"], "process_or_candidate_ids": ["identifier"], "decision_id": "identifier"},
+        "workload_units": {"id": "identifier", "process_ids": ["accepted execution process identifier"], "candidate_ids": ["accepted discovery candidate identifier"], "start_definition_status": "confirmed|unknown|conflicted", "independent_lifecycle_status": "confirmed|unknown|conflicted", "boundary_status": "confirmed|unknown|conflicted", "lifecycle": "continuous|worker|scheduled|run_once|unknown", "state_decision": "stateless|ephemeral_writable|persistent|externalized|unknown|conflicted", "deployable": "boolean", "deployability_status": "confirmed|inferred|unknown|conflicted", "boundary_claim_ids": ["boundary claim identifier"], "lifecycle_claim_ids": ["lifecycle decision claim identifier"], "state_claim_ids": ["state decision claim identifier"], "deployability_claim_ids": ["deployment eligibility claim identifier"]},
+        "candidate_exclusions": {"candidate_id": "accepted discovery candidate identifier", "disposition": "excluded|unknown|conflicted", "claim_ids": ["candidate disposition claim identifier"]}
+      },
+      "accepted_output": ["unit_ids", "deployable_unit_ids", "included_candidate_ids", "excluded_candidate_ids", "boundaries_fact_refs", "unknown_ids"]
+    },
     "contracts": {"required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "boundaries_fact_refs", "contract_ids"], "fact_ref_fields": ["discovery_fact_refs", "execution_fact_refs", "relationship_fact_refs", "boundaries_fact_refs"]}
   }
 }

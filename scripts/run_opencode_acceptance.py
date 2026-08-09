@@ -453,6 +453,7 @@ def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
     accepted_discovery = False
     accepted_execution = False
     accepted_relationships = False
+    accepted_boundaries = False
     for event in events:
         tool = event.get("tool")
         arguments = event.get("input", {})
@@ -472,6 +473,11 @@ def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
                 errors.append("relationships submit was called outside the relationships Skill")
             elif isinstance(result, dict) and result.get("status") == "accepted":
                 accepted_relationships = True
+        if tool == "submit_boundaries":
+            if current_skill != "analyze-k8s-boundaries":
+                errors.append("boundaries submit was called outside the boundaries Skill")
+            elif isinstance(result, dict) and result.get("status") == "accepted":
+                accepted_boundaries = True
         if tool == "skill" and isinstance(arguments, dict):
             skill_id = arguments.get("name")
             if skill_id not in BUNDLE_SKILL_IDS:
@@ -495,7 +501,11 @@ def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
                 errors.append("only an accepted relationships handoff may load boundaries")
             if len(loaded) == 5 and not accepted_relationships:
                 errors.append("boundaries was loaded without an accepted relationships handoff")
-            if len(loaded) > 5:
+            if len(loaded) == 6 and loaded[5] != "analyze-k8s-contracts":
+                errors.append("only an accepted boundaries handoff may load contracts")
+            if len(loaded) == 6 and not accepted_boundaries:
+                errors.append("contracts was loaded without an accepted boundaries handoff")
+            if len(loaded) > 6:
                 errors.append("later skeletal stages must stop before another Skill loads")
         if tool in {"read", "skill"} and isinstance(arguments, dict):
             path = arguments.get("path") or arguments.get("filePath")

@@ -105,7 +105,11 @@ TOOLS.extend(
                     "Submit only when the current Relationships Vertical Slice has grounded dependency and external runtime claims. "
                     "Submit observation aliases, never raw repository evidence."
                     if stage == "relationships"
-                else f"Submit the current {stage} Vertical Slice with trusted observations."
+                else (
+                    "Submit only when the current Workload Boundary Vertical Slice has grounded unit and lifecycle claims. Submit observation aliases, never raw repository evidence."
+                    if stage == "boundaries"
+                    else f"Submit the current {stage} Vertical Slice with trusted observations."
+                )
                 )
             )
         ),
