@@ -146,6 +146,31 @@ class SubmitRetryBudgetTests(unittest.TestCase):
             self.assertFalse(result["retryable"])
             self.assertIn("retry budget", result["issues"][0])
 
+    def test_reopen_analysis_shares_the_retry_budget_and_stops_looping(self) -> None:
+        # A second live run (2026-08-10) showed the same unbounded-loop shape
+        # on reopen_analysis: it is an unimplemented stub that always returns
+        # the identical "reopen_is_not_delivered" response, and a stuck model
+        # called it 20+ times once it got confused about stage state.
+        temporary, server, _ = self.started()
+        with temporary:
+            results = [
+                server.tool_call(
+                    "reopen_analysis",
+                    {**self.envelope(server), "stage": "discovery", "reason": "confused"},
+                )
+                for _ in range(5)
+            ]
+
+        for result, failed in results[:3]:
+            self.assertTrue(failed)
+            self.assertEqual(result["code"], "reopen_not_ready")
+            self.assertNotIn("retry budget", result["issues"][0])
+        for result, failed in results[3:]:
+            self.assertTrue(failed)
+            self.assertEqual(result["code"], "reopen_not_ready")
+            self.assertFalse(result["retryable"])
+            self.assertIn("retry budget", result["issues"][0])
+
 
 if __name__ == "__main__":
     unittest.main()

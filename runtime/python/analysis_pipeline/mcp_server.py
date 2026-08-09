@@ -12,17 +12,19 @@ from .stage_contracts import candidate_exclusion_contract, relationship_edge_con
 from .tools import git_metadata, glob_paths, locate_evidence, read
 
 PRECISION_BUDGET_TOOLS = ("read_evidence", "locate_evidence", "list_target_paths")
-# submit_<stage> and finalize_analysis share one per-stage retry budget: a
-# stuck model repeating the identical envelope error (stage_order, stale
-# revision/token) on either call is the same unbounded-loop shape the
-# precision budget exists to prevent, just later in the stage. An earlier
-# draft excluded envelope-class codes from this count on the theory that a
-# well-behaved caller would stop and reconsider; a live run against a real
-# repository (2026-08-09) showed a noncompliant model instead calling
-# finalize_analysis 30+ times in a row against a repeating "stage_order"
-# response, so only the two truly degenerate calling-convention codes are
-# excluded now.
-RETRY_BUDGET_TOOLS = (*STAGE_TOOL_BY_STAGE.values(), "finalize_analysis")
+# submit_<stage>, finalize_analysis, and reopen_analysis share one per-stage
+# retry budget: a stuck model repeating the identical envelope error
+# (stage_order, stale revision/token) or an identical stub response on any of
+# these is the same unbounded-loop shape the precision budget exists to
+# prevent, just later in the stage. An earlier draft excluded envelope-class
+# codes from this count on the theory that a well-behaved caller would stop
+# and reconsider; two separate live runs against a real repository
+# (2026-08-09/10) showed a noncompliant model instead calling
+# finalize_analysis 30+ times against a repeating "stage_order" response, and
+# separately calling the still-unimplemented reopen_analysis 20+ times
+# against its constant "reopen_is_not_delivered" stub response, so only the
+# two truly degenerate calling-convention codes stay excluded.
+RETRY_BUDGET_TOOLS = (*STAGE_TOOL_BY_STAGE.values(), "finalize_analysis", "reopen_analysis")
 NON_PAYLOAD_ERROR_CODES = frozenset({"invalid_arguments", "invalid_submission"})
 
 
