@@ -120,6 +120,21 @@ class RepositoryDistributionTests(unittest.TestCase):
             self.assertNotIn("scripts/install-codex.sh", snapshot(first))
             self.assertNotIn("scripts/install-qwen.sh", snapshot(first))
 
+    def test_build_falls_back_when_output_parent_rejects_staging_directory(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            output = Path(tmp) / "analyze-repo-for-kubernetes"
+            real_mkdtemp = build_dist.tempfile.mkdtemp
+
+            def reject_nested_staging(*, prefix, dir=None):
+                if dir == output.parent:
+                    raise PermissionError("injected restrictive temporary directory")
+                return real_mkdtemp(prefix=prefix, dir=dir)
+
+            with patch("scripts.build_dist.tempfile.mkdtemp", side_effect=reject_nested_staging):
+                build_dist.build(ROOT, output)
+
+            self.assertTrue((output / "bundle-manifest.json").is_file())
+
     def test_built_distribution_passes_package_validation(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "analyze-repo-for-kubernetes"

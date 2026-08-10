@@ -114,11 +114,23 @@ def bundle_destination(staging: Path, relative: Path) -> Path:
     raise ValueError(f"runtime file has no bundle destination: {relative.as_posix()}")
 
 
+def staging_directory(output_parent: Path) -> Path:
+    """Create same-volume staging, tolerating restrictive Windows temp ACLs."""
+    try:
+        return Path(tempfile.mkdtemp(prefix=".skill-bundle-", dir=output_parent))
+    except PermissionError as error:
+        fallback = Path(tempfile.mkdtemp(prefix=".skill-bundle-"))
+        if os.stat(fallback).st_dev != os.stat(output_parent).st_dev:
+            shutil.rmtree(fallback, ignore_errors=True)
+            raise error
+        return fallback
+
+
 def build(source_root: Path, output: Path) -> Path:
     source_root = source_root.resolve()
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = Path(tempfile.mkdtemp(prefix=".skill-bundle-", dir=output.parent))
+    temporary = staging_directory(output.parent)
     staging = temporary / output.name
     try:
         for relative in declared_runtime_files(source_root):
