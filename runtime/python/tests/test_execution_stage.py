@@ -187,6 +187,96 @@ class ExecutionStageTests(unittest.TestCase):
         self.assertEqual(result["mode"], "detailed")
         self.assertEqual(result["stage_input"]["mode"], "detailed")
 
+    def test_execution_rule_application_names_the_dangling_decision_id(self) -> None:
+        temporary, server, _, _, discovery = self.start_with_discovery()
+        with temporary:
+            observation, observation_failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(observation_failed, observation)
+            result, failed = server.tool_call(
+                "submit_execution",
+                {
+                    "payload": self.execution_payload(
+                        observation["observation_ref"],
+                        discovery["stage_input"]["discovery_fact_refs"],
+                        rule_applications=[
+                            {
+                                "rule_id": "rule-exec-decision",
+                                "evidence_aliases": ["runtime"],
+                                "process_or_candidate_ids": ["process-web"],
+                                "decision_id": "claim_build_command",
+                            }
+                        ],
+                    ),
+                },
+            )
+
+        self.assertTrue(failed)
+        message = result["issues"][0]
+        # The invented decision_id, the offending rule, and the set of decision
+        # ids actually declared so far (by discovery) must all be nameable --
+        # a live model invents a decision_id describing its own stage's
+        # concerns instead of reusing one an earlier stage declared, and the
+        # old bare "rule decision dangling" gave it nothing to diagnose that with.
+        self.assertIn("claim_build_command", message)
+        self.assertIn("rule-exec-decision", message)
+        self.assertIn("decision-runtime", message)
+        self.assertNotEqual(message, "rule decision dangling")
+
+    def test_execution_rule_application_names_the_dangling_subject_id(self) -> None:
+        temporary, server, _, _, discovery = self.start_with_discovery()
+        with temporary:
+            observation, observation_failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(observation_failed, observation)
+            result, failed = server.tool_call(
+                "submit_execution",
+                {
+                    "payload": self.execution_payload(
+                        observation["observation_ref"],
+                        discovery["stage_input"]["discovery_fact_refs"],
+                        rule_applications=[
+                            {
+                                "rule_id": "rule-exec-subject",
+                                "evidence_aliases": ["runtime"],
+                                "process_or_candidate_ids": ["process-ghost"],
+                                "decision_id": "decision-runtime",
+                            }
+                        ],
+                    ),
+                },
+            )
+
+        self.assertTrue(failed)
+        message = result["issues"][0]
+        self.assertIn("process-ghost", message)
+        self.assertIn("rule-exec-subject", message)
+        self.assertNotEqual(message, "rule subject dangling")
+
+    def test_execution_accepts_rule_application_referencing_a_declared_decision_and_subject(self) -> None:
+        temporary, server, _, _, discovery = self.start_with_discovery()
+        with temporary:
+            observation, observation_failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(observation_failed, observation)
+            result, failed = server.tool_call(
+                "submit_execution",
+                {
+                    "payload": self.execution_payload(
+                        observation["observation_ref"],
+                        discovery["stage_input"]["discovery_fact_refs"],
+                        rule_applications=[
+                            {
+                                "rule_id": "rule-exec-valid",
+                                "evidence_aliases": ["runtime"],
+                                "process_or_candidate_ids": ["process-web"],
+                                "decision_id": "decision-runtime",
+                            }
+                        ],
+                    ),
+                },
+            )
+
+        self.assertFalse(failed, result)
+        self.assertEqual(result["completed_stage"], "execution")
+
     def test_execution_required_fields_are_loaded_from_the_stage_contract(self) -> None:
         self.assertEqual(
             client_payload_required_fields("execution"),

@@ -403,11 +403,21 @@ def validate_rule_subjects_and_decisions(payload: Mapping[str, Any], combined_ca
     valid_subjects = set(combined_catalog["process_ids"]) | set(combined_catalog["candidate_ids"])
     valid_decisions = set(combined_catalog["decision_ids"])
     for rule in payload.get("rule_applications", []):
-        for subject_id in rule["process_or_candidate_ids"]:
-            if subject_id not in valid_subjects:
-                raise ValueError("rule subject dangling")
+        rule_id = rule.get("rule_id", "?")
+        dangling_subjects = sorted(
+            subject_id for subject_id in rule["process_or_candidate_ids"] if subject_id not in valid_subjects
+        )
+        if dangling_subjects:
+            raise ValueError(
+                f"rule '{rule_id}' references process_or_candidate_ids not declared by any stage so far: "
+                f"{', '.join(dangling_subjects)}"
+            )
         if rule["decision_id"] not in valid_decisions:
-            raise ValueError("rule decision dangling")
+            known = ", ".join(sorted(valid_decisions)) if valid_decisions else "none declared yet"
+            raise ValueError(
+                f"rule '{rule_id}' references decision_id '{rule['decision_id']}', which no earlier stage "
+                f"declared in its decisions[]; known decision ids: {known}"
+            )
 
 
 def validate_boundaries_payload(payload: Mapping[str, Any]) -> None:
@@ -448,10 +458,20 @@ def validate_finalize_state(state: PipelineState) -> None:
             applications[rule["rule_id"]] = rule
             if any(evidence_id not in state.evidence for evidence_id in rule["evidence_ids"]):
                 raise ValueError("rule evidence dangling")
-            if any(subject_id not in valid_subjects for subject_id in rule["process_or_candidate_ids"]):
-                raise ValueError("rule subject dangling")
+            dangling_subjects = sorted(
+                subject_id for subject_id in rule["process_or_candidate_ids"] if subject_id not in valid_subjects
+            )
+            if dangling_subjects:
+                raise ValueError(
+                    f"rule '{rule['rule_id']}' references process_or_candidate_ids not declared by any stage: "
+                    f"{', '.join(dangling_subjects)}"
+                )
             if rule["decision_id"] not in valid_decisions:
-                raise ValueError("rule decision dangling")
+                known = ", ".join(sorted(valid_decisions)) if valid_decisions else "none declared"
+                raise ValueError(
+                    f"rule '{rule['rule_id']}' references decision_id '{rule['decision_id']}', which no stage "
+                    f"declared in its decisions[]; known decision ids: {known}"
+                )
     for rule_id in state.binding["required_rule_ids"]:
         if rule_id not in applications:
             raise ValueError("mandatory rule unapplied")
