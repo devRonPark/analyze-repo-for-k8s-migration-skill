@@ -1,0 +1,17 @@
+{
+  "actual_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+  "case_id": "jpetstore-6-summary",
+  "expected_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+  "golden": "static-mcp-jpetstore-6-summary-golden.md",
+  "golden_sha256": "c077f2384162e60231dc325452ae5e3cf35a1132487a6bcae8d30ab495de9252",
+  "mode": "summary",
+  "reason": "OpenCode PTY did not produce a complete final Markdown report before timeout",
+  "status": "FAIL",
+  "target": "C:\\temp\\opencode-e2e-jpetstore-6",
+  "target_status_before": {
+    "returncode": 0,
+    "stderr": "",
+    "stdout": "## HEAD (no branch)\n"
+  },
+  "terminal_file": "C:\\temp\\vs029-out-after\\retry1\\jpetstore-6-summary\\terminal.log"
+}
