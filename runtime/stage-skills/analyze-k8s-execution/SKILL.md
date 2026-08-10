@@ -16,7 +16,8 @@ Use the incoming handoff only. Apply Vertical Slice, Grounding, and Quality Gate
 3. Keep the incoming discovery fact references unchanged. Create only safe
    execution process identifiers and observation aliases; never copy raw
    evidence into claims.
-4. Submit `submit_execution` once with the incoming envelope.
+4. Submit one complete `submit_execution` attempt after this stage's decision
+   is ready. Retry only after an explicit server rejection.
 
 **Ground:** the incoming handoff's `stage_input.survey` already carries this
 stage's bounded, redacted evidence (`observations[]`, each with an
@@ -35,12 +36,29 @@ submit with `unknown`/`inferred` status on the blocked field instead.
 references. Every `payload.evidence[].observation_ref` must come from this
 stage's `stage_input.survey.observations` or its one precision call.
 
-**Checkpoint:** an `accepted` `submit_execution` response is this stage's only
-completion. Do not draft or send user-facing Markdown before it returns. A
-rejected submission may be corrected and resubmitted; after three rejections
-in this stage, further attempts are marked non-retryable — resolve the
-specific issue named in the response or submit with `unknown`/`inferred`
-status instead of resubmitting the same payload.
+**Checkpoint:** do not draft or send user-facing Markdown before
+`submit_execution` returns. A rejected submission may be corrected and
+resubmitted; after three rejections in this stage, further attempts are
+marked non-retryable — resolve the specific issue named in the response or
+submit with `unknown`/`inferred` status instead of resubmitting the same
+payload.
 
 Do not load another Skill, read another stage's references, or infer a later
-procedure. End this stage after the server response.
+procedure while this stage is open.
+
+## Transition
+
+Do not choose, predict, or infer the next stage.
+
+If the submission is accepted:
+1. Stop applying this Skill's procedure.
+2. Read `handoff.next_skill` only from the accepted server response.
+3. Load exactly that Skill.
+4. Do not inspect or load any other stage or reference.
+
+If the submission is rejected:
+1. Remain in this Skill.
+2. Correct only the issues returned by the server.
+3. Resubmit within the allowed retry budget.
+
+A response without `status: accepted` never authorizes a stage transition.
