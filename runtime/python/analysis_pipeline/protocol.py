@@ -41,6 +41,7 @@ ERROR_SCHEMA = {
         "missing_fields": {"type": "array", "items": {"type": "string"}},
         "unexpected_fields": {"type": "array", "items": {"type": "string"}},
         "required_fields": {"type": "array", "items": {"type": "string"}},
+        "path": {"type": "string", "maxLength": 160},
         "budget": {
             "type": "object",
             "additionalProperties": False,
@@ -103,6 +104,7 @@ HANDOFF_SCHEMA = {
         "transition_token": {"type": "string", "pattern": "^tr_[A-Za-z0-9_-]{8,}$"},
         "next_skill": {"type": "string"},
         "accepted_output": {"type": "object"},
+        "submission_template": {"type": ["object", "null"]},
         # stage_input's other keys vary per stage, so this stays open
         # (no additionalProperties:False); survey/budget are constrained
         # because every non-finalize stage_input carries them in this shape.

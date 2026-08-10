@@ -17,6 +17,7 @@ from .stage_contracts import (
     workload_unit_contract,
 )
 from .tools import git_metadata, glob_paths, locate_evidence, read
+from .validation import EvidenceAliasContractError
 
 PRECISION_BUDGET_TOOLS = ("read_evidence", "locate_evidence", "list_target_paths")
 # Only the submit tool for the active stage consumes this stage's correction
@@ -153,6 +154,14 @@ class Server:
             return self._stage_payload_error(exc), True
         except StagePayloadValidationError as exc:
             return self._stage_payload_error(exc), True
+        except EvidenceAliasContractError as exc:
+            return self._error(
+                "invalid_evidence_alias",
+                "use payload.evidence[].alias values in claims, semantic facts, and rules; never use survey references as aliases",
+                retryable=True,
+                stage=self.session.current_stage or "current",
+                path=exc.path,
+            ), True
         except KeyError:
             return self._error("invalid_submission", "invalid_submission"), True
         except (TypeError, ValueError, OSError) as exc:

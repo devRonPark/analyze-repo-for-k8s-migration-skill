@@ -93,6 +93,21 @@ class SubmitRetryBudgetTests(unittest.TestCase):
         self.assertIn("stage_input.survey", rejected["issues"][0])
         self.assertNotIn("not-used", json.dumps(rejected, sort_keys=True))
 
+    def test_claim_alias_error_is_retryable_without_reflecting_the_bad_alias(self) -> None:
+        temporary, server, _ = self.started()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "Dockerfile"})
+            self.assertFalse(failed, observation)
+            payload = self.payload(observation["observation_ref"])
+            payload["claims"][0]["evidence_aliases"] = ["invented_alias"]
+            rejected, failed = server.tool_call("submit_discovery", {"payload": payload})
+
+        self.assertTrue(failed)
+        self.assertEqual(rejected["code"], "invalid_evidence_alias")
+        self.assertTrue(rejected["retryable"])
+        self.assertEqual(rejected["path"], "payload.claims[].evidence_aliases")
+        self.assertNotIn("invented_alias", json.dumps(rejected, sort_keys=True))
+
     def test_first_three_rejections_stay_retryable(self) -> None:
         temporary, server, target = self.started()
         with temporary:

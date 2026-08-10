@@ -8,6 +8,7 @@ from typing import Any, Mapping
 
 from .observations import ObservationRegistry, TargetSnapshot
 from .stage_contracts import (
+    client_payload_submission_template,
     promote_discovery_facts,
     promote_execution_facts,
     promote_relationship_facts,
@@ -269,6 +270,7 @@ class AnalysisSession:
         if not self.active or self.mode is None or self.transition_token is None or self.current_stage is None:
             raise ValueError("analysis_not_started")
         stage_input: dict[str, Any] = {"mode": self.mode}
+        submission_template: dict[str, Any] | None = None
         accepted_output: dict[str, Any] = {}
         if self.current_stage == "discovery":
             stage_input.update({"accepted_fact_refs": [], "unknown_ids": [], "candidate_ids": []})
@@ -313,6 +315,7 @@ class AnalysisSession:
                     "fact_statuses": stage_input.get("fact_statuses", {}),
                 }
             stage_input["survey"] = compute_survey(self.target_root, self.current_stage, self.registry, **survey_kwargs)
+            submission_template = client_payload_submission_template(self.current_stage)
             stage_input["budget"] = {
                 "precision_calls_remaining": PRECISION_CALL_LIMIT - self.precision_calls_used,
                 "submit_rejections_remaining": SUBMIT_REJECTION_LIMIT - self.submit_rejections,
@@ -327,6 +330,7 @@ class AnalysisSession:
             "next_skill": SKILL_BY_STAGE[self.current_stage],
             "accepted_output": accepted_output,
             "stage_input": stage_input,
+            "submission_template": submission_template,
         }
 
     def clear(self) -> None:

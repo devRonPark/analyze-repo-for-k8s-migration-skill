@@ -78,6 +78,18 @@ class ServerOwnedControlPlaneTests(unittest.TestCase):
         self.assertEqual(finalize_schema["required"], [])
         self.assertEqual(finalize_schema["properties"], {})
 
+    def test_handoff_contains_contract_derived_submission_template(self) -> None:
+        temporary, server = self.started()
+        with temporary:
+            handoff = server.session.handoff(None)
+
+        template = handoff["submission_template"]
+        self.assertEqual(template["required_fields"], [
+            "candidate_ids", "claims", "decisions", "evidence", "rule_applications", "schema_version", "signals", "stage",
+        ])
+        self.assertEqual(template["evidence_template"]["alias"], "evidence_1")
+        self.assertIn("rather than a survey reference", template["alias_rule"])
+
     def test_payload_only_flow_advances_through_discovery_and_execution(self) -> None:
         temporary, server = self.started()
         with temporary:

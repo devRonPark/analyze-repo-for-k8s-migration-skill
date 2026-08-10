@@ -240,7 +240,7 @@ class DiscoveryStageTests(unittest.TestCase):
         self.assertFalse(failed, result)
         self.assertEqual(server.session.current_stage, "execution")
 
-    def test_confirmed_claim_with_a_mistyped_alias_names_the_bad_alias(self) -> None:
+    def test_confirmed_claim_with_a_mistyped_alias_returns_safe_alias_guidance(self) -> None:
         temporary, server, _, started, observation = self.start_with_observation()
         with temporary:
             result, failed = server.tool_call(
@@ -254,5 +254,6 @@ class DiscoveryStageTests(unittest.TestCase):
             )
 
         self.assertTrue(failed)
-        self.assertEqual(result["code"], "claim references unknown evidence alias: s_container")
+        self.assertEqual(result["code"], "invalid_evidence_alias")
+        self.assertEqual(result["path"], "payload.claims[].evidence_aliases")
         self.assertEqual(server.session.current_stage, "discovery")

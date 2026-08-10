@@ -46,6 +46,18 @@ def client_payload_allowed_fields(stage: str) -> set[str]:
     return client_payload_required_fields(stage) | set(optional)
 
 
+def client_payload_submission_template(stage: str) -> dict[str, Any]:
+    """Return small contract-derived guidance for a current-stage submission."""
+    return {
+        "required_fields": sorted(client_payload_required_fields(stage)),
+        "evidence_template": {
+            "alias": "evidence_1",
+            "survey_reference": "choose one current-stage survey observation",
+        },
+        "alias_rule": "claims, semantic_facts, and rule_applications must reference payload.evidence[].alias rather than a survey reference",
+    }
+
+
 def relationship_edge_contract() -> dict[str, Any]:
     """Return the executable Relationships edge fragment from the sealed contract."""
     payload = stage_contract("relationships").get("client_payload")

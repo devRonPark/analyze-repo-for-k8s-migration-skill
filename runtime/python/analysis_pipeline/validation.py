@@ -59,6 +59,14 @@ CLIENT_RULE_FIELDS = {"rule_id", "evidence_aliases", "process_or_candidate_ids",
 CLIENT_EVIDENCE_FIELDS = {"alias", "observation_ref"}
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
 
+
+class EvidenceAliasContractError(ValueError):
+    """Safe payload-alias correction without reflecting client values."""
+
+    def __init__(self, path: str) -> None:
+        super().__init__("unknown evidence alias")
+        self.path = path
+
 SECRET_PATTERN = re.compile(r"password|secret|token|api[_-]?key|private[_-]?key", re.IGNORECASE)
 SECRET_LITERAL_PATTERN = re.compile(
     r"(?i)((?:password|passwd|secret|token|api[_ -]?key|private[_ -]?key)\s*[:=]\s*)([^\s,;]+)"
@@ -287,7 +295,7 @@ def normalize_submission_payload(
             raise ValueError("duplicate claim evidence alias")
         undeclared_aliases = sorted(alias for alias in resolved_aliases if alias not in alias_to_id)
         if undeclared_aliases:
-            raise ValueError(f"claim references unknown evidence alias: {', '.join(undeclared_aliases)}")
+            raise EvidenceAliasContractError("payload.claims[].evidence_aliases")
         claim = {key: raw_claim[key] for key in ("id", "status", "scope", "blocked_decision") if key in raw_claim}
         claim["evidence_ids"] = [alias_to_id[alias] for alias in resolved_aliases]
         if claim.get("status") == "unknown" and not any(canonical[evidence_id]["status"] == "unknown" for evidence_id in claim["evidence_ids"]):
@@ -328,7 +336,7 @@ def normalize_submission_payload(
                 raise ValueError("semantic fact evidence aliases required")
             resolved_aliases = [_require_identifier(alias, "evidence alias") for alias in aliases]
             if len(resolved_aliases) != len(set(resolved_aliases)) or any(alias not in alias_to_id for alias in resolved_aliases):
-                raise ValueError("semantic fact references unknown evidence alias")
+                raise EvidenceAliasContractError("payload.semantic_facts[].evidence_aliases")
             evidence_ids = [alias_to_id[alias] for alias in resolved_aliases]
             if status == "unknown" and not any(canonical[evidence_id]["status"] == "unknown" for evidence_id in evidence_ids):
                 raise ValueError("unknown semantic fact requires absence observation")
@@ -398,7 +406,7 @@ def normalize_submission_payload(
         if len(resolved_aliases) != len(set(resolved_aliases)):
             raise ValueError("duplicate rule evidence alias")
         if any(alias not in alias_to_id for alias in resolved_aliases):
-            raise ValueError("undeclared evidence alias")
+            raise EvidenceAliasContractError("payload.rule_applications[].evidence_aliases")
         normalized_rules.append({
             "rule_id": raw_rule.get("rule_id"),
             "evidence_ids": [alias_to_id[alias] for alias in resolved_aliases],
