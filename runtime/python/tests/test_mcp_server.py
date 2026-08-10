@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import subprocess
@@ -5,9 +6,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from analysis_pipeline import mcp_server
 from analysis_pipeline.mcp_server import Server, catalog_changed_notification, handle
 from analysis_pipeline.protocol import TOOL_ORDER
 
@@ -46,6 +49,19 @@ class MCPTests(unittest.TestCase):
         result = handle(Server(), {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
         self.assertNotIn("listChanged", result["result"]["capabilities"]["tools"])
         self.assertIsNone(catalog_changed_notification())
+
+    def test_stdio_server_emits_korean_text_as_utf8(self):
+        output = io.BytesIO()
+        stdout = io.TextIOWrapper(output, encoding="cp949")
+        with (
+            patch.object(sys, "stdin", io.StringIO('{"jsonrpc":"2.0"}\n')),
+            patch.object(sys, "stdout", stdout),
+            patch.object(sys, "stderr", io.StringIO()),
+            patch.object(mcp_server, "handle", return_value={"message": "Kubernetes 설계 입력 요약"}),
+        ):
+            mcp_server.main()
+
+        self.assertIn("Kubernetes 설계 입력 요약", output.getvalue().decode("utf-8"))
 
     def test_start_requires_a_target_path_and_mode(self):
         result = handle(Server(), {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "start_analysis", "arguments": {}}})

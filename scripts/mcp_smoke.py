@@ -301,7 +301,7 @@ def make_external_fixture(directory: Path) -> Path:
         ["git", "add", "."],
         ["git", "-c", "user.name=Smoke", "-c", "user.email=smoke@example.invalid", "commit", "-m", "fixture"],
     ):
-        subprocess.run(command, cwd=target, check=True, capture_output=True, text=True)
+        subprocess.run(command, cwd=target, check=True, capture_output=True, text=True, encoding="utf-8")
     return target
 
 
@@ -311,6 +311,7 @@ def git_status(target: Path) -> str:
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     ).stdout
 
 

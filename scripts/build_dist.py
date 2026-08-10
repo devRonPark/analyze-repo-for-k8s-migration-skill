@@ -60,7 +60,9 @@ def sha256(path: Path) -> str:
 
 
 def revision(root: Path) -> str:
-    result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, encoding="utf-8", check=False
+    )
     return result.stdout.strip() or "unknown"
 
 

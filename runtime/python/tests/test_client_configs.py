@@ -38,6 +38,7 @@ class ClientConfigTests(unittest.TestCase):
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             env={**os.environ, "PYTHONUTF8": "1"},
             timeout=30,
         )
@@ -58,6 +59,7 @@ class ClientConfigTests(unittest.TestCase):
                 check=False,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 env={**isolated_runtime_environment(), "PYTHONPATH": str(ROOT / "runtime" / "python")},
                 timeout=30,
             )
@@ -83,6 +85,7 @@ class ClientConfigTests(unittest.TestCase):
                 check=False,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 env={**os.environ, "PYTHONUTF8": "1"},
                 timeout=60,
             )
