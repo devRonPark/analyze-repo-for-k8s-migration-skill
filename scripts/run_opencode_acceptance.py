@@ -25,6 +25,7 @@ try:
     from scripts.render_summary import render_summary
     from scripts.render_detailed import render_detailed
     from scripts.validate_target_report import finalize as finalize_receipt
+    from scripts.validate_static_mcp_goldens import canonical_text_sha256
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_acceptance.py ...
     from build_dist import SKILL_IDS as BUNDLE_SKILL_IDS, build as build_bundle
     from install_distribution import install_bundle, render_opencode_mcp_fragment
@@ -33,6 +34,7 @@ except ModuleNotFoundError:  # Direct invocation: python3 scripts/run_opencode_a
     from render_summary import render_summary
     from render_detailed import render_detailed
     from validate_target_report import finalize as finalize_receipt
+    from validate_static_mcp_goldens import canonical_text_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = load_project_metadata(ROOT)
@@ -627,7 +629,7 @@ def load_static_mcp_golden_manifest(path: Path) -> dict[str, dict[str, Any]]:
         golden = path.parent / golden_name if isinstance(golden_name, str) else None
         if golden is None or not golden.is_file() or not isinstance(expected_hash, str):
             raise ValueError(f"static MCP golden is unavailable for {item['id']}")
-        if sha256_file(golden) != expected_hash:
+        if canonical_text_sha256(golden) != expected_hash:
             raise ValueError(f"static MCP golden hash mismatch for {item['id']}")
         if item["id"] in indexed:
             raise ValueError(f"duplicate static MCP golden case: {item['id']}")

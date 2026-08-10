@@ -24,8 +24,14 @@ REQUIRED_GOLDEN_HEADINGS = (
 )
 
 
+def canonical_text_sha256(path: Path) -> str:
+    """Hash canonical Git text bytes despite checkout newline conversion."""
+    canonical = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return canonical_text_sha256(path)
 
 
 def validate_manifest(path: Path) -> list[str]:

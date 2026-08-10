@@ -1,4 +1,5 @@
 import json
+import hashlib
 import shutil
 import tempfile
 import unittest
@@ -33,6 +34,17 @@ class StaticMCPGoldenManifestTests(unittest.TestCase):
             payload = json.loads(manifest.read_text(encoding="utf-8"))
             (manifest.parent / payload["cases"][0]["golden"]).write_text("tampered\n", encoding="utf-8")
             self.assertTrue(any("sha256 mismatch" in error for error in validate_manifest(manifest)))
+
+    def test_manifest_accepts_checkout_newline_conversion(self):
+        temporary, manifest = self.copied_manifest()
+        with temporary:
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            golden = manifest.parent / payload["cases"][0]["golden"]
+            canonical = golden.read_bytes().replace(b"\r\n", b"\n")
+            payload["cases"][0]["sha256"] = hashlib.sha256(canonical).hexdigest()
+            golden.write_bytes(canonical.replace(b"\n", b"\r\n"))
+            manifest.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            self.assertEqual(validate_manifest(manifest), [])
 
     def test_manifest_rejects_a_missing_golden_file(self):
         temporary, manifest = self.copied_manifest()
