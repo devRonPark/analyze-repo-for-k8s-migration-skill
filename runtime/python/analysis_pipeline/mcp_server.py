@@ -8,23 +8,19 @@ from typing import Any
 
 from .protocol import SERVER_INFO, STAGE_TOOL_BY_STAGE, TOOLS, error, markdown_result, response, text_result
 from .session import PRECISION_CALL_LIMIT, SUBMIT_REJECTION_LIMIT, AnalysisSession
-from .stage_contracts import candidate_exclusion_contract, relationship_edge_contract, report_state_contract, workload_unit_contract
+from .stage_contracts import (
+    StagePayloadContractError,
+    StagePayloadValidationError,
+    candidate_exclusion_contract,
+    relationship_edge_contract,
+    report_state_contract,
+    workload_unit_contract,
+)
 from .tools import git_metadata, glob_paths, locate_evidence, read
 
 PRECISION_BUDGET_TOOLS = ("read_evidence", "locate_evidence", "list_target_paths")
-# submit_<stage>, finalize_analysis, and reopen_analysis share one per-stage
-# retry budget: a stuck model repeating an identical "stage_order" rejection
-# or an identical stub response on any of these is the same unbounded-loop
-# shape the precision budget exists to prevent, just later in the stage. An
-# earlier draft excluded envelope-class codes from this count on the theory
-# that a well-behaved caller would stop and reconsider; two separate live
-# runs against a real repository (2026-08-09/10) showed a noncompliant model
-# instead calling finalize_analysis 30+ times against a repeating
-# "stage_order" response, and separately calling the still-unimplemented
-# reopen_analysis 20+ times against its constant "reopen_is_not_delivered"
-# stub response, so only the two truly degenerate calling-convention codes
-# stay excluded.
-RETRY_BUDGET_TOOLS = (*STAGE_TOOL_BY_STAGE.values(), "finalize_analysis", "reopen_analysis")
+# Only the submit tool for the active stage consumes this stage's correction
+# budget. Other control calls and out-of-order submissions stay diagnostic.
 NON_PAYLOAD_ERROR_CODES = frozenset({"invalid_arguments", "invalid_submission"})
 
 
@@ -50,8 +46,21 @@ class Server:
             return self.session.start(supplied.get("target_path"), supplied.get("mode"))
         raise ValueError("unsupported_direct_action")
 
-    def _error(self, code: str, issue: str, *, retryable: bool = False) -> dict[str, Any]:
-        return {"code": code, "retryable": retryable, "issues": [issue]}
+    def _error(self, code: str, issue: str, *, retryable: bool = False, **details: Any) -> dict[str, Any]:
+        return {"code": code, "retryable": retryable, "issues": [issue], **details}
+
+    def _stage_payload_error(self, exc: StagePayloadContractError | StagePayloadValidationError) -> dict[str, Any]:
+        if isinstance(exc, StagePayloadContractError):
+            return self._error(
+                "invalid_stage_payload",
+                f"payload does not match the {exc.stage} contract; correct the listed fields and submit again",
+                retryable=True,
+                stage=exc.stage,
+                missing_fields=exc.missing_fields,
+                unexpected_fields=exc.unexpected_fields,
+                required_fields=exc.required_fields,
+            )
+        return self._error("invalid_stage_payload", exc.issue, retryable=True, stage=exc.stage)
 
     def _budget(self) -> dict[str, int]:
         return {
@@ -86,7 +95,8 @@ class Server:
 
     def tool_call(self, name: str, arguments: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         result, is_error = self._dispatch(name, arguments)
-        if is_error and name in RETRY_BUDGET_TOOLS and result["code"] not in NON_PAYLOAD_ERROR_CODES:
+        current_stage_submit = STAGE_TOOL_BY_STAGE.get(self.session.current_stage)
+        if is_error and name == current_stage_submit and result["code"] not in NON_PAYLOAD_ERROR_CODES:
             self.session.submit_rejections += 1
             if self.session.submit_rejections > SUBMIT_REJECTION_LIMIT:
                 stage = self.session.current_stage or "current"
@@ -99,6 +109,8 @@ class Server:
                         "whatever it cannot ground"
                     ),
                 )
+            else:
+                result["budget"] = self._budget()
         return result, is_error
 
     def _dispatch(self, name: str, arguments: dict[str, Any]) -> tuple[dict[str, Any], bool]:
@@ -134,11 +146,13 @@ class Server:
                 return self.session.submit_boundaries(arguments.get("payload")), False
             if name == "submit_contracts":
                 return self.session.submit_contracts(arguments.get("payload")), False
-            if name == "reopen_analysis":
-                return self._error("reopen_not_ready", "reopen_is_not_delivered"), True
             if name == "finalize_analysis":
                 return self.session.finalize_and_render(), False
             raise KeyError(name)
+        except StagePayloadContractError as exc:
+            return self._stage_payload_error(exc), True
+        except StagePayloadValidationError as exc:
+            return self._stage_payload_error(exc), True
         except KeyError:
             return self._error("invalid_submission", "invalid_submission"), True
         except (TypeError, ValueError, OSError) as exc:

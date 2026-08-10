@@ -1,4 +1,5 @@
 import os
+import json
 import subprocess
 import tempfile
 import unittest
@@ -53,6 +54,45 @@ class SubmitRetryBudgetTests(unittest.TestCase):
             "execution", target / "Dockerfile", 1, 1, "1: FROM python:3.13"
         )["observation_ref"]
 
+    def test_top_level_contract_error_names_all_fields_and_allows_corrected_retry(self) -> None:
+        temporary, server, _ = self.started()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "Dockerfile"})
+            self.assertFalse(failed, observation)
+            payload = self.payload(observation["observation_ref"])
+            del payload["stage"]
+            payload["discovery_fact_refs"] = ["invented"]
+            rejected, failed = server.tool_call("submit_discovery", {"payload": payload})
+            accepted, accepted_failed = server.tool_call(
+                "submit_discovery", {"payload": self.payload(observation["observation_ref"])}
+            )
+
+        self.assertTrue(failed)
+        self.assertEqual(rejected["code"], "invalid_stage_payload")
+        self.assertTrue(rejected["retryable"])
+        self.assertEqual(rejected["stage"], "discovery")
+        self.assertEqual(rejected["missing_fields"], ["stage"])
+        self.assertEqual(rejected["unexpected_fields"], ["discovery_fact_refs"])
+        self.assertIn("stage", rejected["required_fields"])
+        self.assertEqual(rejected["budget"]["submit_rejections_remaining"], 2)
+        self.assertNotIn("invented", json.dumps(rejected, sort_keys=True))
+        self.assertFalse(accepted_failed, accepted)
+        self.assertEqual(accepted["next_skill"], "analyze-k8s-execution")
+
+    def test_empty_discovery_evidence_has_safe_corrective_guidance(self) -> None:
+        temporary, server, _ = self.started()
+        with temporary:
+            payload = self.payload("not-used")
+            payload["evidence"] = []
+            rejected, failed = server.tool_call("submit_discovery", {"payload": payload})
+
+        self.assertTrue(failed)
+        self.assertEqual(rejected["code"], "invalid_stage_payload")
+        self.assertTrue(rejected["retryable"])
+        self.assertEqual(rejected["stage"], "discovery")
+        self.assertIn("stage_input.survey", rejected["issues"][0])
+        self.assertNotIn("not-used", json.dumps(rejected, sort_keys=True))
+
     def test_first_three_rejections_stay_retryable(self) -> None:
         temporary, server, target = self.started()
         with temporary:
@@ -91,7 +131,7 @@ class SubmitRetryBudgetTests(unittest.TestCase):
         self.assertFalse(fifth["retryable"])
         self.assertEqual(server.session.current_stage, "discovery")
 
-    def test_finalize_analysis_shares_the_retry_budget_and_stops_looping(self) -> None:
+    def test_finalize_analysis_does_not_consume_the_submission_retry_budget(self) -> None:
         # Reproduces the live-run failure directly: submit_boundaries never
         # succeeded, so current_stage stayed "boundaries" while the model
         # called finalize_analysis repeatedly against a stage_order rejection
@@ -101,40 +141,20 @@ class SubmitRetryBudgetTests(unittest.TestCase):
         with temporary:
             results = [server.tool_call("finalize_analysis", {}) for _ in range(5)]
 
-        for result, failed in results[:3]:
+        for result, failed in results:
             self.assertTrue(failed)
             self.assertEqual(result["code"], "stage_order")
             self.assertNotIn("retry budget", result["issues"][0])
-        for result, failed in results[3:]:
-            self.assertTrue(failed)
-            self.assertEqual(result["code"], "stage_order")
-            self.assertFalse(result["retryable"])
-            self.assertIn("retry budget", result["issues"][0])
+        self.assertEqual(server.session.submit_rejections, 0)
 
-    def test_reopen_analysis_shares_the_retry_budget_and_stops_looping(self) -> None:
-        # A second live run (2026-08-10) showed the same unbounded-loop shape
-        # on reopen_analysis: it is an unimplemented stub that always returns
-        # the identical "reopen_is_not_delivered" response, and a stuck model
-        # called it 20+ times once it got confused about stage state.
+    def test_out_of_order_submit_does_not_consume_the_current_stage_budget(self) -> None:
         temporary, server, _ = self.started()
         with temporary:
-            results = [
-                server.tool_call(
-                    "reopen_analysis",
-                    {"stage": "discovery", "reason": "confused"},
-                )
-                for _ in range(5)
-            ]
+            result, failed = server.tool_call("submit_execution", {"payload": {}})
 
-        for result, failed in results[:3]:
-            self.assertTrue(failed)
-            self.assertEqual(result["code"], "reopen_not_ready")
-            self.assertNotIn("retry budget", result["issues"][0])
-        for result, failed in results[3:]:
-            self.assertTrue(failed)
-            self.assertEqual(result["code"], "reopen_not_ready")
-            self.assertFalse(result["retryable"])
-            self.assertIn("retry budget", result["issues"][0])
+        self.assertTrue(failed)
+        self.assertEqual(result["code"], "stage_order")
+        self.assertEqual(server.session.submit_rejections, 0)
 
 
 if __name__ == "__main__":

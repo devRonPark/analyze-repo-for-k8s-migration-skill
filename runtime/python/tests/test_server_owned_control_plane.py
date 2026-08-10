@@ -73,9 +73,7 @@ class ServerOwnedControlPlaneTests(unittest.TestCase):
             schema = by_name[f"submit_{stage}"]["inputSchema"]
             self.assertEqual(schema["required"], ["payload"])
             self.assertEqual(set(schema["properties"]), {"payload"})
-        reopen_schema = by_name["reopen_analysis"]["inputSchema"]
-        self.assertEqual(reopen_schema["required"], ["stage", "reason"])
-        self.assertEqual(set(reopen_schema["properties"]), {"stage", "reason"})
+        self.assertNotIn("reopen_analysis", by_name)
         finalize_schema = by_name["finalize_analysis"]["inputSchema"]
         self.assertEqual(finalize_schema["required"], [])
         self.assertEqual(finalize_schema["properties"], {})
@@ -147,21 +145,16 @@ class ServerOwnedControlPlaneTests(unittest.TestCase):
         self.assertEqual(result["code"], "stage_order")
         self.assertEqual(server.session.current_stage, "discovery")
 
-    def test_finalize_and_reopen_take_no_control_plane_arguments(self) -> None:
+    def test_finalize_takes_no_control_plane_arguments(self) -> None:
         temporary, server = self.started()
         with temporary:
             # finalize_analysis is called before the pipeline reaches "finalize";
             # the point here is only that it requires no request fields at all,
             # not that this particular call succeeds.
             finalize_result, finalize_failed = server.tool_call("finalize_analysis", {})
-            reopen_result, reopen_failed = server.tool_call(
-                "reopen_analysis", {"stage": "discovery", "reason": "confused"}
-            )
 
         self.assertTrue(finalize_failed)
         self.assertEqual(finalize_result["code"], "stage_order")
-        self.assertTrue(reopen_failed)
-        self.assertEqual(reopen_result["code"], "reopen_not_ready")
 
     def test_client_supplied_control_plane_fields_are_ignored_not_consulted(self) -> None:
         # The exact live-run failure this closes: a model that invents or

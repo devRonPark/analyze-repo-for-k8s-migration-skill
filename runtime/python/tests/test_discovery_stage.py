@@ -67,6 +67,7 @@ class DiscoveryStageTests(unittest.TestCase):
         self.assertEqual(result["accepted_output"], {
             "candidate_ids": ["candidate-web"],
             "discovery_fact_refs": ["fact_discovery_claim-container"],
+            "semantic_facts": [],
             "unknown_ids": [],
         })
         stage_input = dict(result["stage_input"])

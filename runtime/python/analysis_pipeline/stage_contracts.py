@@ -134,12 +134,32 @@ def project_predecessor_fact_statuses(state: PipelineState) -> dict[str, str]:
     return statuses
 
 
+class StagePayloadContractError(ValueError):
+    """A safe, structured client-payload mismatch for MCP recovery."""
+
+    def __init__(self, stage: str, *, missing_fields: set[str], unexpected_fields: set[str]) -> None:
+        super().__init__("invalid_stage_payload")
+        self.stage = stage
+        self.missing_fields = sorted(missing_fields)
+        self.unexpected_fields = sorted(unexpected_fields)
+        self.required_fields = sorted(client_payload_required_fields(stage))
+
+
+class StagePayloadValidationError(ValueError):
+    """A safe correction instruction that never includes raw target evidence."""
+
+    def __init__(self, stage: str, issue: str) -> None:
+        super().__init__("invalid_stage_payload")
+        self.stage = stage
+        self.issue = issue
+
+
 def _require_contract_fields(stage: str, payload: Mapping[str, Any]) -> None:
     required = client_payload_required_fields(stage)
-    if missing := required.difference(payload):
-        raise ValueError(f"missing {stage} payload field")
-    if unexpected := set(payload).difference(client_payload_allowed_fields(stage)):
-        raise ValueError(f"unknown {stage} payload field")
+    missing = required.difference(payload)
+    unexpected = set(payload).difference(client_payload_allowed_fields(stage))
+    if missing or unexpected:
+        raise StagePayloadContractError(stage, missing_fields=missing, unexpected_fields=unexpected)
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
@@ -165,10 +185,16 @@ def validate_discovery_payload(
     _require_contract_fields("discovery", payload)
     raw_evidence = payload.get("evidence")
     if not isinstance(raw_evidence, list) or not raw_evidence:
-        raise ValueError("discovery requires trusted evidence")
+        raise StagePayloadValidationError(
+            "discovery",
+            "payload.evidence requires at least one current-stage observation_ref; use stage_input.survey before consuming the precision-call budget",
+        )
     raw_claims = payload.get("claims")
     if not isinstance(raw_claims, list) or not raw_claims:
-        raise ValueError("discovery requires grounded claims")
+        raise StagePayloadValidationError(
+            "discovery",
+            "payload.claims requires at least one claim grounded by payload.evidence aliases",
+        )
     observations: dict[str, dict[str, Any]] = {}
     if isinstance(raw_evidence, list):
         for item in raw_evidence:

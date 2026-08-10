@@ -715,13 +715,13 @@ def _tool_result_status(value: Any) -> str | None:
             return None
     if not isinstance(value, dict):
         return None
-    direct = value.get("status")
-    if isinstance(direct, str):
-        return direct
     for nested in ("result", "output", "structuredContent", "state"):
         status = _tool_result_status(value.get(nested))
         if status:
             return status
+    direct = value.get("status")
+    if isinstance(direct, str):
+        return direct
     return None
 
 
@@ -737,8 +737,13 @@ def static_mcp_transition_errors(tool_calls: list[dict[str, Any]]) -> list[str]:
         if len(matches) != 1:
             errors.append(f"{tool} must be {expected_status} exactly once")
     known_tools = {tool for tool, _ in STATIC_MCP_TOOL_SEQUENCE}
-    seen = [_tool_name(call.get("name", call.get("tool"))) for call in tool_calls]
-    sequence = [tool for tool in seen if tool in known_tools]
+    expected_by_tool = dict(STATIC_MCP_TOOL_SEQUENCE)
+    sequence = [
+        tool
+        for call in tool_calls
+        if (tool := _tool_name(call.get("name", call.get("tool")))) in known_tools
+        and _tool_result_status(call) == expected_by_tool[tool]
+    ]
     if sequence != [tool for tool, _ in STATIC_MCP_TOOL_SEQUENCE]:
         errors.append("accepted static MCP tools are out of order or repeated")
     return errors
@@ -1612,7 +1617,7 @@ STATIC_MCP_REOPEN_TOOL = "reopen_analysis"
 def _static_tool_calls(database: Path) -> list[dict[str, Any]]:
     """Extract named MCP tool parts while preserving their emitted state and row timing.
 
-    Includes the precision-budget and reopen tools (not only the accepted
+    Includes the precision-budget and historical reopen tools (not only the accepted
     `STATIC_MCP_TOOL_SEQUENCE` calls) so `attribute_stage_timeline` can build a
     complete per-turn timeline, not just the sequence-contract-relevant subset.
     """

@@ -84,7 +84,12 @@ def execution_payload(observation_ref: str, discovery_fact_refs: list[str]) -> d
         "claims": [{"id": "claim-process", "status": "confirmed", "evidence_aliases": ["runtime"]}],
         "rule_applications": [],
         "discovery_fact_refs": discovery_fact_refs,
-        "process_ids": ["process-web"],
+        "runtime_processes": [{
+            "candidate_ids": ["candidate-web"],
+            "role": "web",
+            "execution_pattern": "continuous",
+            "semantic_fact_refs": [],
+        }],
     }
 
 
@@ -92,6 +97,7 @@ def relationships_payload(
     observation_ref: str,
     discovery_fact_refs: list[str],
     execution_fact_refs: list[str],
+    process_id: str,
 ) -> dict[str, Any]:
     return {
         "schema_version": 1,
@@ -103,7 +109,7 @@ def relationships_payload(
         "execution_fact_refs": execution_fact_refs,
         "graph_edges": [{
             "id": "edge-api-db",
-            "source_process_id": "process-web",
+            "source_process_id": process_id,
             "target_id": "external-db",
             "target_kind": "external_system",
             "dependency_type": "data_store",
@@ -120,7 +126,7 @@ def relationships_payload(
     }
 
 
-def boundaries_payload(observation_ref: str, handoff: dict[str, Any]) -> dict[str, Any]:
+def boundaries_payload(observation_ref: str, handoff: dict[str, Any], process_id: str) -> dict[str, Any]:
     stage_input = handoff["stage_input"]
     return {
         "schema_version": 1,
@@ -138,7 +144,7 @@ def boundaries_payload(observation_ref: str, handoff: dict[str, Any]) -> dict[st
         "relationship_fact_refs": stage_input["relationship_fact_refs"],
         "workload_units": [{
             "id": "unit-web",
-            "process_ids": ["process-web"],
+            "process_ids": [process_id],
             "candidate_ids": ["candidate-web"],
             "start_definition_status": "confirmed",
             "independent_lifecycle_status": "confirmed",
@@ -321,7 +327,8 @@ def exercise_installed_server(template: Path, launcher: Path, target: Path) -> N
         initialized = client.request("initialize", {})
         assert "listChanged" not in initialized["capabilities"]["tools"]
         initial_catalog = client.request("tools/list", {})["tools"]
-        assert len(initial_catalog) == 12
+        assert len(initial_catalog) == 11
+        assert "reopen_analysis" not in {tool["name"] for tool in initial_catalog}
         assert all("inputSchema" in tool and "outputSchema" in tool for tool in initial_catalog)
 
         started = accepted(client.tool("start_analysis", {"target_path": ".", "mode": "summary"}))
@@ -345,11 +352,14 @@ def exercise_installed_server(template: Path, launcher: Path, target: Path) -> N
                 read_observation(client, "app.py"),
                 execution["stage_input"]["discovery_fact_refs"],
                 execution["stage_input"]["execution_fact_refs"],
+                execution["stage_input"]["process_ids"][0],
             )},
         ))
         boundaries = accepted(client.tool(
             "submit_boundaries",
-            {**envelope(relationships), "payload": boundaries_payload(read_observation(client, "app.py"), relationships)},
+            {**envelope(relationships), "payload": boundaries_payload(
+                read_observation(client, "app.py"), relationships, execution["stage_input"]["process_ids"][0]
+            )},
         ))
         contracts = accepted(client.tool(
             "submit_contracts",

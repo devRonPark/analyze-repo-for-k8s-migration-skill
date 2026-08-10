@@ -70,6 +70,31 @@ class StaticMCPOpenCodeAcceptanceTests(unittest.TestCase):
         ]
         self.assertEqual(adapter.static_mcp_transition_errors(calls), [])
 
+    def test_transition_audit_prefers_nested_pipeline_status_to_opencode_lifecycle(self):
+        calls = [
+            {
+                "name": f"analysis_{name}",
+                "state": {"status": "completed", "output": json.dumps({"status": status})},
+            }
+            for name, status in adapter.STATIC_MCP_TOOL_SEQUENCE
+        ]
+
+        self.assertEqual(adapter.static_mcp_transition_errors(calls), [])
+
+    def test_transition_audit_allows_rejected_submission_before_one_accepted_retry(self):
+        calls = [
+            {"name": "analysis_start_analysis", "result": {"status": "accepted"}},
+            {"name": "analysis_submit_discovery", "result": {"code": "invalid_stage_payload"}},
+            {"name": "analysis_submit_discovery", "result": {"status": "accepted"}},
+            {"name": "analysis_submit_execution", "result": {"status": "accepted"}},
+            {"name": "analysis_submit_relationships", "result": {"status": "accepted"}},
+            {"name": "analysis_submit_boundaries", "result": {"status": "accepted"}},
+            {"name": "analysis_submit_contracts", "result": {"status": "accepted"}},
+            {"name": "analysis_finalize_analysis", "result": {"status": "finalized"}},
+        ]
+
+        self.assertEqual(adapter.static_mcp_transition_errors(calls), [])
+
     def test_final_markdown_score_records_citations_without_claiming_semantic_equivalence(self):
         golden = ROOT / "tests/evaluation/static-mcp-jpetstore-6-summary-golden.md"
         result = adapter.score_static_mcp_markdown(

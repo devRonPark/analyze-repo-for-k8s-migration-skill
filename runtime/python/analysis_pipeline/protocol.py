@@ -26,7 +26,6 @@ TOOL_ORDER = (
     "submit_relationships",
     "submit_boundaries",
     "submit_contracts",
-    "reopen_analysis",
     "finalize_analysis",
 )
 
@@ -38,6 +37,19 @@ ERROR_SCHEMA = {
         "code": {"type": "string"},
         "retryable": {"type": "boolean"},
         "issues": {"type": "array", "maxItems": 10, "items": {"type": "string", "maxLength": 300}},
+        "stage": {"type": "string", "enum": list(STAGES)},
+        "missing_fields": {"type": "array", "items": {"type": "string"}},
+        "unexpected_fields": {"type": "array", "items": {"type": "string"}},
+        "required_fields": {"type": "array", "items": {"type": "string"}},
+        "budget": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["precision_calls_remaining", "submit_rejections_remaining"],
+            "properties": {
+                "precision_calls_remaining": {"type": "integer", "minimum": 0},
+                "submit_rejections_remaining": {"type": "integer", "minimum": 0},
+            },
+        },
     },
 }
 _IDENTIFIER = {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"}
@@ -297,7 +309,6 @@ TOOLS.extend(
 )
 TOOLS.extend(
     [
-        _tool("reopen_analysis", "Reopen an accepted earlier stage of the active analysis after new evidence invalidates it.", ["stage", "reason"], {"stage": {"type": "string", "enum": list(STAGES)}, "reason": {"type": "string", "minLength": 3, "maxLength": 500}}),
         _tool("finalize_analysis", "Finalize the active analysis's accepted report state and return canonical Markdown.", [], {}),
     ]
 )
