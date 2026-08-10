@@ -323,6 +323,98 @@ class BoundariesStageTests(unittest.TestCase):
         self.assertEqual(accepted["accepted_output"]["excluded_candidate_ids"], ["candidate-web"])
         self.assertNotIn("candidate-web", json.dumps(omitted, sort_keys=True))
 
+    def test_exclusion_with_a_missing_referenced_claim_names_the_candidate_and_claim(self) -> None:
+        temporary, server, _, relationships = self.start_with_relationships()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    observation["observation_ref"], relationships,
+                    workload_units=[{**unit, "candidate_ids": [], "deployable": False}],
+                    candidate_exclusions=[{
+                        "candidate_id": "candidate-web", "disposition": "excluded",
+                        "claim_ids": ["claim-web-missing"],
+                    }],
+                )},
+            )
+
+        self.assertTrue(rejected)
+        message = result["issues"][0]
+        self.assertIn("candidate-web", message)
+        self.assertIn("claim_ids", message)
+        self.assertIn("claim-web-missing", message)
+        self.assertNotEqual(message, "workload claim dangling")
+
+    def test_exclusion_with_empty_claim_ids_names_the_candidate_and_disposition(self) -> None:
+        temporary, server, _, relationships = self.start_with_relationships()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    observation["observation_ref"], relationships,
+                    workload_units=[{**unit, "candidate_ids": [], "deployable": False}],
+                    candidate_exclusions=[{
+                        "candidate_id": "candidate-web", "disposition": "excluded", "claim_ids": [],
+                    }],
+                )},
+            )
+
+        self.assertTrue(rejected)
+        message = result["issues"][0]
+        self.assertIn("candidate-web", message)
+        self.assertIn("claim_ids", message)
+        self.assertIn("at least one claim", message)
+        self.assertIn("excluded", message)
+        self.assertNotEqual(message, "workload claim dangling")
+
+    def test_exclusion_claim_status_mismatch_names_expected_and_actual_status(self) -> None:
+        temporary, server, _, relationships = self.start_with_relationships()
+        with temporary:
+            present, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, present)
+            unit = self.payload(present["observation_ref"], relationships)["workload_units"][0]
+            absence = server.session.registry.issue_absence("boundaries", ".", "*.h2", "H2_EMBEDDED")
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    present["observation_ref"], relationships,
+                    evidence=[
+                        {"alias": "boundary", "observation_ref": present["observation_ref"]},
+                        {"alias": "h2_absence", "observation_ref": absence["observation_ref"]},
+                    ],
+                    claims=[
+                        {"id": "claim-web-boundary", "status": "confirmed", "evidence_aliases": ["boundary"]},
+                        {"id": "claim-web-lifecycle", "status": "confirmed", "evidence_aliases": ["boundary"]},
+                        {"id": "claim-web-state", "status": "confirmed", "evidence_aliases": ["boundary"]},
+                        {"id": "claim-web-deployability", "status": "confirmed", "evidence_aliases": ["boundary"]},
+                        {
+                            "id": "claim-web-candidate-exclusion", "status": "unknown", "evidence_aliases": ["h2_absence"],
+                            "scope": "h2 embedded database candidacy", "blocked_decision": "h2 exclusion disposition",
+                        },
+                    ],
+                    workload_units=[{**unit, "candidate_ids": [], "deployable": False}],
+                    candidate_exclusions=[{
+                        "candidate_id": "candidate-web", "disposition": "excluded",
+                        "claim_ids": ["claim-web-candidate-exclusion"],
+                    }],
+                )},
+            )
+
+        self.assertTrue(rejected)
+        message = result["issues"][0]
+        self.assertIn("candidate-web", message)
+        self.assertIn("claim_ids", message)
+        self.assertIn("claim-web-candidate-exclusion", message)
+        self.assertIn("confirmed", message)
+        self.assertIn("'unknown'", message)
+        self.assertNotEqual(message, "workload claim status mismatch")
+
     def test_reopen_from_contracts_to_boundaries_discards_only_boundary_facts_and_units(self) -> None:
         temporary, server, _, relationships = self.start_with_relationships()
         with temporary:

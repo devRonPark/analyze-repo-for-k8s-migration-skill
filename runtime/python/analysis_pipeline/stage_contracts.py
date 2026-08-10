@@ -458,19 +458,6 @@ def validate_boundaries_payload(payload: Mapping[str, Any], registry: Observatio
     state_statuses = _edge_enum(unit_contract, "state_decision")
     deployability_statuses = _edge_enum(unit_contract, "deployability_status")
 
-    def link_claims(claim_ids: Any, allowed_statuses: set[str], owner: str) -> None:
-        """Generic single-field link/check, unchanged in behavior: used only
-        where per-field aggregation is out of this hotfix's scope (candidate
-        exclusions)."""
-        if not isinstance(claim_ids, list) or not claim_ids or len(claim_ids) != len(set(claim_ids)) or not set(claim_ids).issubset(claim_status):
-            raise ValueError("workload claim dangling")
-        if any(claim_id in linked_claim_owners for claim_id in claim_ids):
-            raise ValueError("workload claim duplicate")
-        if any(claim_status[claim_id] not in allowed_statuses for claim_id in claim_ids):
-            raise ValueError("workload claim status mismatch")
-        for claim_id in claim_ids:
-            linked_claim_owners[claim_id] = owner
-
     def field_claim_errors(field_name: str, claim_ids: Any, allowed_statuses: set[str], reason: str) -> tuple[list[str], list[str]]:
         """Collect every problem with one *_claim_ids field instead of raising
         on the first one, so a caller can report all of a unit's wiring
@@ -519,6 +506,21 @@ def validate_boundaries_payload(payload: Mapping[str, Any], registry: Observatio
         for field_name, valid_ids in field_valid_ids.items():
             for claim_id in valid_ids:
                 linked_claim_owners[claim_id] = field_name
+
+    def link_exclusion_claims(candidate_id: str, claim_ids: Any, allowed_statuses: set[str], reason: str) -> None:
+        """Same per-field diagnostics as link_workload_claims, for the single
+        claim_ids field a candidate exclusion has -- no multi-field
+        aggregation needed here (see HOTFIX 1.6.1)."""
+        errors, valid_ids = field_claim_errors("claim_ids", claim_ids, allowed_statuses, reason)
+        owner = f"candidate_exclusions[{candidate_id}].claim_ids"
+        for claim_id in valid_ids:
+            existing_owner = linked_claim_owners.get(claim_id)
+            if existing_owner is not None and existing_owner != owner:
+                errors.append(f"claim '{claim_id}' is already linked by {existing_owner} and cannot also be linked by {owner}")
+        if errors:
+            raise ValueError(f"candidate exclusion '{candidate_id}': " + "; ".join(errors))
+        for claim_id in valid_ids:
+            linked_claim_owners[claim_id] = owner
 
     try:
         deterministic_unit_ids = validate_workload_grouping(
@@ -598,7 +600,7 @@ def validate_boundaries_payload(payload: Mapping[str, Any], registry: Observatio
         if disposition not in dispositions:
             raise ValueError("invalid candidate disposition")
         allowed_claim_statuses = {"confirmed", "inferred"} if disposition == "excluded" else {disposition}
-        link_claims(exclusion.get("claim_ids"), allowed_claim_statuses, f"candidate_exclusions[{candidate_id}].claim_ids")
+        link_exclusion_claims(candidate_id, exclusion.get("claim_ids"), allowed_claim_statuses, f"disposition='{disposition}'")
         excluded_candidates.add(candidate_id)
     if included_candidates | excluded_candidates != known_candidates:
         raise ValueError("workload candidate unaccounted")
