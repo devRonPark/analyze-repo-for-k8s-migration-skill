@@ -46,6 +46,29 @@ DETAILED_SECTIONS = (
 )
 SECRET_LITERAL = re.compile(r"(?i)\b(?:password|passwd|token|api[_ -]?key)\s*[:=]\s*(?!\[REDACTED\])[^\s,;]+")
 
+# This is deliberately a server-owned mapping.  A confirmed fact is useful to
+# a report only when its accepted semantic kind is the one assigned to that
+# report field; status alone must never make an unrelated fact satisfy it.
+FACT_FIELD_KINDS = {
+    "Application": ("application.name",),
+    "Language": ("project.language",),
+    "Java Version": ("project.language_version",),
+    "Frameworks": ("project.framework",),
+    "Build Tool": ("build.tool",),
+    "Build Command": ("build.command",),
+    "Artifact": ("build.artifact_type",),
+    "Runtime Server": ("runtime.server",),
+    "Start Command": ("runtime.start_command",),
+    "Listening Port": ("runtime.listening_port",),
+    "Context Path": ("runtime.context_path",),
+    "Containerization evidence": ("container.dockerfile", "container.compose"),
+}
+
+
+def _missing_semantic_fact_reference(kind: str) -> str:
+    """Describe a missing accepted fact in the established absence format."""
+    return f"검색(scope=accepted-semantic-facts, pattern={kind}, result=없음)"
+
 
 def _claims(state: PipelineState, stage: str) -> dict[str, Mapping[str, Any]]:
     payload = state.outputs.get(stage)
@@ -97,6 +120,125 @@ def _references_for_fact(state: PipelineState, fact_ref: str) -> list[str]:
     if len(parts) != 3 or parts[0] != "fact":
         raise ValueError("report fact is invalid")
     return _references_for_claim(state, parts[1], parts[2])
+
+
+def _references_for_evidence_ids(state: PipelineState, evidence_ids: object) -> list[str]:
+    """Render server-held evidence identifiers without reading a repository."""
+    if not isinstance(evidence_ids, list) or not evidence_ids:
+        raise ValueError("accepted semantic fact lacks evidence")
+    references: list[str] = []
+    for evidence_id in evidence_ids:
+        evidence = state.evidence.get(evidence_id)
+        if not isinstance(evidence_id, str) or not isinstance(evidence, Mapping):
+            raise ValueError("semantic fact evidence is unavailable")
+        location, line_range = evidence.get("location"), evidence.get("range")
+        if not isinstance(location, str) or not isinstance(line_range, str):
+            raise ValueError("semantic fact evidence is invalid")
+        if evidence.get("status") == "unknown":
+            absence = evidence.get("absence")
+            if not isinstance(absence, Mapping):
+                raise ValueError("unknown semantic fact evidence lacks absence descriptor")
+            reference = f"검색(scope={absence.get('scope')}, pattern={absence.get('pattern') or absence.get('glob')}, result=없음)"
+        else:
+            reference = f"{location}:{line_range}"
+        if reference not in references:
+            references.append(reference)
+    return references
+
+
+def _accepted_facts(state: PipelineState) -> list[Mapping[str, Any]]:
+    discovery = state.outputs.get("discovery")
+    facts = discovery.get("semantic_facts") if isinstance(discovery, Mapping) else None
+    if facts is None:
+        return []
+    if not isinstance(facts, list) or any(not isinstance(fact, Mapping) for fact in facts):
+        raise ValueError("accepted semantic facts are invalid")
+    return facts
+
+
+def _field_record(name: str, facts: list[Mapping[str, Any]], state: PipelineState) -> dict[str, str]:
+    kinds = FACT_FIELD_KINDS[name]
+    matches = [fact for fact in facts if fact.get("kind") in kinds]
+    if not matches:
+        return {
+            "value": "미확인",
+            "status": "unknown",
+            "reference": _missing_semantic_fact_reference("|".join(kinds)),
+        }
+    values: list[str] = []
+    statuses: list[str] = []
+    references: list[str] = []
+    for fact in matches:
+        status = fact.get("status")
+        if status not in STATUS_LABEL:
+            raise ValueError("accepted semantic fact status is invalid")
+        value = fact.get("value")
+        if status == "unknown" or value is None:
+            rendered = "미확인"
+        else:
+            rendered = str(value)
+        if rendered not in values:
+            values.append(rendered)
+        if status not in statuses:
+            statuses.append(status)
+        for reference in _references_for_evidence_ids(state, fact.get("evidence_ids")):
+            if reference not in references:
+                references.append(reference)
+    status = "conflicted" if "conflicted" in statuses else "unknown" if all(item == "unknown" for item in statuses) else statuses[0]
+    return {"value": ", ".join(values), "status": status, "reference": ", ".join(references)}
+
+
+def _runtime_records(state: PipelineState, components: list[str]) -> dict[str, dict[str, str]]:
+    execution = state.outputs.get("execution")
+    processes = execution.get("runtime_processes") if isinstance(execution, Mapping) else []
+    if not isinstance(processes, list):
+        raise ValueError("accepted runtime processes are invalid")
+    facts = {fact.get("ref"): fact for fact in _accepted_facts(state) if isinstance(fact.get("ref"), str)}
+    result: dict[str, dict[str, str]] = {}
+    for process in processes:
+        if not isinstance(process, Mapping):
+            raise ValueError("accepted runtime process is invalid")
+        references: list[str] = []
+        for ref in process.get("semantic_fact_refs", []):
+            fact = facts.get(ref)
+            if isinstance(fact, Mapping):
+                for reference in _references_for_evidence_ids(state, fact.get("evidence_ids")):
+                    if reference not in references:
+                        references.append(reference)
+        if not references:
+            continue
+        for name, key in (("RuntimeProcess role", "role"), ("Execution Pattern", "execution_pattern")):
+            value = process.get(key)
+            if isinstance(value, str):
+                result[name] = {"value": value, "status": "confirmed", "reference": ", ".join(references)}
+    boundaries = state.outputs.get("boundaries")
+    units = boundaries.get("workload_units") if isinstance(boundaries, Mapping) else []
+    if isinstance(units, list):
+        for unit in units:
+            if not isinstance(unit, Mapping) or not isinstance(unit.get("id"), str):
+                continue
+            claim_ids = unit.get("boundary_claim_ids", [])
+            references: list[str] = []
+            for claim_id in claim_ids:
+                if isinstance(claim_id, str):
+                    references.extend(reference for reference in _references_for_claim(state, "boundaries", claim_id) if reference not in references)
+            if references:
+                result["WorkloadUnit"] = {"value": unit["id"], "status": str(unit.get("boundary_status", "unknown")), "reference": ", ".join(references)}
+    missing_references = {
+        "RuntimeProcess role": "검색(scope=accepted-runtime-contracts, pattern=runtime_process.role, result=없음)",
+        "Execution Pattern": "검색(scope=accepted-runtime-contracts, pattern=runtime_process.execution_pattern, result=없음)",
+        "WorkloadUnit": "검색(scope=accepted-runtime-contracts, pattern=workload_unit, result=없음)",
+    }
+    for name, reference in missing_references.items():
+        result.setdefault(name, {"value": "미확인", "status": "unknown", "reference": reference})
+    return result
+
+
+def _grounded_fields(state: PipelineState, components: list[str]) -> dict[str, dict[str, str]]:
+    facts = _accepted_facts(state)
+    fields = {name: _field_record(name, facts, state) for name in FACT_FIELD_KINDS}
+    fields.update(_runtime_records(state, components))
+    return fields
 
 
 def _slot_records(state: PipelineState, mode: str) -> dict[str, dict[str, str]]:
@@ -187,6 +329,7 @@ def project_report_payload(state: PipelineState, mode: str, target_metadata: Map
         "dependencies": dependencies,
         "excluded_items": [str(item.get("candidate_id", "미확인")) for item in exclusions if isinstance(item, Mapping)],
         "slots": slots,
+        "grounded_fields": _grounded_fields(state, components),
         "missing_inputs": _missing_inputs(slots),
         "design_input_verdict": _verdict(slots, components),
     }
@@ -194,6 +337,7 @@ def project_report_payload(state: PipelineState, mode: str, target_metadata: Map
 
 def _summary(payload: Mapping[str, Any]) -> str:
     slots, components = payload["slots"], payload["components"]
+    grounded_fields = payload["grounded_fields"]
     reference = _reference(slots, "deployment_targets")
     open_items = payload["missing_inputs"]
     lines = [
@@ -206,11 +350,16 @@ def _summary(payload: Mapping[str, Any]) -> str:
         "## 2. 예상 Kubernetes 구성", "",
     ]
     for component in components:
+        facts = "; ".join(
+            f"{name}: {record['value']} (상태: {STATUS_LABEL[record['status']]}; 근거: {record['reference']})"
+            for name, record in grounded_fields.items()
+        )
         lines.append(
             f"- {component} — Repository 사실: 배포 대상 후보; 역할: {_slot_value(slots, 'build_image_start')}; "
             f"Kubernetes 해석: 승인된 workload 경계; 포트: {_slot_value(slots, 'reachable_port_or_path')}; "
             f"상태: {_slot_value(slots, 'minimum_design_inputs')}; 주요 의존성: {_slot_value(slots, 'runtime_dependencies_state')}; 근거: {reference}"
         )
+        lines.append(f"  - 승인된 실행 사실: {facts}")
     lines.extend(["", "## 3. 관계와 운영 경계", ""])
     if payload["dependencies"]:
         for dependency in payload["dependencies"]:
@@ -234,6 +383,7 @@ def _property(name: str, value: str, status: str, reference: str) -> str:
 
 def _detailed(payload: Mapping[str, Any]) -> str:
     slots, components = payload["slots"], payload["components"]
+    grounded_fields = payload["grounded_fields"]
     deployment_reference = _reference(slots, "deployment_targets")
     lines = ["# Kubernetes 설계 입력 상세 평가", "", "<!-- analyze-repo-for-kubernetes: report-contract=1.0 -->", "", "## 1. 분석 범위", ""]
     for key in ("대상 유형", "Repository URL 또는 Local path", "접근 방식", "확인된 저장소 루트", "branch, tag 또는 commit", "분석 경로", "출력 모드"):
@@ -241,15 +391,25 @@ def _detailed(payload: Mapping[str, Any]) -> str:
     lines.extend(["", "### 핵심 요약", "", f"- 판정: {payload['design_input_verdict']}", f"- 배포 대상: {', '.join(components)}", f"- 최우선 차단 요소: {payload['missing_inputs'][0]['slot_id'] if payload['missing_inputs'] else '없음'}", f"- 최소 입력 누락: {'있음' if payload['missing_inputs'] else '없음'}", "", "## 2. 배포 대상 후보", ""])
     for component in components:
         lines.append(_property("배포 대상 후보", component, _status(slots, "deployment_targets"), deployment_reference))
-    execution_fields = ("실행 형태", "경로", "언어", "프레임워크", "런타임", "패키지 관리자", "설치 명령", "빌드 명령", "이미지 빌드 명령", "운영 기동 명령", "컨테이너화", "프로토콜", "수신 포트", "상태 확인")
+    execution_fields = (
+        "실행 형태", "경로", "언어", "프레임워크", "런타임", "패키지 관리자", "설치 명령", "빌드 명령",
+        "이미지 빌드 명령", "운영 기동 명령", "컨테이너화", "프로토콜", "수신 포트", "상태 확인",
+        "Application", "Language", "Java Version", "Frameworks", "Build Tool", "Build Command", "Artifact",
+        "Runtime Server", "Start Command", "Listening Port", "Context Path", "Containerization evidence",
+        "RuntimeProcess role", "Execution Pattern", "WorkloadUnit",
+    )
     configuration_fields = ("설정", "Secret", "쓰기 상태 또는 영속성", "적용 시점", "종료와 복구", "관찰 가능성")
     minimum_fields = ("workload.kind", "metadata.name", "image", "command", "args", "containerPort", "Service", "Ingress")
     lines.extend(["", "## 3. 배포 대상별 실행 정보", ""])
     for component in components:
         lines.extend([f"### 배포 대상: {component}", "", "#### 실행 정보", ""])
         for field in execution_fields:
-            slot = "reachable_port_or_path" if field == "수신 포트" else "build_image_start"
-            lines.append(_property(field, _slot_value(slots, slot), _status(slots, slot), _reference(slots, slot)))
+            if field in grounded_fields:
+                record = grounded_fields[field]
+                lines.append(_property(field, record["value"], STATUS_LABEL[record["status"]], record["reference"]))
+            else:
+                slot = "reachable_port_or_path" if field == "수신 포트" else "build_image_start"
+                lines.append(_property(field, _slot_value(slots, slot), _status(slots, slot), _reference(slots, slot)))
         lines.extend(["", "#### 설정과 상태", ""])
         for field in configuration_fields:
             slot = {"적용 시점": "configuration_timing", "종료와 복구": "lifecycle_recovery", "관찰 가능성": "observability"}.get(field, "minimum_design_inputs")
