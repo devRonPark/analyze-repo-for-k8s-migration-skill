@@ -3,15 +3,97 @@
 Operational memory for running this Skill against a local OpenCode provider. It
 does not change the runtime Skill contract.
 
+## Windows-native static-MCP procedure (use this on this machine)
+
+This session's environment (win32, MSYS Bash, no `tmux`, no `/home/*` target
+checkout) cannot run AGENTS.md's detached-`tmux` procedure below as written —
+see "AGENTS.md's `tmux` procedure" further down for why. Use this instead.
+`scripts/run_opencode_acceptance.py` already has a working Windows-native
+equivalent: a `pywinpty`-backed PTY harness (`--interactive` static-MCP mode)
+driving six pinned target/mode cases from
+`tests/evaluation/static-mcp-opencode-cases.json` /
+`static-mcp-golden-manifest.json`. Confirmed working end-to-end 2026-08-10
+(VS-030-HOTFIX-1.7 verification: reached `discovery → execution →
+relationships → boundaries → contracts` before a provider-latency timeout).
+
+Requirements (all present in this environment as of 2026-08-10):
+- `opencode` on `PATH` (found at `~/.bun/bin/opencode`).
+- The `winpty` Python package. Its PyPI/pip name is `pywinpty` but its import
+  name is `winpty` — `import pywinpty` fails even when it is installed; test
+  with `python -c "import winpty"`.
+- A target checkout already present under `C:\temp\opencode-e2e-<name>` (e.g.
+  `opencode-e2e-jpetstore-6`), pinned to the revision the golden manifest
+  expects. Verify before running:
+  `git -C C:\temp\opencode-e2e-<name> rev-parse HEAD` must equal the
+  `Revision:` line in the matching `tests/evaluation/static-mcp-*-golden.md`.
+  If the checkout does not exist or does not match, clone fresh and pin it —
+  do not guess a path or proceed on a mismatch.
+- Network access to the provider endpoint requires
+  `sandbox_permissions: require_escalated` per `CLAUDE.md`.
+
+Run from the repository root (`PYTHONPATH` must include both the repo root and
+`runtime/python` so `scripts.markdown_contract` and `analysis_pipeline` both
+import):
+
+```bash
+PYTHONPATH="runtime/python:." python scripts/run_opencode_acceptance.py --mode isolated --config runtime/opencode.json --cases tests/evaluation/static-mcp-opencode-cases.json --output-dir <a fresh directory, e.g. C:\temp\<ticket>-smoke> --case <one case ID> --interactive --timeout 300
+```
+
+`<one case ID>` is one of: `jpetstore-6-summary`, `jpetstore-6-detailed`,
+`flask-celery-summary`, `flask-celery-detailed`, `fastapi-template-summary`,
+`fastapi-template-detailed`.
+
+Omit `--model` to use `runtime/opencode.json`'s default
+(`local-sglang/Qwen/Qwen3.6-35B-A3B-FP8`); pass `--model upstage/solar-pro2`
+for the Upstage fallback described below.
+
+Read the result from `<output-dir>/<case-id>/trace.json`, not `terminal.log`
+(raw ANSI PTY text — this script does not de-ANSI it automatically).
+`trace.json["tool_calls"]` is a structured, per-call record
+(`state.input.payload` / `state.error`) and is enough to verify one specific
+stage's behavior without waiting for the full pipeline to finish.
+`trace.json["status"]` is `PASS` only on a complete, target-unchanged,
+correctly-ordered run through `finalize_analysis`; a `FAIL` from timeout is
+not automatically a correctness regression — read the tool-call sequence
+before concluding anything.
+
+Known limitation (2026-08-10, not specific to any one ticket): the
+`local-sglang` `Qwen/Qwen3.6-35B-A3B-FP8` model is materially slower per turn
+than `upstage/solar-pro2`/`-pro3` and can time out mid-pipeline (observed
+stalling while composing `submit_contracts`) even at `--timeout 300`, with no
+correctness defect. Do not read a bare timeout as a regression; inspect
+`trace.json["tool_calls"]` for the specific behavior under test, and re-run
+with the Upstage fallback if a full-pipeline completion read is required.
+
+The VS-030 ticket's note about a "CRLF/golden-hash checkout artifact" forcing
+a direct call to `_run_static_mcp_case()` (bypassing
+`load_static_mcp_golden_manifest()`) did not reproduce on 2026-08-10 —
+`load_static_mcp_golden_manifest()` loaded cleanly. Try the CLI above first;
+only fall back to calling `_run_static_mcp_case()` directly if the golden hash
+check itself raises.
+
+## AGENTS.md's `tmux` procedure (different environment)
+
+The "Reproducible interactive run" / "Interactive Detailed run" sections below
+describe AGENTS.md's canonical `tmux`-based policy for an environment that
+*has* `tmux` and a Linux target checkout (e.g. under `/home/daolts/...`) — a
+different host from the Windows sessions this memory file otherwise covers.
+Do not attempt them on this machine; use the Windows-native procedure above.
+
 ## Provider fallback: Upstage Solar
 
 The default `local-sglang` provider (`http://172.16.4.249:30000/v1`) has been
 unreachable from this environment across multiple sessions (2026-08-07:
-`curl` timed out, exit 28, both sandboxed and with per-command escalation).
-Do not treat one more retry against it as diagnostic; check connectivity once
-and move to the fallback below rather than re-attempting silently (repeated
-silent retries produce a failure that looks like a provider outage, per
-`CLAUDE.md`'s escalation guidance).
+`curl` timed out, exit 28, both sandboxed and with per-command escalation),
+but was reachable again on 2026-08-10 (`curl` returned HTTP 200, and a full
+static-MCP run against it succeeded through the `contracts` stage — see the
+Windows-native procedure above). Check connectivity fresh each session
+(`curl -m 8 http://172.16.4.249:30000/v1/models` with escalation) rather than
+assuming either state; move to the fallback below only after that check fails,
+not on a stale memory of a past outage. Do not treat one more retry against it
+as diagnostic once it has failed once this session; repeated silent retries
+produce a failure that looks like a provider outage, per `CLAUDE.md`'s
+escalation guidance.
 
 `runtime/opencode.json` (commit `1239c50`) already defines an `upstage`
 provider (`upstage/solar-pro2`, `@ai-sdk/openai-compatible`,

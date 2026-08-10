@@ -82,8 +82,12 @@ belonging to the current Ticket.
 
 Load only when the task needs them:
 
-* `memory/opencode-e2e.md` — interactive OpenCode E2E runbook, the detached
-  `tmux` procedure, and known failure patterns.
+* `memory/opencode-e2e.md` — the interactive OpenCode E2E runbook. Its
+  Windows-native static-MCP procedure (`scripts/run_opencode_acceptance.py
+  --interactive`) is what actually runs on this machine; the detached `tmux`
+  procedure it also documents is AGENTS.md's policy for a different
+  (Linux + tmux) host. Read this file's own section headers before assuming
+  which procedure applies.
 * `AGENTS.md` § *Golden-set scoring for interactive E2E* — golden-set
   preparation and the Summary vs. Detailed scoring boundary. `AGENTS.md` is
   Codex's instruction file; only that section is needed here.

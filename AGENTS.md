@@ -193,6 +193,13 @@ response, an invalid final report, or a changed target repository is a failure. 
 provider-backed test with `sandbox_permissions: require_escalated` when it
 uses the local LLM endpoint.
 
+On a host without `tmux` and a Linux target checkout (e.g. this repository's
+Windows sessions), this policy cannot be executed as written. Use
+`memory/opencode-e2e.md`'s Windows-native static-MCP procedure instead — it
+drives the same `opencode` agent through a Windows PTY against the pinned
+`tests/evaluation/static-mcp-opencode-cases.json` cases and preserves an
+equivalent, structured (`trace.json`) record of the run.
+
 ## Golden-set scoring for interactive E2E
 
 When assessing a Skill report for any target repository, first prepare an
