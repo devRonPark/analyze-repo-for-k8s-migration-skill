@@ -602,8 +602,12 @@ def validate_boundaries_payload(payload: Mapping[str, Any], registry: Observatio
         excluded_candidates.add(candidate_id)
     if included_candidates | excluded_candidates != known_candidates:
         raise ValueError("workload candidate unaccounted")
-    if any(status in {"confirmed", "inferred", "conflicted"} and claim_id not in linked_claim_owners for claim_id, status in claim_status.items()):
-        raise ValueError("boundary claim requires workload unit")
+    unlinked_claim_ids = sorted(
+        claim_id for claim_id, status in claim_status.items()
+        if status in {"confirmed", "inferred", "conflicted"} and claim_id not in linked_claim_owners
+    )
+    if unlinked_claim_ids:
+        raise ValueError(f"claim(s) not linked to any workload unit or candidate exclusion: {', '.join(unlinked_claim_ids)}")
     normalized["unit_ids"] = unit_ids
     normalized["deployable_unit_ids"] = deployable_ids
     normalized["included_candidate_ids"] = [candidate_id for candidate_id in candidate_ids if candidate_id in included_candidates]

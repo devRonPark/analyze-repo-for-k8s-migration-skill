@@ -467,6 +467,30 @@ class BoundariesStageTests(unittest.TestCase):
         self.assertIn("claim-state-missing", message)
         self.assertNotIn("at least one claim is required", message)
 
+    def test_unlinked_boundary_claim_names_the_specific_claim_id(self) -> None:
+        temporary, server, _, relationships = self.start_with_relationships()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    observation["observation_ref"], relationships,
+                    claims=[
+                        {"id": "claim-web-boundary", "status": "confirmed", "evidence_aliases": ["boundary"]},
+                        {"id": "claim-web-lifecycle", "status": "confirmed", "evidence_aliases": ["boundary"]},
+                        {"id": "claim-web-state", "status": "confirmed", "evidence_aliases": ["boundary"]},
+                        {"id": "claim-web-deployability", "status": "confirmed", "evidence_aliases": ["boundary"]},
+                        {"id": "claim-web-orphan", "status": "confirmed", "evidence_aliases": ["boundary"]},
+                    ],
+                )},
+            )
+
+        self.assertTrue(rejected)
+        message = result["issues"][0]
+        self.assertIn("claim-web-orphan", message)
+        self.assertNotEqual(message, "boundary claim requires workload unit")
+
 
 if __name__ == "__main__":
     unittest.main()
