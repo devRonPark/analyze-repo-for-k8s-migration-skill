@@ -16,6 +16,11 @@ Use the incoming handoff only. Apply Vertical Slice and Grounding.
    candidates.
 3. Create identifiers and observation aliases that satisfy the payload
    contract. Keep raw evidence in MCP observations; do not copy it into claims.
+   When project metadata is grounded, submit `semantic_facts` for the accepted
+   kinds with a typed value and the supporting evidence alias. Repeat
+   `project.framework` only when each framework has separate grounded value
+   evidence; use `unknown` with scoped absence evidence instead of inventing a
+   value.
 4. Submit one complete `submit_discovery` attempt after this stage's decision
    is ready. Retry only after an explicit server rejection.
 

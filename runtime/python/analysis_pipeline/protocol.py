@@ -142,6 +142,20 @@ _CLAIM_DECLARATION = {
         "blocked_decision": _IDENTIFIER,
     },
 }
+_SEMANTIC_FACT_DECLARATION = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["kind", "value_type", "value", "status", "evidence_aliases"],
+    "properties": {
+        "kind": {"type": "string", "enum": ["application.name", "project.language", "project.language_version", "project.framework", "build.tool", "build.artifact_type"]},
+        "value_type": {"const": "string"},
+        "value": {"type": ["string", "null"]},
+        "status": {"type": "string", "enum": ["confirmed", "inferred", "unknown", "conflicted", "not_applicable"]},
+        "evidence_aliases": _IDENTIFIER_LIST,
+        "scope": {"type": "string"},
+        "blocked_decision": _IDENTIFIER,
+    },
+}
 _RULE_APPLICATION = {
     "type": "object",
     "additionalProperties": False,
@@ -207,10 +221,12 @@ def _stage_payload_schema(stage: str) -> dict[str, Any]:
             "type": "array",
             "items": _contract_object_schema(report_state_contract()["report_slot"]),
         }
+    if stage == "discovery":
+        properties["semantic_facts"] = {"type": "array", "items": _SEMANTIC_FACT_DECLARATION}
     return {
         "type": "object",
         "additionalProperties": False,
-        "required": sorted(CLIENT_STAGE_FIELDS[stage]),
+        "required": sorted(CLIENT_STAGE_FIELDS[stage] - ({"semantic_facts"} if stage == "discovery" else set())),
         "properties": properties,
     }
 

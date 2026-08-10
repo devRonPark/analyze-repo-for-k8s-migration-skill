@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
 import re
 from typing import Any, Mapping
 
-from .state import ANALYSIS_STAGES, FINAL_STAGE, PipelineState, derive_evidence_id
+from .state import ANALYSIS_STAGES, FINAL_STAGE, PipelineState, canonical_json, derive_evidence_id
 
 
 CLAIM_STATUSES = {"confirmed", "inferred", "unknown", "conflicted", "not_applicable"}
 
 ALLOWED_STAGE_FIELDS = {
-    "discovery": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "signals", "candidate_ids", "decisions"},
+    "discovery": {"stage", "claims", "semantic_facts", "evidence_ids", "evidence_inputs", "rule_applications", "signals", "candidate_ids", "decisions"},
     "execution": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "discovery_fact_refs", "process_ids"},
     "relationships": {
         "stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications",
@@ -35,11 +36,14 @@ def _client_fields_from_contract(stage: str, fallback: set[str]) -> set[str]:
     contracts = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
     payload = contracts.get("stages", {}).get(stage, {}).get("client_payload")
     required = payload.get("required") if isinstance(payload, Mapping) else None
+    optional = payload.get("optional", []) if isinstance(payload, Mapping) else None
     if required is None:
         return fallback
     if not isinstance(required, list) or not required or any(not isinstance(field, str) for field in required):
         raise ValueError("invalid_stage_payload_contract")
-    return set(required)
+    if not isinstance(optional, list) or any(not isinstance(field, str) for field in optional):
+        raise ValueError("invalid_stage_payload_contract")
+    return set(required) | set(optional)
 
 
 CLIENT_STAGE_FIELDS = {
@@ -49,6 +53,8 @@ CLIENT_STAGE_FIELDS = {
     for stage, fields in ALLOWED_STAGE_FIELDS.items()
 }
 CLIENT_CLAIM_FIELDS = {"id", "status", "evidence_aliases", "scope", "blocked_decision"}
+CLIENT_SEMANTIC_FACT_FIELDS = {"kind", "value_type", "value", "status", "evidence_aliases", "scope", "blocked_decision"}
+ACCEPTED_SEMANTIC_FACT_FIELDS = {"ref", "kind", "value_type", "value", "status", "evidence_ids", "scope", "blocked_decision"}
 CLIENT_RULE_FIELDS = {"rule_id", "evidence_aliases", "process_or_candidate_ids", "decision_id"}
 CLIENT_EVIDENCE_FIELDS = {"alias", "observation_ref"}
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
@@ -58,6 +64,19 @@ SECRET_LITERAL_PATTERN = re.compile(
     r"(?i)((?:password|passwd|secret|token|api[_ -]?key|private[_ -]?key)\s*[:=]\s*)([^\s,;]+)"
 )
 REOPEN_REASON_PATTERN = re.compile(r"^.{3,500}$", re.DOTALL)
+SEMANTIC_KINDS = {
+    "application.name",
+    "project.language",
+    "project.language_version",
+    "project.framework",
+    "build.tool",
+    "build.artifact_type",
+}
+
+
+def derive_semantic_fact_ref(identity: Mapping[str, Any]) -> str:
+    """Derive a stable server-owned reference from canonical accepted fields."""
+    return "semantic_fact_discovery_" + hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest()[:24]
 
 REOPEN_PERMITTED = {
     "discovery": set(),
@@ -255,6 +274,54 @@ def normalize_submission_payload(
         normalized_claims.append(claim)
         used_aliases.update(resolved_aliases)
 
+    normalized_semantic_facts: list[dict[str, Any]] = []
+    if stage == "discovery":
+        raw_facts = payload.get("semantic_facts", [])
+        if not isinstance(raw_facts, list):
+            raise ValueError("semantic facts required")
+        seen_nonrepeatable_kinds: set[str] = set()
+        seen_refs: set[str] = set()
+        for raw_fact in raw_facts:
+            if not isinstance(raw_fact, Mapping):
+                raise ValueError("invalid semantic fact")
+            if {"ref", "evidence_ids", "evidence_inputs", "content_fingerprint", "redacted", "location"}.intersection(raw_fact):
+                raise ValueError("client semantic fact field")
+            ensure_exact_keys(raw_fact, CLIENT_SEMANTIC_FACT_FIELDS, "client semantic fact")
+            kind = raw_fact.get("kind")
+            status = raw_fact.get("status")
+            if kind not in SEMANTIC_KINDS or raw_fact.get("value_type") != "string" or status not in CLAIM_STATUSES:
+                raise ValueError("invalid semantic fact")
+            value = raw_fact.get("value")
+            if status == "unknown":
+                if value is not None or not raw_fact.get("scope") or not raw_fact.get("blocked_decision"):
+                    raise ValueError("unknown semantic fact lacks scope/decision")
+            elif not isinstance(value, str) or not value.strip():
+                raise ValueError("concrete semantic fact value required")
+            if kind != "project.framework":
+                if kind in seen_nonrepeatable_kinds:
+                    raise ValueError("duplicate semantic fact kind")
+                seen_nonrepeatable_kinds.add(kind)
+            aliases = raw_fact.get("evidence_aliases")
+            if not isinstance(aliases, list) or not aliases:
+                raise ValueError("semantic fact evidence aliases required")
+            resolved_aliases = [_require_identifier(alias, "evidence alias") for alias in aliases]
+            if len(resolved_aliases) != len(set(resolved_aliases)) or any(alias not in alias_to_id for alias in resolved_aliases):
+                raise ValueError("semantic fact references unknown evidence alias")
+            evidence_ids = [alias_to_id[alias] for alias in resolved_aliases]
+            if status == "unknown" and not any(canonical[evidence_id]["status"] == "unknown" for evidence_id in evidence_ids):
+                raise ValueError("unknown semantic fact requires absence observation")
+            identity = {"kind": kind, "value_type": "string", "value": value, "status": status, "evidence_ids": evidence_ids}
+            ref = derive_semantic_fact_ref(identity)
+            if ref in seen_refs:
+                raise ValueError("duplicate semantic fact")
+            seen_refs.add(ref)
+            fact = {"ref": ref, **identity}
+            if status == "unknown":
+                fact["scope"] = raw_fact["scope"]
+                fact["blocked_decision"] = raw_fact["blocked_decision"]
+            normalized_semantic_facts.append(fact)
+            used_aliases.update(resolved_aliases)
+
     normalized_rules: list[dict[str, Any]] = []
     rules = payload.get("rule_applications", [])
     if not isinstance(rules, list):
@@ -290,6 +357,7 @@ def normalize_submission_payload(
     }
     normalized.update({
         "claims": normalized_claims,
+        "semantic_facts": normalized_semantic_facts if stage == "discovery" else payload.get("semantic_facts", []),
         "evidence_ids": list(alias_to_id.values()),
         "evidence_inputs": canonical,
         "rule_applications": normalized_rules,
@@ -317,6 +385,47 @@ def validate_claims(payload: Mapping[str, Any]) -> None:
                 raise ValueError("unknown claim lacks scope/decision")
             if not claim.get("evidence_ids"):
                 raise ValueError("unknown claim requires absence evidence")
+
+
+def validate_semantic_facts(payload: Mapping[str, Any]) -> None:
+    facts = payload.get("semantic_facts", [])
+    if payload.get("stage") != "discovery":
+        if facts:
+            raise ValueError("semantic facts are discovery-only")
+        return
+    if not isinstance(facts, list):
+        raise ValueError("semantic facts required")
+    refs: set[str] = set()
+    kinds: set[str] = set()
+    for fact in facts:
+        if not isinstance(fact, Mapping):
+            raise ValueError("invalid semantic fact")
+        ensure_exact_keys(fact, ACCEPTED_SEMANTIC_FACT_FIELDS, "semantic fact")
+        ref = fact.get("ref")
+        kind = fact.get("kind")
+        if not isinstance(ref, str) or kind not in SEMANTIC_KINDS:
+            raise ValueError("invalid semantic fact")
+        if ref in refs or (kind in kinds and kind != "project.framework"):
+            raise ValueError("duplicate semantic fact")
+        refs.add(ref)
+        kinds.add(kind)
+        status = fact.get("status")
+        if fact.get("value_type") != "string" or status not in CLAIM_STATUSES or not isinstance(fact.get("evidence_ids"), list) or not fact["evidence_ids"]:
+            raise ValueError("invalid semantic fact")
+        if status == "unknown":
+            if fact.get("value") is not None or not fact.get("scope") or not fact.get("blocked_decision"):
+                raise ValueError("unknown semantic fact lacks scope/decision")
+        elif not isinstance(fact.get("value"), str) or not fact["value"].strip():
+            raise ValueError("concrete semantic fact value required")
+        identity = {
+            "kind": kind,
+            "value_type": fact["value_type"],
+            "value": fact["value"],
+            "status": status,
+            "evidence_ids": fact["evidence_ids"],
+        }
+        if ref != derive_semantic_fact_ref(identity):
+            raise ValueError("forged semantic fact reference")
 
 
 def validate_evidence_inputs(payload: Mapping[str, Any], snapshot_hash: str) -> dict[str, dict[str, Any]]:
@@ -361,6 +470,10 @@ def validate_payload_references(payload: Mapping[str, Any]) -> None:
         for evidence_id in claim["evidence_ids"]:
             if evidence_id not in evidence_id_set:
                 raise ValueError("evidence claim references missing evidence")
+    for fact in payload.get("semantic_facts", []):
+        for evidence_id in fact["evidence_ids"]:
+            if evidence_id not in evidence_id_set:
+                raise ValueError("semantic fact references missing evidence")
     for rule in payload.get("rule_applications", []):
         if not isinstance(rule, Mapping):
             raise ValueError("invalid rule application")

@@ -37,6 +37,15 @@ def client_payload_required_fields(stage: str) -> set[str]:
     return set(required)
 
 
+def client_payload_allowed_fields(stage: str) -> set[str]:
+    """Return required and optional client fields from the sealed contract."""
+    payload = stage_contract(stage).get("client_payload")
+    optional = payload.get("optional", []) if isinstance(payload, Mapping) else None
+    if not isinstance(optional, list) or any(not isinstance(field, str) for field in optional):
+        raise ValueError("invalid_stage_payload_contract")
+    return client_payload_required_fields(stage) | set(optional)
+
+
 def relationship_edge_contract() -> dict[str, Any]:
     """Return the executable Relationships edge fragment from the sealed contract."""
     payload = stage_contract("relationships").get("client_payload")
@@ -129,7 +138,7 @@ def _require_contract_fields(stage: str, payload: Mapping[str, Any]) -> None:
     required = client_payload_required_fields(stage)
     if missing := required.difference(payload):
         raise ValueError(f"missing {stage} payload field")
-    if unexpected := set(payload).difference(required):
+    if unexpected := set(payload).difference(client_payload_allowed_fields(stage)):
         raise ValueError(f"unknown {stage} payload field")
 
 
@@ -177,7 +186,7 @@ def promote_discovery_facts(state: PipelineState, payload: Mapping[str, Any]) ->
     return submit(state, "discovery", dict(payload), state.revision, state.state_hash)
 
 
-def project_discovery_handoff(state: PipelineState) -> dict[str, list[str]]:
+def project_discovery_handoff(state: PipelineState) -> dict[str, Any]:
     """Expose only stable identifiers, never client or repository evidence."""
     payload = state.outputs.get("discovery")
     if not isinstance(payload, Mapping):
@@ -190,6 +199,7 @@ def project_discovery_handoff(state: PipelineState) -> dict[str, list[str]]:
     return {
         "candidate_ids": list(payload.get("candidate_ids", [])),
         "discovery_fact_refs": fact_refs,
+        "semantic_facts": [dict(fact) for fact in payload.get("semantic_facts", [])],
         "unknown_ids": unknown_ids,
     }
 
