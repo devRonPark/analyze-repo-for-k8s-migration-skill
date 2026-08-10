@@ -15,7 +15,9 @@ Use the incoming handoff only. Apply Workload Boundary, Grounding, and Quality G
    from `stage_input.survey`.
 3. Create only safe structured workload units. A deployable unit requires both
    a distinct start definition and an independent lifecycle; directories and
-   ports alone never create a unit.
+   ports alone never create a unit. When the accepted `process_ids` is a
+   single process, grouping needs no independent-lifecycle evidence -- see
+   the reference's "Single-process grouping" section before searching for any.
 4. Submit one complete `submit_boundaries` attempt after this stage's decision
    is ready. Retry only after an explicit server rejection.
 

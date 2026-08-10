@@ -31,6 +31,7 @@ runtime/python/analysis_pipeline/stage_contracts.py
 runtime/python/analysis_pipeline/state.py
 runtime/python/analysis_pipeline/transitions.py
 runtime/python/analysis_pipeline/validation.py
+runtime/python/analysis_pipeline/workload_grouping.py
 runtime/python/analysis_pipeline/tools/__init__.py
 runtime/python/analysis_pipeline/tools/git_metadata.py
 runtime/python/analysis_pipeline/tools/glob.py

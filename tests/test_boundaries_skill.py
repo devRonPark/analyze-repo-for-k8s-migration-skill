@@ -23,6 +23,16 @@ class BoundariesSkillTests(unittest.TestCase):
         self.assertNotIn("analyze-k8s-contracts", skill)
         self.assertNotIn("submit_contracts", skill)
 
+    def test_single_process_grouping_is_deterministic_and_evidence_bounded(self) -> None:
+        rules = ROOT / "runtime/stage-skills/analyze-k8s-boundaries/references/workload-boundary.md"
+        rule_text = " ".join(rules.read_text(encoding="utf-8").split())
+
+        self.assertIn("Workload Grouping is deterministic", rule_text)
+        self.assertIn(
+            "Do not search for healthcheck, volume, restart-policy, state, or listening-port signals",
+            rule_text,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

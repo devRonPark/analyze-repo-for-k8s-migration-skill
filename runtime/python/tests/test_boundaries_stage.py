@@ -3,6 +3,7 @@ import os
 import unittest
 from pathlib import Path
 
+from analysis_pipeline.mcp_server import Server
 from analysis_pipeline.stage_contracts import client_payload_required_fields
 from analysis_pipeline.transitions import reopen
 from runtime.python.tests.test_relationships_stage import RelationshipsStageTests
@@ -157,6 +158,94 @@ class BoundariesStageTests(unittest.TestCase):
 
     def test_boundaries_required_fields_are_loaded_from_stage_contract(self) -> None:
         self.assertIn("workload_units", client_payload_required_fields("boundaries"))
+
+    def test_accepts_deployable_single_process_unit_with_unknown_independent_lifecycle(self) -> None:
+        """A single accepted runtime process has no sibling to compare an
+        independent lifecycle against, so Workload Grouping is deterministic
+        and independent_lifecycle_status is not required to be confirmed."""
+        temporary, server, _, relationships = self.start_with_relationships()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    observation["observation_ref"], relationships,
+                    workload_units=[{**unit, "independent_lifecycle_status": "unknown"}],
+                )},
+            )
+
+        self.assertFalse(rejected, result)
+        self.assertEqual(result["accepted_output"]["unit_ids"], ["unit-web"])
+        self.assertEqual(result["accepted_output"]["deployable_unit_ids"], ["unit-web"])
+
+    def start_with_two_process_relationships(self) -> tuple[object, object, Path, dict]:
+        """A two-process Execution handoff, unlike `start_with_relationships`'
+        single `process-web`: exercises the case where Workload Grouping is
+        not deterministic and comparative lifecycle evidence still applies."""
+        helper = RelationshipsStageTests()
+        temporary, command_directory, target = helper.fixture()
+        server = Server(command_directory=command_directory)
+        started, failed = server.tool_call("start_analysis", {"target_path": "external-target", "mode": "summary"})
+        self.assertFalse(failed, started)
+        discovery_observation, failed = server.tool_call("read_evidence", {"path": "Dockerfile"})
+        self.assertFalse(failed, discovery_observation)
+        discovery, failed = server.tool_call(
+            "submit_discovery", {"payload": helper.discovery_payload(discovery_observation["observation_ref"])}
+        )
+        self.assertFalse(failed, discovery)
+        execution_observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+        self.assertFalse(failed, execution_observation)
+        execution, failed = server.tool_call(
+            "submit_execution",
+            {
+                "payload": helper.execution_payload(
+                    execution_observation["observation_ref"],
+                    discovery["stage_input"]["discovery_fact_refs"],
+                    process_ids=["process-web", "process-worker"],
+                ),
+            },
+        )
+        self.assertFalse(failed, execution)
+        observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+        self.assertFalse(failed, observation)
+        relationships, failed = server.tool_call(
+            "submit_relationships",
+            {
+                "payload": helper.relationships_payload(
+                    observation["observation_ref"],
+                    discovery["stage_input"]["discovery_fact_refs"],
+                    execution["stage_input"]["execution_fact_refs"],
+                ),
+            },
+        )
+        self.assertFalse(failed, relationships)
+        return temporary, server, target, relationships
+
+    def test_rejects_deployable_multi_process_group_with_unknown_independent_lifecycle(self) -> None:
+        """Unlike a single process, a multi-process group merges evidence
+        about more than one process, so the independent-lifecycle coupling
+        must still hold -- Workload Grouping is not deterministic there."""
+        temporary, server, _, relationships = self.start_with_two_process_relationships()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    observation["observation_ref"], relationships,
+                    workload_units=[{
+                        **unit,
+                        "process_ids": ["process-web", "process-worker"],
+                        "independent_lifecycle_status": "unknown",
+                    }],
+                )},
+            )
+
+        self.assertTrue(rejected)
+        self.assertEqual(server.session.current_stage, "boundaries")
 
     def test_accepts_confirmed_boundary_with_independently_unknown_state(self) -> None:
         temporary, server, _, relationships = self.start_with_relationships()

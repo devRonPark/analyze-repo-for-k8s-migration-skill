@@ -27,11 +27,14 @@ the field types and enums in the payload contract:
 - `state_claim_ids` claims must match `state_decision`: `unknown` needs
   `unknown`, `conflicted` needs `conflicted`, anything else needs `confirmed`
   or `inferred`.
-- `boundary_status: confirmed` requires `start_definition_status` and
-  `independent_lifecycle_status` to both be `confirmed` too.
-- `deployable: true` requires `boundary_status`, `start_definition_status`,
-  and `independent_lifecycle_status` all `confirmed`, and
-  `deployability_status` `confirmed` or `inferred`.
+- `boundary_status: confirmed` requires `start_definition_status` confirmed,
+  and `independent_lifecycle_status` confirmed too -- except for a
+  single-process unit (see "Single-process grouping" below), where
+  `independent_lifecycle_status` may stay `unknown`.
+- `deployable: true` requires `boundary_status` and `start_definition_status`
+  confirmed (`independent_lifecycle_status` confirmed too, under the same
+  single-process exception), and `deployability_status` `confirmed` or
+  `inferred`.
 - Every `process_ids` entry from the incoming handoff must end up assigned to
   exactly one workload unit -- none left out, none assigned twice.
 
@@ -61,3 +64,21 @@ with a matching claim for each `*_claim_ids` entry, e.g.
 `{"id": "claim-web-boundary", "status": "confirmed", "evidence_aliases": [...]}`.
 When a condition is not grounded, set that status field to `unknown` and give
 its linked claim `status: "unknown"` too, rather than guessing `confirmed`.
+
+## Single-process grouping
+
+When the incoming handoff's accepted `process_ids` has exactly one member,
+Workload Grouping is deterministic: that one process is necessarily its own
+Workload Unit, because there is no second process to compare an independent
+lifecycle against. Do not search for healthcheck, volume, restart-policy,
+state, or listening-port signals to ground `independent_lifecycle_status` in
+this case, and do not cite them if the survey already surfaced them --
+strengthening evidence needs something to strengthen, and a single process has
+no comparison to strengthen. Leave `independent_lifecycle_status: "unknown"`;
+it does not block `boundary_status: confirmed` or `deployable: true` here.
+`start_definition_status` still needs its own grounding regardless of process
+count.
+
+This exception is about grouping only. Once a unit's process is grouped, its
+`lifecycle`, `state_decision`, and `deployability_status` still need their
+own evidence exactly as before.

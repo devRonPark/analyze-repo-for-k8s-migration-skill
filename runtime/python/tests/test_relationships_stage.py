@@ -41,8 +41,8 @@ class RelationshipsStageTests(unittest.TestCase):
         }
 
     @staticmethod
-    def execution_payload(observation_ref: str, discovery_fact_refs: list[str]) -> dict:
-        return {
+    def execution_payload(observation_ref: str, discovery_fact_refs: list[str], **overrides: object) -> dict:
+        value = {
             "schema_version": 1,
             "stage": "execution",
             "evidence": [{"alias": "runtime", "observation_ref": observation_ref}],
@@ -51,6 +51,8 @@ class RelationshipsStageTests(unittest.TestCase):
             "discovery_fact_refs": discovery_fact_refs,
             "process_ids": ["process-web"],
         }
+        value.update(overrides)
+        return value
 
     @staticmethod
     def relationships_payload(

@@ -10,6 +10,7 @@ from .observations import ObservationRegistry, TargetSnapshot
 from .state import PipelineState
 from .transitions import submit
 from .validation import CLAIM_STATUSES, ensure_exact_keys, normalize_submission_payload
+from .workload_grouping import validate_workload_grouping
 
 CONTRACT_PATH = Path(__file__).resolve().parents[3] / "contracts" / "stage-payload-contracts.json"
 REPORT_STATE_PATH = Path(__file__).resolve().parents[3] / "contracts" / "accepted-report-state.schema.json"
@@ -466,6 +467,17 @@ def validate_boundaries_payload(payload: Mapping[str, Any], registry: Observatio
             raise ValueError("workload claim status mismatch")
         linked_claims.update(claim_ids)
 
+    try:
+        deterministic_unit_ids = validate_workload_grouping(
+            process_ids,
+            [{"unit_id": u.get("id"), "process_ids": u.get("process_ids")} for u in units if isinstance(u, Mapping)],
+        )
+    except ValueError:
+        # Malformed structure (dangling/duplicate/missing process, bad id) is
+        # reported by the per-unit checks below with their existing messages;
+        # no unit is treated as a deterministic single-process group here.
+        deterministic_unit_ids = set()
+
     for unit in units:
         if not isinstance(unit, Mapping):
             raise ValueError("invalid workload unit")
@@ -487,9 +499,13 @@ def validate_boundaries_payload(payload: Mapping[str, Any], registry: Observatio
             raise ValueError("invalid workload boundary status")
         if unit.get("lifecycle") not in lifecycle_statuses or unit.get("state_decision") not in state_statuses or unit.get("deployability_status") not in deployability_statuses or unit_contract.get("deployable") != "boolean" or not isinstance(unit.get("deployable"), bool):
             raise ValueError("invalid workload unit")
-        if unit["boundary_status"] == "confirmed" and (unit["start_definition_status"] != "confirmed" or unit["independent_lifecycle_status"] != "confirmed"):
+        # A single accepted runtime process has no sibling to compare an
+        # independent lifecycle against, so Workload Grouping is deterministic
+        # and independent_lifecycle_status is not required to be confirmed.
+        lifecycle_confirmed = unit_id in deterministic_unit_ids or unit["independent_lifecycle_status"] == "confirmed"
+        if unit["boundary_status"] == "confirmed" and (unit["start_definition_status"] != "confirmed" or not lifecycle_confirmed):
             raise ValueError("confirmed workload requires both boundary conditions")
-        if unit["deployable"] and (unit["boundary_status"] != "confirmed" or unit["start_definition_status"] != "confirmed" or unit["independent_lifecycle_status"] != "confirmed"):
+        if unit["deployable"] and (unit["boundary_status"] != "confirmed" or unit["start_definition_status"] != "confirmed" or not lifecycle_confirmed):
             raise ValueError("deployable workload requires both boundary conditions")
         if unit["deployable"] and unit["deployability_status"] not in {"confirmed", "inferred"}:
             raise ValueError("deployable workload requires grounded eligibility")
