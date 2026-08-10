@@ -5,8 +5,13 @@ from pathlib import Path
 
 from analysis_pipeline.mcp_server import Server
 from analysis_pipeline.stage_contracts import client_payload_required_fields
+from analysis_pipeline.validation import derive_runtime_process_id
 from analysis_pipeline.transitions import reopen
 from runtime.python.tests.test_relationships_stage import RelationshipsStageTests
+
+
+PROCESS_ID = derive_runtime_process_id({"candidate_ids": ["candidate-web"], "role": "unknown", "execution_pattern": "unknown", "semantic_fact_refs": []})
+WORKER_PROCESS_ID = derive_runtime_process_id({"candidate_ids": ["candidate-web"], "role": "worker", "execution_pattern": "continuous", "semantic_fact_refs": []})
 
 
 class BoundariesStageTests(unittest.TestCase):
@@ -28,7 +33,7 @@ class BoundariesStageTests(unittest.TestCase):
             "relationship_fact_refs": handoff["stage_input"]["relationship_fact_refs"],
             "workload_units": [{
                 "id": "unit-web",
-                "process_ids": ["process-web"],
+                "process_ids": [PROCESS_ID],
                 "candidate_ids": ["candidate-web"],
                 "start_definition_status": "confirmed",
                 "independent_lifecycle_status": "confirmed",
@@ -203,7 +208,10 @@ class BoundariesStageTests(unittest.TestCase):
                 "payload": helper.execution_payload(
                     execution_observation["observation_ref"],
                     discovery["stage_input"]["discovery_fact_refs"],
-                    process_ids=["process-web", "process-worker"],
+                    runtime_processes=[
+                        {"candidate_ids": ["candidate-web"], "role": "unknown", "execution_pattern": "unknown", "semantic_fact_refs": []},
+                        {"candidate_ids": ["candidate-web"], "role": "worker", "execution_pattern": "continuous", "semantic_fact_refs": []},
+                    ],
                 ),
             },
         )
@@ -238,7 +246,7 @@ class BoundariesStageTests(unittest.TestCase):
                     observation["observation_ref"], relationships,
                     workload_units=[{
                         **unit,
-                        "process_ids": ["process-web", "process-worker"],
+                        "process_ids": [PROCESS_ID, WORKER_PROCESS_ID],
                         "independent_lifecycle_status": "unknown",
                     }],
                 )},

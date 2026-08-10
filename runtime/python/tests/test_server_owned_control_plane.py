@@ -59,7 +59,12 @@ class ServerOwnedControlPlaneTests(unittest.TestCase):
             "claims": [{"id": "claim-process", "status": "confirmed", "evidence_aliases": ["runtime"]}],
             "rule_applications": [],
             "discovery_fact_refs": discovery_fact_refs,
-            "process_ids": ["process-web"],
+            "runtime_processes": [{
+                "candidate_ids": ["candidate-web"],
+                "role": "unknown",
+                "execution_pattern": "unknown",
+                "semantic_fact_refs": [],
+            }],
         }
 
     def test_public_schemas_no_longer_require_control_plane_fields(self) -> None:

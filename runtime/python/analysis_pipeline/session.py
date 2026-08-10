@@ -178,6 +178,8 @@ class AnalysisSession:
             self.snapshot,
             self.binding,
             discovery_input["discovery_fact_refs"],
+            discovery_input["candidate_ids"],
+            [fact["ref"] for fact in discovery_input["semantic_facts"]],
         )
         next_pipeline = promote_execution_facts(self.pipeline, payload)
         self.pipeline = next_pipeline

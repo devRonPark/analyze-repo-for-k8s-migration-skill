@@ -17,17 +17,18 @@
       "accepted_output": ["candidate_ids", "discovery_fact_refs", "semantic_facts", "unknown_ids"]
     },
     "execution": {
-      "required": ["evidence", "claims", "discovery_fact_refs", "process_ids"],
+      "required": ["evidence", "claims", "discovery_fact_refs", "runtime_processes", "process_ids"],
       "fact_ref_fields": ["discovery_fact_refs"],
       "client_payload": {
         "schema_version": 1,
         "stage": "execution",
-        "required": ["schema_version", "stage", "evidence", "claims", "rule_applications", "discovery_fact_refs", "process_ids"],
+        "required": ["schema_version", "stage", "evidence", "claims", "rule_applications", "discovery_fact_refs", "runtime_processes"],
         "evidence": {"alias": "identifier", "observation_ref": "opaque observation reference"},
         "claims": {"id": "identifier", "status": "confirmed|inferred|unknown|conflicted|not_applicable", "evidence_aliases": ["identifier"]},
+        "runtime_processes": {"candidate_ids": ["accepted discovery candidate identifier"], "role": "web|worker|scheduler|migration|other|unknown", "execution_pattern": "continuous|run_to_completion|scheduled|unknown", "semantic_fact_refs": ["accepted discovery semantic fact reference"]},
         "rule_applications": {"rule_id": "identifier", "evidence_aliases": ["identifier"], "process_or_candidate_ids": ["identifier"], "decision_id": "identifier"}
       },
-      "accepted_output": ["process_ids", "execution_fact_refs", "unknown_ids"]
+      "accepted_output": ["runtime_processes", "process_ids", "execution_fact_refs", "unknown_ids"]
     },
     "relationships": {
       "required": ["evidence", "claims", "discovery_fact_refs", "execution_fact_refs", "graph_edges", "graph_edge_ids"],

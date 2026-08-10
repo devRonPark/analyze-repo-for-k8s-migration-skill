@@ -156,6 +156,17 @@ _SEMANTIC_FACT_DECLARATION = {
         "blocked_decision": _IDENTIFIER,
     },
 }
+_RUNTIME_PROCESS_DECLARATION = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["candidate_ids", "role", "execution_pattern", "semantic_fact_refs"],
+    "properties": {
+        "candidate_ids": _IDENTIFIER_LIST,
+        "role": {"type": "string", "enum": ["web", "worker", "scheduler", "migration", "other", "unknown"]},
+        "execution_pattern": {"type": "string", "enum": ["continuous", "run_to_completion", "scheduled", "unknown"]},
+        "semantic_fact_refs": _IDENTIFIER_LIST,
+    },
+}
 _RULE_APPLICATION = {
     "type": "object",
     "additionalProperties": False,
@@ -223,6 +234,8 @@ def _stage_payload_schema(stage: str) -> dict[str, Any]:
         }
     if stage == "discovery":
         properties["semantic_facts"] = {"type": "array", "items": _SEMANTIC_FACT_DECLARATION}
+    if stage == "execution":
+        properties["runtime_processes"] = {"type": "array", "items": _RUNTIME_PROCESS_DECLARATION}
     return {
         "type": "object",
         "additionalProperties": False,

@@ -210,6 +210,8 @@ def validate_execution_payload(
     snapshot: TargetSnapshot,
     binding: Mapping[str, Any],
     discovery_fact_refs: list[str],
+    candidate_ids: list[str],
+    discovery_semantic_fact_refs: list[str],
 ) -> dict[str, Any]:
     """Resolve Execution evidence and consume exactly the trusted discovery facts."""
     if not isinstance(payload, Mapping):
@@ -228,9 +230,13 @@ def validate_execution_payload(
             observations[reference] = registry.resolve(reference, "execution", snapshot)
     normalized, _ = normalize_submission_payload(payload, observations, binding)
     submitted_refs = normalized.get("discovery_fact_refs")
-    _require_identifier_list(normalized, "process_ids")
     if not isinstance(submitted_refs, list) or submitted_refs != discovery_fact_refs:
         raise ValueError("unknown discovery fact reference")
+    for process in normalized["runtime_processes"]:
+        if any(candidate_id not in candidate_ids for candidate_id in process["candidate_ids"]):
+            raise ValueError("unknown runtime process candidate")
+        if any(reference not in discovery_semantic_fact_refs for reference in process["semantic_fact_refs"]):
+            raise ValueError("unknown runtime process semantic fact")
     return normalized
 
 
@@ -239,7 +245,7 @@ def promote_execution_facts(state: PipelineState, payload: Mapping[str, Any]) ->
     return submit(state, "execution", dict(payload), state.revision, state.state_hash)
 
 
-def project_execution_handoff(state: PipelineState) -> dict[str, list[str]]:
+def project_execution_handoff(state: PipelineState) -> dict[str, Any]:
     """Expose only trusted execution identifiers to the current successor."""
     payload = state.outputs.get("execution")
     if not isinstance(payload, Mapping):
@@ -248,6 +254,7 @@ def project_execution_handoff(state: PipelineState) -> dict[str, list[str]]:
     if not isinstance(claims, list):
         raise ValueError("execution claims are unavailable")
     return {
+        "runtime_processes": [dict(process) for process in payload.get("runtime_processes", [])],
         "process_ids": list(payload.get("process_ids", [])),
         "execution_fact_refs": [
             f"fact_execution_{claim['id']}"

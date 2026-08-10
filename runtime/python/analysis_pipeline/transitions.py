@@ -16,6 +16,7 @@ from .validation import (
     validate_payload_references,
     validate_payload_shape,
     validate_claims,
+    validate_runtime_processes,
     validate_semantic_facts,
     validate_rule_subjects_and_decisions,
 )
@@ -61,6 +62,7 @@ def submit(state: PipelineState, stage: str, payload: dict[str, Any], expected_r
     payload = validate_payload_shape(stage, payload)
     validate_claims(payload)
     validate_semantic_facts(payload)
+    validate_runtime_processes(payload)
     validate_payload_references(payload)
     validate_boundaries_payload(payload)
     evidence = _append_evidence(state, stage, payload)

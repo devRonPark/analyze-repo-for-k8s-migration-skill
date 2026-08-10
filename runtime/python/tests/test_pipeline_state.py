@@ -7,6 +7,7 @@ RUNTIME_PYTHON = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RUNTIME_PYTHON))
 
 from analysis_pipeline import ANALYSIS_STAGES, FINAL_STAGE, canonical_json, create_state, derive_evidence_id, finalize, normalize_submission_payload, reopen, submit
+from analysis_pipeline.validation import derive_runtime_process_id
 
 
 BINDING = {
@@ -48,7 +49,16 @@ def valid_payload(stage: str, *, override: dict | None = None) -> dict:
                 }
             ],
         },
-        "execution": {"process_ids": ["process-1"]},
+        "execution": {
+            "runtime_processes": [{
+                "id": derive_runtime_process_id({"candidate_ids": ["candidate-1"], "role": "unknown", "execution_pattern": "unknown", "semantic_fact_refs": []}),
+                "candidate_ids": ["candidate-1"],
+                "role": "unknown",
+                "execution_pattern": "unknown",
+                "semantic_fact_refs": [],
+            }],
+            "process_ids": [derive_runtime_process_id({"candidate_ids": ["candidate-1"], "role": "unknown", "execution_pattern": "unknown", "semantic_fact_refs": []})],
+        },
         "relationships": {"graph_edge_ids": ["edge-1"]},
         "boundaries": {
             "unit_ids": ["unit-1"],

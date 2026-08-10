@@ -7,6 +7,10 @@ from pathlib import Path
 
 from analysis_pipeline.mcp_server import Server
 from analysis_pipeline.stage_contracts import client_payload_required_fields, relationship_edge_contract
+from analysis_pipeline.validation import derive_runtime_process_id
+
+
+PROCESS_ID = derive_runtime_process_id({"candidate_ids": ["candidate-web"], "role": "unknown", "execution_pattern": "unknown", "semantic_fact_refs": []})
 
 
 class RelationshipsStageTests(unittest.TestCase):
@@ -49,7 +53,7 @@ class RelationshipsStageTests(unittest.TestCase):
             "claims": [{"id": "claim-process", "status": "confirmed", "evidence_aliases": ["runtime"]}],
             "rule_applications": [],
             "discovery_fact_refs": discovery_fact_refs,
-            "process_ids": ["process-web"],
+            "runtime_processes": [{"candidate_ids": ["candidate-web"], "role": "unknown", "execution_pattern": "unknown", "semantic_fact_refs": []}],
         }
         value.update(overrides)
         return value
@@ -71,7 +75,7 @@ class RelationshipsStageTests(unittest.TestCase):
             "execution_fact_refs": execution_fact_refs,
             "graph_edges": [{
                 "id": "edge-api-db",
-                "source_process_id": "process-web",
+                "source_process_id": PROCESS_ID,
                 "target_id": "external-db",
                 "target_kind": "external_system",
                 "dependency_type": "data_store",
@@ -146,7 +150,7 @@ class RelationshipsStageTests(unittest.TestCase):
             "discovery_fact_refs": ["fact_discovery_claim-container"],
             "execution_fact_refs": ["fact_execution_claim-process"],
             "candidate_ids": ["candidate-web"],
-            "process_ids": ["process-web"],
+            "process_ids": [PROCESS_ID],
         })
         self.assertEqual(survey["stage"], "boundaries")
         self.assertTrue(survey["surveyed"])
@@ -351,8 +355,8 @@ class RelationshipsStageTests(unittest.TestCase):
                 execution["stage_input"]["execution_fact_refs"],
                 graph_edges=[{
                     "id": "edge-self-cycle",
-                    "source_process_id": "process-web",
-                    "target_id": "process-web",
+                    "source_process_id": PROCESS_ID,
+                    "target_id": PROCESS_ID,
                     "target_kind": "process",
                     "dependency_type": "service",
                     "mechanism": "http",

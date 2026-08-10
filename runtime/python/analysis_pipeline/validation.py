@@ -14,7 +14,7 @@ CLAIM_STATUSES = {"confirmed", "inferred", "unknown", "conflicted", "not_applica
 
 ALLOWED_STAGE_FIELDS = {
     "discovery": {"stage", "claims", "semantic_facts", "evidence_ids", "evidence_inputs", "rule_applications", "signals", "candidate_ids", "decisions"},
-    "execution": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "discovery_fact_refs", "process_ids"},
+    "execution": {"stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications", "discovery_fact_refs", "runtime_processes", "process_ids"},
     "relationships": {
         "stage", "claims", "evidence_ids", "evidence_inputs", "rule_applications",
         "discovery_fact_refs", "execution_fact_refs", "graph_edges", "graph_edge_ids",
@@ -94,6 +94,11 @@ def derive_semantic_fact_ref(identity: Mapping[str, Any]) -> str:
     """Derive a stable server-owned reference from canonical accepted fields."""
     return "semantic_fact_discovery_" + hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest()[:24]
 
+
+def derive_runtime_process_id(identity: Mapping[str, Any]) -> str:
+    """Derive the stable, server-owned identifier for a RuntimeProcess."""
+    return "process_" + hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest()[:24]
+
 REOPEN_PERMITTED = {
     "discovery": set(),
     "execution": {"discovery"},
@@ -137,7 +142,7 @@ def stage_data_present(stage: str, payload: Mapping[str, Any]) -> bool:
     if stage == "discovery":
         return bool(payload.get("signals"))
     if stage == "execution":
-        return bool(payload.get("process_ids"))
+        return bool(payload.get("runtime_processes"))
     if stage == "relationships":
         return True
     if stage == "boundaries":
@@ -339,6 +344,43 @@ def normalize_submission_payload(
             normalized_semantic_facts.append(fact)
             used_aliases.update(resolved_aliases)
 
+    normalized_runtime_processes: list[dict[str, Any]] = []
+    if stage == "execution":
+        raw_processes = payload.get("runtime_processes")
+        if not isinstance(raw_processes, list) or not raw_processes:
+            raise ValueError("runtime processes required")
+        seen_ids: set[str] = set()
+        for raw_process in raw_processes:
+            if not isinstance(raw_process, Mapping):
+                raise ValueError("invalid runtime process")
+            ensure_exact_keys(raw_process, {"candidate_ids", "role", "execution_pattern", "semantic_fact_refs"}, "runtime process")
+            candidate_ids = raw_process.get("candidate_ids")
+            semantic_fact_refs = raw_process.get("semantic_fact_refs")
+            role = raw_process.get("role")
+            pattern = raw_process.get("execution_pattern")
+            if (
+                not isinstance(candidate_ids, list) or not candidate_ids
+                or not isinstance(semantic_fact_refs, list)
+                or role not in {"web", "worker", "scheduler", "migration", "other", "unknown"}
+                or pattern not in {"continuous", "run_to_completion", "scheduled", "unknown"}
+            ):
+                raise ValueError("invalid runtime process")
+            candidate_ids = sorted(_require_identifier(value, "runtime process candidate") for value in candidate_ids)
+            semantic_fact_refs = sorted(_require_identifier(value, "runtime process semantic fact") for value in semantic_fact_refs)
+            if len(candidate_ids) != len(set(candidate_ids)) or len(semantic_fact_refs) != len(set(semantic_fact_refs)):
+                raise ValueError("duplicate runtime process reference")
+            identity = {
+                "candidate_ids": candidate_ids,
+                "role": role,
+                "execution_pattern": pattern,
+                "semantic_fact_refs": semantic_fact_refs,
+            }
+            process_id = derive_runtime_process_id(identity)
+            if process_id in seen_ids:
+                raise ValueError("duplicate runtime process id")
+            seen_ids.add(process_id)
+            normalized_runtime_processes.append({"id": process_id, **identity})
+
     normalized_rules: list[dict[str, Any]] = []
     rules = payload.get("rule_applications", [])
     if not isinstance(rules, list):
@@ -374,12 +416,35 @@ def normalize_submission_payload(
     }
     normalized.update({
         "claims": normalized_claims,
-        "semantic_facts": normalized_semantic_facts if stage == "discovery" else payload.get("semantic_facts", []),
         "evidence_ids": list(alias_to_id.values()),
         "evidence_inputs": canonical,
         "rule_applications": normalized_rules,
     })
+    if stage == "discovery":
+        normalized["semantic_facts"] = normalized_semantic_facts
+    if stage == "execution":
+        normalized["runtime_processes"] = normalized_runtime_processes
+        normalized["process_ids"] = [process["id"] for process in normalized_runtime_processes]
     return normalized, canonical
+
+
+def validate_runtime_processes(payload: Mapping[str, Any]) -> None:
+    if payload.get("stage") != "execution":
+        return
+    processes = payload.get("runtime_processes")
+    if not isinstance(processes, list) or not processes:
+        raise ValueError("runtime processes required")
+    process_ids: list[str] = []
+    for process in processes:
+        if not isinstance(process, Mapping):
+            raise ValueError("invalid runtime process")
+        ensure_exact_keys(process, {"id", "candidate_ids", "role", "execution_pattern", "semantic_fact_refs"}, "runtime process")
+        identity = {field: process.get(field) for field in ("candidate_ids", "role", "execution_pattern", "semantic_fact_refs")}
+        if process.get("id") != derive_runtime_process_id(identity):
+            raise ValueError("forged runtime process id")
+        process_ids.append(process["id"])
+    if process_ids != payload.get("process_ids"):
+        raise ValueError("process ids must project runtime processes")
 
 
 def validate_claims(payload: Mapping[str, Any]) -> None:

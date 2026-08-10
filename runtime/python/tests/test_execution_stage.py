@@ -49,7 +49,12 @@ class ExecutionStageTests(unittest.TestCase):
             "claims": [{"id": "claim-process", "status": "confirmed", "evidence_aliases": ["runtime"]}],
             "rule_applications": [],
             "discovery_fact_refs": discovery_fact_refs,
-            "process_ids": ["process-web"],
+            "runtime_processes": [{
+                "candidate_ids": ["candidate-web"],
+                "role": "unknown",
+                "execution_pattern": "unknown",
+                "semantic_fact_refs": [],
+            }],
         }
         value.update(overrides)
         return value
@@ -98,8 +103,17 @@ class ExecutionStageTests(unittest.TestCase):
         self.assertFalse(failed, result)
         self.assertEqual(result["completed_stage"], "execution")
         self.assertEqual(result["next_skill"], "analyze-k8s-relationships")
+        process_ids = result["accepted_output"]["process_ids"]
+        self.assertEqual(len(process_ids), 1)
         self.assertEqual(result["accepted_output"], {
-            "process_ids": ["process-web"],
+            "runtime_processes": [{
+                "id": process_ids[0],
+                "candidate_ids": ["candidate-web"],
+                "role": "unknown",
+                "execution_pattern": "unknown",
+                "semantic_fact_refs": [],
+            }],
+            "process_ids": process_ids,
             "execution_fact_refs": ["fact_execution_claim-process"],
             "unknown_ids": [],
         })
@@ -202,7 +216,7 @@ class ExecutionStageTests(unittest.TestCase):
                             {
                                 "rule_id": "rule-exec-decision",
                                 "evidence_aliases": ["runtime"],
-                                "process_or_candidate_ids": ["process-web"],
+                                "process_or_candidate_ids": ["candidate-web"],
                                 "decision_id": "claim_build_command",
                             }
                         ],
@@ -266,7 +280,7 @@ class ExecutionStageTests(unittest.TestCase):
                             {
                                 "rule_id": "rule-exec-valid",
                                 "evidence_aliases": ["runtime"],
-                                "process_or_candidate_ids": ["process-web"],
+                                "process_or_candidate_ids": ["candidate-web"],
                                 "decision_id": "decision-runtime",
                             }
                         ],
@@ -282,6 +296,6 @@ class ExecutionStageTests(unittest.TestCase):
             client_payload_required_fields("execution"),
             {
                 "schema_version", "stage", "evidence", "claims", "rule_applications",
-                "discovery_fact_refs", "process_ids",
+                "discovery_fact_refs", "runtime_processes",
             },
         )
