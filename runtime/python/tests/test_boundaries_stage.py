@@ -378,6 +378,95 @@ class BoundariesStageTests(unittest.TestCase):
                 self.assertEqual(result["mode"], mode)
                 self.assertEqual(result["stage_input"]["mode"], mode)
 
+    def test_multiple_empty_claim_link_fields_are_reported_together(self) -> None:
+        temporary, server, _, relationships = self.start_with_relationships()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    observation["observation_ref"], relationships,
+                    workload_units=[{
+                        **unit,
+                        "boundary_status": "unknown", "boundary_claim_ids": [],
+                        "lifecycle": "unknown", "lifecycle_claim_ids": [],
+                        "state_decision": "unknown", "state_claim_ids": [],
+                        "deployable": False,
+                    }],
+                )},
+            )
+
+        self.assertTrue(rejected)
+        message = result["issues"][0]
+        self.assertIn("unit-web", message)
+        self.assertIn("boundary_claim_ids", message)
+        self.assertIn("lifecycle_claim_ids", message)
+        self.assertIn("state_claim_ids", message)
+
+    def test_empty_unknown_lifecycle_claim_ids_names_the_field_and_reason(self) -> None:
+        temporary, server, _, relationships = self.start_with_relationships()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    observation["observation_ref"], relationships,
+                    workload_units=[{**unit, "lifecycle": "unknown", "lifecycle_claim_ids": []}],
+                )},
+            )
+
+        self.assertTrue(rejected)
+        message = result["issues"][0]
+        self.assertIn("unit-web", message)
+        self.assertIn("lifecycle_claim_ids", message)
+        self.assertIn("unknown", message)
+        self.assertNotEqual(message, "workload claim dangling")
+
+    def test_claim_status_mismatch_names_expected_and_actual_status(self) -> None:
+        temporary, server, _, relationships = self.start_with_relationships()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    observation["observation_ref"], relationships,
+                    workload_units=[{**unit, "lifecycle": "unknown"}],
+                )},
+            )
+
+        self.assertTrue(rejected)
+        message = result["issues"][0]
+        self.assertIn("lifecycle_claim_ids", message)
+        self.assertIn("'unknown'", message)
+        self.assertIn("claim-web-lifecycle", message)
+        self.assertIn("'confirmed'", message)
+
+    def test_missing_referenced_claim_id_is_distinct_from_empty_claim_array(self) -> None:
+        temporary, server, _, relationships = self.start_with_relationships()
+        with temporary:
+            observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
+            self.assertFalse(failed, observation)
+            unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
+            result, rejected = server.tool_call(
+                "submit_boundaries",
+                {"payload": self.payload(
+                    observation["observation_ref"], relationships,
+                    workload_units=[{**unit, "state_claim_ids": ["claim-state-missing"]}],
+                )},
+            )
+
+        self.assertTrue(rejected)
+        message = result["issues"][0]
+        self.assertIn("state_claim_ids", message)
+        self.assertIn("claim-state-missing", message)
+        self.assertNotIn("at least one claim is required", message)
+
 
 if __name__ == "__main__":
     unittest.main()
