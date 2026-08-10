@@ -93,6 +93,15 @@ class RepositoryDistributionTests(unittest.TestCase):
             check=False,
         )
 
+    def test_builder_cli_uses_utf8_stdout(self):
+        # Keep staging out of the host TEMP directory: its ACL defect is
+        # independently covered by G0B. ROOT still contains Korean text.
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            result = self.run_builder(Path(tmp) / "bundle")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Built bundle:", result.stdout)
+
     def test_build_is_repeatable_and_excludes_development_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             first = Path(tmp) / "first" / "analyze-repo-for-kubernetes"

@@ -175,4 +175,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # Distribution callers capture this CLI output as UTF-8 on every platform.
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     raise SystemExit(main())
