@@ -1,9 +1,47 @@
 import unittest
 
-from analysis_pipeline.workload_grouping import validate_workload_grouping
+from analysis_pipeline.validation import derive_runtime_process_id
+from analysis_pipeline.workload_grouping import resolve_workload_grouping, validate_workload_grouping
 
 
 class WorkloadGroupingTests(unittest.TestCase):
+    @staticmethod
+    def d03_web_process() -> dict:
+        identity = {
+            "candidate_ids": ["candidate-jpetstore-web"],
+            "role": "web",
+            "execution_pattern": "continuous",
+            "semantic_fact_refs": [],
+        }
+        return {"id": derive_runtime_process_id(identity), **identity}
+
+    def test_single_d03_process_deterministically_forms_one_group(self) -> None:
+        process = self.d03_web_process()
+
+        grouping = resolve_workload_grouping([process])
+
+        self.assertEqual(grouping["input_process_ids"], [process["id"]])
+        self.assertEqual(grouping["groups"], [{
+            "unit_id": "unit_9686120c2844a96b71718eac",
+            "process_ids": [process["id"]],
+            "candidate_ids": ["candidate-jpetstore-web"],
+        }])
+
+    def test_grouping_is_stable_and_preserves_d03_process_semantics(self) -> None:
+        process = self.d03_web_process()
+
+        first = resolve_workload_grouping([process])
+        second = resolve_workload_grouping([dict(process)])
+
+        self.assertEqual(first, second)
+        self.assertEqual(first["groups"][0]["candidate_ids"], process["candidate_ids"])
+
+    def test_grouping_rejects_a_forged_d03_process_id(self) -> None:
+        process = self.d03_web_process() | {"id": "process-client-supplied"}
+
+        with self.assertRaisesRegex(ValueError, "forged runtime process id"):
+            resolve_workload_grouping([process])
+
     def test_single_process_is_a_deterministic_group(self) -> None:
         deterministic = validate_workload_grouping(
             ["process-web"], [{"unit_id": "unit-web", "process_ids": ["process-web"]}]
