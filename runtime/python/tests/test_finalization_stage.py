@@ -65,6 +65,7 @@ class FinalizationStageTests(unittest.TestCase):
                         check=False,
                         capture_output=True,
                         text=True,
+                        encoding="utf-8",
                     )
                 self.assertEqual(validation.returncode, 0, validation.stdout + validation.stderr)
 
