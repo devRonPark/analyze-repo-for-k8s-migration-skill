@@ -11,7 +11,7 @@
         "optional": ["semantic_facts"],
         "evidence": {"alias": "identifier", "observation_ref": "opaque observation reference"},
         "claims": {"id": "identifier", "status": "confirmed|inferred|unknown|conflicted|not_applicable", "evidence_aliases": ["identifier"]},
-        "semantic_facts": {"kind": "application.name|project.language|project.language_version|project.framework|build.tool|build.artifact_type", "value_type": "string", "value": "string|null for unknown", "status": "confirmed|inferred|unknown|conflicted|not_applicable", "evidence_aliases": ["identifier"]},
+        "semantic_facts": {"kind": "application.name|project.language|project.language_version|project.framework|build.tool|build.artifact_type|build.command|runtime.server|runtime.start_command|runtime.listening_port|runtime.context_path|container.dockerfile|container.compose", "value_type": "string|integer", "value": "string|integer|null for unknown", "status": "confirmed|inferred|unknown|conflicted|not_applicable", "evidence_aliases": ["identifier"]},
         "rule_applications": {"rule_id": "identifier", "evidence_aliases": ["identifier"], "process_or_candidate_ids": ["identifier"], "decision_id": "identifier"}
       },
       "accepted_output": ["candidate_ids", "discovery_fact_refs", "semantic_facts", "unknown_ids"]

@@ -64,14 +64,30 @@ SECRET_LITERAL_PATTERN = re.compile(
     r"(?i)((?:password|passwd|secret|token|api[_ -]?key|private[_ -]?key)\s*[:=]\s*)([^\s,;]+)"
 )
 REOPEN_REASON_PATTERN = re.compile(r"^.{3,500}$", re.DOTALL)
-SEMANTIC_KINDS = {
-    "application.name",
-    "project.language",
-    "project.language_version",
-    "project.framework",
-    "build.tool",
-    "build.artifact_type",
+SEMANTIC_FACT_VALUE_TYPES = {
+    "application.name": "string",
+    "project.language": "string",
+    "project.language_version": "string",
+    "project.framework": "string",
+    "build.tool": "string",
+    "build.artifact_type": "string",
+    "build.command": "string",
+    "runtime.server": "string",
+    "runtime.start_command": "string",
+    "runtime.listening_port": "integer",
+    "runtime.context_path": "string",
+    "container.dockerfile": "string",
+    "container.compose": "string",
 }
+SEMANTIC_KINDS = set(SEMANTIC_FACT_VALUE_TYPES)
+
+
+def _semantic_fact_has_concrete_value(value_type: str, value: Any) -> bool:
+    if value_type == "string":
+        return isinstance(value, str) and bool(value.strip())
+    if value_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    return False
 
 
 def derive_semantic_fact_ref(identity: Mapping[str, Any]) -> str:
@@ -289,13 +305,14 @@ def normalize_submission_payload(
             ensure_exact_keys(raw_fact, CLIENT_SEMANTIC_FACT_FIELDS, "client semantic fact")
             kind = raw_fact.get("kind")
             status = raw_fact.get("status")
-            if kind not in SEMANTIC_KINDS or raw_fact.get("value_type") != "string" or status not in CLAIM_STATUSES:
+            value_type = SEMANTIC_FACT_VALUE_TYPES.get(kind)
+            if value_type is None or raw_fact.get("value_type") != value_type or status not in CLAIM_STATUSES:
                 raise ValueError("invalid semantic fact")
             value = raw_fact.get("value")
             if status == "unknown":
                 if value is not None or not raw_fact.get("scope") or not raw_fact.get("blocked_decision"):
                     raise ValueError("unknown semantic fact lacks scope/decision")
-            elif not isinstance(value, str) or not value.strip():
+            elif not _semantic_fact_has_concrete_value(value_type, value):
                 raise ValueError("concrete semantic fact value required")
             if kind != "project.framework":
                 if kind in seen_nonrepeatable_kinds:
@@ -310,7 +327,7 @@ def normalize_submission_payload(
             evidence_ids = [alias_to_id[alias] for alias in resolved_aliases]
             if status == "unknown" and not any(canonical[evidence_id]["status"] == "unknown" for evidence_id in evidence_ids):
                 raise ValueError("unknown semantic fact requires absence observation")
-            identity = {"kind": kind, "value_type": "string", "value": value, "status": status, "evidence_ids": evidence_ids}
+            identity = {"kind": kind, "value_type": value_type, "value": value, "status": status, "evidence_ids": evidence_ids}
             ref = derive_semantic_fact_ref(identity)
             if ref in seen_refs:
                 raise ValueError("duplicate semantic fact")
@@ -410,12 +427,13 @@ def validate_semantic_facts(payload: Mapping[str, Any]) -> None:
         refs.add(ref)
         kinds.add(kind)
         status = fact.get("status")
-        if fact.get("value_type") != "string" or status not in CLAIM_STATUSES or not isinstance(fact.get("evidence_ids"), list) or not fact["evidence_ids"]:
+        value_type = SEMANTIC_FACT_VALUE_TYPES.get(kind)
+        if fact.get("value_type") != value_type or status not in CLAIM_STATUSES or not isinstance(fact.get("evidence_ids"), list) or not fact["evidence_ids"]:
             raise ValueError("invalid semantic fact")
         if status == "unknown":
             if fact.get("value") is not None or not fact.get("scope") or not fact.get("blocked_decision"):
                 raise ValueError("unknown semantic fact lacks scope/decision")
-        elif not isinstance(fact.get("value"), str) or not fact["value"].strip():
+        elif not _semantic_fact_has_concrete_value(value_type, fact.get("value")):
             raise ValueError("concrete semantic fact value required")
         identity = {
             "kind": kind,

@@ -147,9 +147,9 @@ _SEMANTIC_FACT_DECLARATION = {
     "additionalProperties": False,
     "required": ["kind", "value_type", "value", "status", "evidence_aliases"],
     "properties": {
-        "kind": {"type": "string", "enum": ["application.name", "project.language", "project.language_version", "project.framework", "build.tool", "build.artifact_type"]},
-        "value_type": {"const": "string"},
-        "value": {"type": ["string", "null"]},
+        "kind": {"type": "string", "enum": ["application.name", "project.language", "project.language_version", "project.framework", "build.tool", "build.artifact_type", "build.command", "runtime.server", "runtime.start_command", "runtime.listening_port", "runtime.context_path", "container.dockerfile", "container.compose"]},
+        "value_type": {"type": "string", "enum": ["string", "integer"]},
+        "value": {"type": ["string", "integer", "null"]},
         "status": {"type": "string", "enum": ["confirmed", "inferred", "unknown", "conflicted", "not_applicable"]},
         "evidence_aliases": _IDENTIFIER_LIST,
         "scope": {"type": "string"},
