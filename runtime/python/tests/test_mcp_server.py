@@ -62,11 +62,12 @@ class MCPTests(unittest.TestCase):
         self.assertEqual(rejected["structuredContent"]["code"], "analysis_already_active")
         self.assertEqual(server.session.analysis_id, accepted["analysis_id"])
 
-    def test_submit_envelope_is_static_and_payload_contract_is_transparent(self):
+    def test_submit_is_payload_only_and_payload_contract_is_transparent(self):
         tools = handle(Server(), {"jsonrpc": "2.0", "id": 1, "method": "tools/list"})["result"]["tools"]
         submit = next(tool for tool in tools if tool["name"] == "submit_discovery")
         schema = submit["inputSchema"]
-        self.assertEqual(schema["required"], ["analysis_id", "revision", "transition_token", "payload"])
+        self.assertEqual(schema["required"], ["payload"])
+        self.assertEqual(set(schema["properties"]), {"payload"})
         payload = schema["properties"]["payload"]
         self.assertFalse(payload["additionalProperties"])
         self.assertEqual(payload["properties"]["schema_version"], {"const": 1})

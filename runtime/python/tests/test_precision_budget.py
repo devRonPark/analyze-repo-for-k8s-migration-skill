@@ -101,13 +101,7 @@ class PrecisionBudgetTests(unittest.TestCase):
                 "candidate_ids": ["candidate-web"],
                 "decisions": ["decision-runtime"],
             }
-            started_state = server.session
-            envelope = {
-                "analysis_id": started_state.analysis_id,
-                "revision": started_state.revision,
-                "transition_token": started_state.transition_token,
-            }
-            discovery, discovery_failed = server.tool_call("submit_discovery", {**envelope, "payload": payload})
+            discovery, discovery_failed = server.tool_call("submit_discovery", {"payload": payload})
             self.assertFalse(discovery_failed, discovery)
             next_call, next_failed = server.tool_call("read_evidence", {"path": "app.py"})
 

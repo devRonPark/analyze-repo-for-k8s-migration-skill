@@ -1,0 +1,55 @@
+{
+  "results": [
+    {
+      "actual_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "case_id": "jpetstore-6-summary",
+      "expected_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "golden": "static-mcp-jpetstore-6-summary-golden.md",
+      "golden_sha256": "4cb7865998591f1e63adc01492766cb229ae26c706f89e0bd1d03234062c402c",
+      "mode": "summary",
+      "reason": "OpenCode PTY did not produce a complete final Markdown report before timeout",
+      "status": "FAIL",
+      "target": "C:\\temp\\opencode-e2e-jpetstore-6",
+      "target_status_before": {
+        "returncode": 0,
+        "stderr": "",
+        "stdout": "## HEAD (no branch)\n"
+      },
+      "terminal_file": "C:\\Users\\박병찬\\Desktop\\analyze-repo-for-k8s-migration-skill\\tests\\evaluation\\vs030-followup-e2e\\attempt-1\\jpetstore-6-summary\\terminal.log"
+    },
+    {
+      "actual_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "case_id": "jpetstore-6-summary",
+      "expected_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "golden": "static-mcp-jpetstore-6-summary-golden.md",
+      "golden_sha256": "4cb7865998591f1e63adc01492766cb229ae26c706f89e0bd1d03234062c402c",
+      "mode": "summary",
+      "reason": "OpenCode PTY did not produce a complete final Markdown report before timeout",
+      "status": "FAIL",
+      "target": "C:\\temp\\opencode-e2e-jpetstore-6",
+      "target_status_before": {
+        "returncode": 0,
+        "stderr": "",
+        "stdout": "## HEAD (no branch)\n"
+      },
+      "terminal_file": "C:\\Users\\박병찬\\Desktop\\analyze-repo-for-k8s-migration-skill\\tests\\evaluation\\vs030-followup-e2e\\attempt-2\\jpetstore-6-summary\\terminal.log"
+    },
+    {
+      "actual_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "case_id": "jpetstore-6-summary",
+      "expected_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "golden": "static-mcp-jpetstore-6-summary-golden.md",
+      "golden_sha256": "4cb7865998591f1e63adc01492766cb229ae26c706f89e0bd1d03234062c402c",
+      "mode": "summary",
+      "reason": "OpenCode PTY did not produce a complete final Markdown report before timeout",
+      "status": "FAIL",
+      "target": "C:\\temp\\opencode-e2e-jpetstore-6",
+      "target_status_before": {
+        "returncode": 0,
+        "stderr": "",
+        "stdout": "## HEAD (no branch)\n"
+      },
+      "terminal_file": "C:\\Users\\박병찬\\Desktop\\analyze-repo-for-k8s-migration-skill\\tests\\evaluation\\vs030-followup-e2e\\attempt-3\\jpetstore-6-summary\\terminal.log"
+    }
+  ]
+}

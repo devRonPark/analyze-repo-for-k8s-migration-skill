@@ -24,10 +24,6 @@ REPORT_SLOTS = {
 
 class ContractsStageTests(unittest.TestCase):
     @staticmethod
-    def envelope(handoff: dict) -> dict:
-        return BoundariesStageTests.envelope(handoff)
-
-    @staticmethod
     def payload(handoff: dict, analysis_mode: str, **overrides: object) -> dict:
         """Build a valid contracts payload from the handoff's pushed survey.
 
@@ -86,7 +82,6 @@ class ContractsStageTests(unittest.TestCase):
         relationships, failed = server.tool_call(
             "submit_relationships",
             {
-                **self.envelope(execution),
                 "payload": relationship_helper.relationships_payload(
                     observation["observation_ref"],
                     discovery["stage_input"]["discovery_fact_refs"],
@@ -99,7 +94,7 @@ class ContractsStageTests(unittest.TestCase):
         self.assertFalse(failed, observation)
         boundaries, failed = server.tool_call(
             "submit_boundaries",
-            {**self.envelope(relationships), "payload": helper.payload(observation["observation_ref"], relationships)},
+            {"payload": helper.payload(observation["observation_ref"], relationships)},
         )
         self.assertFalse(failed, boundaries)
         return temporary, server, boundaries
@@ -111,7 +106,7 @@ class ContractsStageTests(unittest.TestCase):
                 with temporary:
                     result, failed = server.tool_call(
                         "submit_contracts",
-                        {**self.envelope(boundaries), "payload": self.payload(boundaries, mode)},
+                        {"payload": self.payload(boundaries, mode)},
                     )
 
                 self.assertFalse(failed, result)
@@ -128,7 +123,6 @@ class ContractsStageTests(unittest.TestCase):
             rejected, failed = server.tool_call(
                 "submit_contracts",
                 {
-                    **self.envelope(boundaries),
                     "payload": self.payload(
                         boundaries, "summary", report_slots=payload["report_slots"][:-1],
                     ),
@@ -149,7 +143,7 @@ class ContractsStageTests(unittest.TestCase):
                     slot["status"] = "conflicted"
             rejected, failed = server.tool_call(
                 "submit_contracts",
-                {**self.envelope(boundaries), "payload": payload},
+                {"payload": payload},
             )
 
         self.assertTrue(failed)
@@ -165,7 +159,7 @@ class ContractsStageTests(unittest.TestCase):
             credential_slot = next(slot for slot in payload["report_slots"] if slot["id"] == "credential_exposure")
             credential_slot["fact_refs"] = deployment_fact
             rejected, failed = server.tool_call(
-                "submit_contracts", {**self.envelope(boundaries), "payload": payload}
+                "submit_contracts", {"payload": payload}
             )
 
         self.assertTrue(failed)
@@ -178,7 +172,6 @@ class ContractsStageTests(unittest.TestCase):
             rejected, failed = server.tool_call(
                 "submit_contracts",
                 {
-                    **self.envelope(boundaries),
                     "payload": self.payload(boundaries, "summary", mode="detailed"),
                 },
             )

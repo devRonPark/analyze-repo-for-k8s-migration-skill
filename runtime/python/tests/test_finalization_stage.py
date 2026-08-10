@@ -5,22 +5,17 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from runtime.python.tests.test_boundaries_stage import BoundariesStageTests
 from runtime.python.tests.test_contracts_stage import ContractsStageTests
 from analysis_pipeline.mcp_server import handle
 
 
 class FinalizationStageTests(unittest.TestCase):
-    @staticmethod
-    def envelope(handoff: dict) -> dict:
-        return BoundariesStageTests.envelope(handoff)
-
     def complete_contracts(self, mode: str) -> tuple[object, object, dict]:
         helper = ContractsStageTests()
         temporary, server, boundaries = helper.start_with_boundaries(mode)
         contracts, failed = server.tool_call(
             "submit_contracts",
-            {**self.envelope(boundaries), "payload": helper.payload(boundaries, mode)},
+            {"payload": helper.payload(boundaries, mode)},
         )
         self.assertFalse(failed, contracts)
         return temporary, server, contracts
@@ -37,7 +32,7 @@ class FinalizationStageTests(unittest.TestCase):
                         capture_output=True,
                         text=True,
                     ).stdout
-                    result, failed = server.tool_call("finalize_analysis", self.envelope(contracts))
+                    result, failed = server.tool_call("finalize_analysis", {})
                     after = subprocess.run(
                         ["git", "-C", str(target_root), "status", "--short"],
                         check=True,
@@ -59,7 +54,7 @@ class FinalizationStageTests(unittest.TestCase):
             with self.subTest(mode=mode):
                 temporary, server, contracts = self.complete_contracts(mode)
                 with temporary:
-                    result, failed = server.tool_call("finalize_analysis", self.envelope(contracts))
+                    result, failed = server.tool_call("finalize_analysis", {})
                 self.assertFalse(failed, result)
                 with tempfile.TemporaryDirectory() as directory:
                     report = f"{directory}/report.md"
@@ -76,7 +71,7 @@ class FinalizationStageTests(unittest.TestCase):
     def test_render_failure_preserves_the_active_finalization_state(self) -> None:
         temporary, server, contracts = self.complete_contracts("summary")
         with temporary, patch("analysis_pipeline.session.project_and_render", side_effect=ValueError("render failed")):
-            result, failed = server.tool_call("finalize_analysis", self.envelope(contracts))
+            result, failed = server.tool_call("finalize_analysis", {})
 
         self.assertTrue(failed)
         self.assertEqual(result["code"], "render failed")
@@ -91,9 +86,9 @@ class FinalizationStageTests(unittest.TestCase):
                 "jsonrpc": "2.0",
                 "id": 8,
                 "method": "tools/call",
-                "params": {"name": "finalize_analysis", "arguments": self.envelope(contracts)},
+                "params": {"name": "finalize_analysis", "arguments": {}},
             })
-            repeated, repeated_failed = server.tool_call("finalize_analysis", self.envelope(contracts))
+            repeated, repeated_failed = server.tool_call("finalize_analysis", {})
             restarted, restart_failed = server.tool_call("start_analysis", {"target_path": str(target_root), "mode": "summary"})
 
         self.assertIn("result", final_response)
@@ -108,7 +103,7 @@ class FinalizationStageTests(unittest.TestCase):
                 "jsonrpc": "2.0",
                 "id": 7,
                 "method": "tools/call",
-                "params": {"name": "finalize_analysis", "arguments": self.envelope(contracts)},
+                "params": {"name": "finalize_analysis", "arguments": {}},
             })
 
         result = response["result"]
@@ -124,7 +119,7 @@ class FinalizationStageTests(unittest.TestCase):
                 "jsonrpc": "2.0",
                 "id": 9,
                 "method": "tools/call",
-                "params": {"name": "finalize_analysis", "arguments": self.envelope(contracts)},
+                "params": {"name": "finalize_analysis", "arguments": {}},
             })
 
         self.assertTrue(response["result"]["isError"])
@@ -148,10 +143,10 @@ class FinalizationStageTests(unittest.TestCase):
             credential_slot = next(slot for slot in payload["report_slots"] if slot["id"] == "credential_exposure")
             credential_slot["status"] = "unknown"
             contracts, failed = server.tool_call(
-                "submit_contracts", {**self.envelope(boundaries), "payload": payload}
+                "submit_contracts", {"payload": payload}
             )
             self.assertFalse(failed, contracts)
-            result, failed = server.tool_call("finalize_analysis", self.envelope(contracts))
+            result, failed = server.tool_call("finalize_analysis", {})
 
         self.assertFalse(failed, result)
         self.assertIn("검색(scope=config, pattern=DATABASE_URL, result=없음)", result["markdown"])

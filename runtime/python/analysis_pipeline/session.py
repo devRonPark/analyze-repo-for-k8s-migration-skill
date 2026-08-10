@@ -147,24 +147,15 @@ class AnalysisSession:
         if TargetSnapshot.capture(self.target_root).digest != self.snapshot.digest:
             raise ValueError("target_snapshot_changed")
 
-    def assert_envelope(self, arguments: dict[str, Any]) -> None:
+    def submit_discovery(self, payload: Any) -> dict[str, Any]:
         self.assert_active()
-        if arguments.get("analysis_id") != self.analysis_id:
-            raise ValueError("analysis_not_found")
-        if arguments.get("revision") != self.revision:
-            raise ValueError("stale_revision")
-        if arguments.get("transition_token") != self.transition_token:
-            raise ValueError("stale_transition")
-
-    def submit_discovery(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        self.assert_envelope(arguments)
         if self.current_stage != "discovery":
             raise ValueError("stage_order")
         assert self.registry is not None
         assert self.snapshot is not None
         assert self.binding is not None
         assert self.pipeline is not None
-        payload = validate_discovery_payload(arguments.get("payload"), self.registry, self.snapshot, self.binding)
+        payload = validate_discovery_payload(payload, self.registry, self.snapshot, self.binding)
         next_pipeline = promote_discovery_facts(self.pipeline, payload)
         self.pipeline = next_pipeline
         self.current_stage = next_pipeline.current_stage
@@ -172,8 +163,8 @@ class AnalysisSession:
         self.transition_token = self._token()
         return self.handoff("discovery")
 
-    def submit_execution(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        self.assert_envelope(arguments)
+    def submit_execution(self, payload: Any) -> dict[str, Any]:
+        self.assert_active()
         if self.current_stage != "execution":
             raise ValueError("stage_order")
         assert self.registry is not None
@@ -182,7 +173,7 @@ class AnalysisSession:
         assert self.pipeline is not None
         discovery_input = project_discovery_handoff(self.pipeline)
         payload = validate_execution_payload(
-            arguments.get("payload"),
+            payload,
             self.registry,
             self.snapshot,
             self.binding,
@@ -195,8 +186,8 @@ class AnalysisSession:
         self.transition_token = self._token()
         return self.handoff("execution")
 
-    def submit_relationships(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        self.assert_envelope(arguments)
+    def submit_relationships(self, payload: Any) -> dict[str, Any]:
+        self.assert_active()
         if self.current_stage != "relationships":
             raise ValueError("stage_order")
         assert self.registry is not None
@@ -206,7 +197,7 @@ class AnalysisSession:
         discovery_input = project_discovery_handoff(self.pipeline)
         execution_input = project_execution_handoff(self.pipeline)
         payload = validate_relationships_payload(
-            arguments.get("payload"),
+            payload,
             self.registry,
             self.snapshot,
             self.binding,
@@ -221,21 +212,21 @@ class AnalysisSession:
         self.transition_token = self._token()
         return self.handoff("relationships")
 
-    def submit_boundaries(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        self.assert_envelope(arguments)
+    def submit_boundaries(self, payload: Any) -> dict[str, Any]:
+        self.assert_active()
         if self.current_stage != "boundaries":
             raise ValueError("stage_order")
         assert self.registry is not None and self.snapshot is not None and self.binding is not None and self.pipeline is not None
         discovery = project_discovery_handoff(self.pipeline)
         execution = project_execution_handoff(self.pipeline)
         relationships = project_relationships_handoff(self.pipeline)
-        payload = validate_boundaries_payload(arguments.get("payload"), self.registry, self.snapshot, self.binding, discovery["discovery_fact_refs"], execution["execution_fact_refs"], relationships["relationship_fact_refs"], execution["process_ids"], discovery["candidate_ids"])
+        payload = validate_boundaries_payload(payload, self.registry, self.snapshot, self.binding, discovery["discovery_fact_refs"], execution["execution_fact_refs"], relationships["relationship_fact_refs"], execution["process_ids"], discovery["candidate_ids"])
         self.pipeline = promote_boundary_facts(self.pipeline, payload)
         self.current_stage, self.revision, self.transition_token = self.pipeline.current_stage, self.pipeline.revision, self._token()
         return self.handoff("boundaries")
 
-    def submit_contracts(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        self.assert_envelope(arguments)
+    def submit_contracts(self, payload: Any) -> dict[str, Any]:
+        self.assert_active()
         if self.current_stage != "contracts":
             raise ValueError("stage_order")
         assert self.registry is not None and self.snapshot is not None and self.binding is not None and self.pipeline is not None and self.mode is not None
@@ -243,13 +234,13 @@ class AnalysisSession:
         execution = project_execution_handoff(self.pipeline)
         relationships = project_relationships_handoff(self.pipeline)
         boundaries = project_boundaries_handoff(self.pipeline)
-        payload = validate_contracts_payload(arguments.get("payload"), self.registry, self.snapshot, self.binding, self.mode, discovery["discovery_fact_refs"], execution["execution_fact_refs"], relationships["relationship_fact_refs"], boundaries["boundaries_fact_refs"], project_predecessor_fact_statuses(self.pipeline))
+        payload = validate_contracts_payload(payload, self.registry, self.snapshot, self.binding, self.mode, discovery["discovery_fact_refs"], execution["execution_fact_refs"], relationships["relationship_fact_refs"], boundaries["boundaries_fact_refs"], project_predecessor_fact_statuses(self.pipeline))
         self.pipeline = promote_contract_facts(self.pipeline, payload)
         self.current_stage, self.revision, self.transition_token = self.pipeline.current_stage, self.pipeline.revision, self._token()
         return self.handoff("contracts")
 
-    def finalize_and_render(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        self.assert_envelope(arguments)
+    def finalize_and_render(self) -> dict[str, Any]:
+        self.assert_active()
         if self.current_stage != "finalize":
             raise ValueError("stage_order")
         assert self.pipeline is not None and self.mode is not None and self.analysis_id is not None

@@ -28,14 +28,6 @@ class RelationshipsStageTests(unittest.TestCase):
         return temporary, command_directory, target
 
     @staticmethod
-    def envelope(handoff: dict) -> dict:
-        return {
-            "analysis_id": handoff["analysis_id"],
-            "revision": handoff["revision"],
-            "transition_token": handoff["transition_token"],
-        }
-
-    @staticmethod
     def discovery_payload(observation_ref: str) -> dict:
         return {
             "schema_version": 1,
@@ -104,7 +96,7 @@ class RelationshipsStageTests(unittest.TestCase):
         self.assertFalse(failed, discovery_observation)
         discovery, failed = server.tool_call(
             "submit_discovery",
-            {**self.envelope(started), "payload": self.discovery_payload(discovery_observation["observation_ref"])},
+            {"payload": self.discovery_payload(discovery_observation["observation_ref"])},
         )
         self.assertFalse(failed, discovery)
         execution_observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
@@ -112,7 +104,6 @@ class RelationshipsStageTests(unittest.TestCase):
         execution, failed = server.tool_call(
             "submit_execution",
             {
-                **self.envelope(discovery),
                 "payload": self.execution_payload(
                     execution_observation["observation_ref"], discovery["stage_input"]["discovery_fact_refs"]
                 ),
@@ -129,7 +120,6 @@ class RelationshipsStageTests(unittest.TestCase):
             result, failed = server.tool_call(
                 "submit_relationships",
                 {
-                    **self.envelope(execution),
                     "payload": self.relationships_payload(
                         observation["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],
@@ -172,7 +162,6 @@ class RelationshipsStageTests(unittest.TestCase):
             foreign_fact, foreign_fact_failed = server.tool_call(
                 "submit_relationships",
                 {
-                    **self.envelope(execution),
                     "payload": self.relationships_payload(
                         observation["observation_ref"],
                         ["fact_discovery_foreign"],
@@ -186,7 +175,6 @@ class RelationshipsStageTests(unittest.TestCase):
             foreign_result, foreign_observation_failed = server.tool_call(
                 "submit_relationships",
                 {
-                    **self.envelope(execution),
                     "payload": self.relationships_payload(
                         foreign_observation["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],
@@ -217,7 +205,7 @@ class RelationshipsStageTests(unittest.TestCase):
                 execution["stage_input"]["execution_fact_refs"],
             )
             payload["graph_edges"][0]["invented_field"] = "nope"
-            result, failed = server.tool_call("submit_relationships", {**self.envelope(execution), "payload": payload})
+            result, failed = server.tool_call("submit_relationships", {"payload": payload})
 
         self.assertTrue(failed)
         self.assertEqual(result["code"], "invalid_nested_stage_payload")
@@ -231,7 +219,6 @@ class RelationshipsStageTests(unittest.TestCase):
             result, failed = server.tool_call(
                 "submit_relationships",
                 {
-                    **self.envelope(execution),
                     "payload": self.relationships_payload(
                         absence["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],
@@ -260,7 +247,6 @@ class RelationshipsStageTests(unittest.TestCase):
             result, rejected = server.tool_call(
                 "submit_relationships",
                 {
-                    **self.envelope(execution),
                     "payload": self.relationships_payload(
                         observation["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],
@@ -288,7 +274,6 @@ class RelationshipsStageTests(unittest.TestCase):
             result, failed = server.tool_call(
                 "submit_relationships",
                 {
-                    **self.envelope(execution),
                     "payload": self.relationships_payload(
                         observation["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],
@@ -345,7 +330,7 @@ class RelationshipsStageTests(unittest.TestCase):
                 }],
             )
             result, rejected = server.tool_call(
-                "submit_relationships", {**self.envelope(execution), "payload": dangling_edge}
+                "submit_relationships", {"payload": dangling_edge}
             )
 
         self.assertTrue(rejected)
@@ -380,7 +365,7 @@ class RelationshipsStageTests(unittest.TestCase):
                 }],
             )
             accepted, accepted_failed = server.tool_call(
-                "submit_relationships", {**self.envelope(execution), "payload": cycle}
+                "submit_relationships", {"payload": cycle}
             )
 
         self.assertFalse(accepted_failed, accepted)
@@ -400,7 +385,6 @@ class RelationshipsStageTests(unittest.TestCase):
             result, rejected = server.tool_call(
                 "submit_relationships",
                 {
-                    **self.envelope(execution),
                     "payload": self.relationships_payload(
                         observation["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],

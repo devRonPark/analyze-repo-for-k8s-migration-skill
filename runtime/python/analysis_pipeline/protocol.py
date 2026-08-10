@@ -123,12 +123,6 @@ def _tool(name: str, description: str, required: list[str], properties: dict[str
     return value
 
 
-_ENVELOPE = {
-    "analysis_id": {"type": "string", "pattern": "^an_[A-Za-z0-9_-]{8,}$"},
-    "revision": {"type": "integer", "minimum": 0},
-    "transition_token": {"type": "string", "pattern": "^tr_[A-Za-z0-9_-]{8,}$"},
-}
-
 _IDENTIFIER_LIST = {"type": "array", "items": _IDENTIFIER}
 _EVIDENCE_DECLARATION = {
     "type": "object",
@@ -237,45 +231,45 @@ TOOLS.extend(
         STAGE_TOOL_BY_STAGE[stage],
         (
             "Checkpoint: this is the only valid completion of the current Discovery Vertical Slice. "
-            "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+            "Submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
             "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
             "Do not draft a user-facing report before an accepted response."
             if stage == "discovery"
             else (
                 "Checkpoint: this is the only valid completion of the current Execution Vertical Slice after grounding build, runtime, startup, image, or port claims. "
-                "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+                "Submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
                 "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
                 "Do not draft a user-facing report before an accepted response."
                 if stage == "execution"
                 else (
                     "Checkpoint: this is the only valid completion of the current Relationships Vertical Slice after grounding dependency and external runtime claims. "
-                    "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+                    "Submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
                     "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
                     "Do not draft a user-facing report before an accepted response."
                     if stage == "relationships"
                 else (
                     "Checkpoint: this is the only valid completion of the current Workload Boundary Vertical Slice after grounding unit and lifecycle claims. "
-                    "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+                    "Submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
                     "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
                     "Do not draft a user-facing report before an accepted response."
                     if stage == "boundaries"
                     else "Checkpoint: this is the only valid completion of the current Gap Analysis Quality Gate after every server-selected report slot has an accepted fact reference or scoped evidence claim. "
-                    "Copy the incoming handoff envelope unchanged; submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
+                    "Submit the payload required by this tool schema using observation aliases, never raw repository evidence. "
                     "Each payload.evidence observation_ref must be issued in this current stage; incoming *_fact_refs are accepted facts, never observation refs. "
                     "Do not draft a user-facing report before an accepted response."
                 )
                 )
             )
         ),
-        [*list(_ENVELOPE), "payload"],
-        {**_ENVELOPE, "payload": _stage_payload_schema(stage)},
+        ["payload"],
+        {"payload": _stage_payload_schema(stage)},
     )
     for stage in STAGES
 )
 TOOLS.extend(
     [
-        _tool("reopen_analysis", "Reopen an accepted earlier stage after new evidence invalidates it.", ["analysis_id", "revision", "transition_token", "stage", "reason"], {"analysis_id": _ENVELOPE["analysis_id"], "revision": _ENVELOPE["revision"], "transition_token": _ENVELOPE["transition_token"], "stage": {"type": "string", "enum": list(STAGES)}, "reason": {"type": "string", "minLength": 3, "maxLength": 500}}),
-        _tool("finalize_analysis", "Finalize accepted report state and return canonical Markdown.", ["analysis_id", "revision", "transition_token"], {key: _ENVELOPE[key] for key in ("analysis_id", "revision", "transition_token")}),
+        _tool("reopen_analysis", "Reopen an accepted earlier stage of the active analysis after new evidence invalidates it.", ["stage", "reason"], {"stage": {"type": "string", "enum": list(STAGES)}, "reason": {"type": "string", "minLength": 3, "maxLength": 500}}),
+        _tool("finalize_analysis", "Finalize the active analysis's accepted report state and return canonical Markdown.", [], {}),
     ]
 )
 assert tuple(tool["name"] for tool in TOOLS) == TOOL_ORDER

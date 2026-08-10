@@ -31,14 +31,6 @@ class DiscoveryStageTests(unittest.TestCase):
         return temporary, command_directory, target
 
     @staticmethod
-    def envelope(started: dict) -> dict:
-        return {
-            "analysis_id": started["analysis_id"],
-            "revision": started["revision"],
-            "transition_token": started["transition_token"],
-        }
-
-    @staticmethod
     def payload(observation_ref: str, **overrides: object) -> dict:
         value = {
             "schema_version": 1,
@@ -66,7 +58,7 @@ class DiscoveryStageTests(unittest.TestCase):
         with temporary:
             result, failed = server.tool_call(
                 "submit_discovery",
-                {**self.envelope(started), "payload": self.payload(observation["observation_ref"])} ,
+                {"payload": self.payload(observation["observation_ref"])} ,
             )
 
         self.assertFalse(failed)
@@ -102,16 +94,16 @@ class DiscoveryStageTests(unittest.TestCase):
         with temporary:
             forged, forged_failed = server.tool_call(
                 "submit_discovery",
-                {**self.envelope(started), "payload": self.payload("obs_forged")},
+                {"payload": self.payload("obs_forged")},
             )
             cross_ref = server.session.registry.issue_present("execution", target / "Dockerfile", 1, 1, "1: FROM python:3.13")
             cross_stage, cross_stage_failed = server.tool_call(
                 "submit_discovery",
-                {**self.envelope(started), "payload": self.payload(cross_ref["observation_ref"])},
+                {"payload": self.payload(cross_ref["observation_ref"])},
             )
             invalid, invalid_failed = server.tool_call(
                 "submit_discovery",
-                {**self.envelope(started), "payload": self.payload(observation["observation_ref"], signals=[])},
+                {"payload": self.payload(observation["observation_ref"], signals=[])},
             )
 
         self.assertTrue(forged_failed)
@@ -125,21 +117,24 @@ class DiscoveryStageTests(unittest.TestCase):
         self.assertEqual(server.session.revision, 0)
         self.assertEqual(server.session.transition_token, started["transition_token"])
 
-    def test_rejects_stale_envelope_after_a_successful_submit(self) -> None:
+    def test_rejects_a_repeat_discovery_submit_once_the_stage_has_advanced(self) -> None:
+        # There is no client-supplied revision/token to go stale anymore; a
+        # resubmission after a successful transition is now just an
+        # out-of-order call against the new current stage.
         temporary, server, _, started, observation = self.start_with_observation()
         with temporary:
             accepted, failed = server.tool_call(
                 "submit_discovery",
-                {**self.envelope(started), "payload": self.payload(observation["observation_ref"])},
+                {"payload": self.payload(observation["observation_ref"])},
             )
-            stale, stale_failed = server.tool_call(
+            repeated, repeated_failed = server.tool_call(
                 "submit_discovery",
-                {**self.envelope(started), "payload": self.payload(observation["observation_ref"])},
+                {"payload": self.payload(observation["observation_ref"])},
             )
 
         self.assertFalse(failed)
-        self.assertTrue(stale_failed)
-        self.assertEqual(stale["code"], "stale_revision")
+        self.assertTrue(repeated_failed)
+        self.assertEqual(repeated["code"], "stage_order")
         self.assertEqual(server.session.current_stage, "execution")
         self.assertEqual(server.session.revision, accepted["revision"])
 
@@ -149,7 +144,6 @@ class DiscoveryStageTests(unittest.TestCase):
             missing_status, missing_status_failed = server.tool_call(
                 "submit_discovery",
                 {
-                    **self.envelope(started),
                     "payload": self.payload(
                         observation["observation_ref"],
                         claims=[{"id": "claim-container", "evidence_aliases": ["container"]}],
@@ -159,14 +153,12 @@ class DiscoveryStageTests(unittest.TestCase):
             ungrounded, ungrounded_failed = server.tool_call(
                 "submit_discovery",
                 {
-                    **self.envelope(started),
                     "payload": self.payload(observation["observation_ref"], evidence=[], claims=[]),
                 },
             )
             unsafe_id, unsafe_id_failed = server.tool_call(
                 "submit_discovery",
                 {
-                    **self.envelope(started),
                     "payload": self.payload(
                         observation["observation_ref"],
                         claims=[{"id": "token=should-not-escape", "status": "confirmed", "evidence_aliases": ["container"]}],

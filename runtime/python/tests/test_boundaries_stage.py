@@ -10,10 +10,6 @@ from runtime.python.tests.test_relationships_stage import RelationshipsStageTest
 
 class BoundariesStageTests(unittest.TestCase):
     @staticmethod
-    def envelope(handoff: dict) -> dict:
-        return {key: handoff[key] for key in ("analysis_id", "revision", "transition_token")}
-
-    @staticmethod
     def payload(observation_ref: str, handoff: dict, **overrides: object) -> dict:
         value = {
             "schema_version": 1,
@@ -58,7 +54,6 @@ class BoundariesStageTests(unittest.TestCase):
         relationships, failed = server.tool_call(
             "submit_relationships",
             {
-                **self.envelope(execution),
                 "payload": helper.relationships_payload(
                     observation["observation_ref"],
                     discovery["stage_input"]["discovery_fact_refs"],
@@ -75,7 +70,7 @@ class BoundariesStageTests(unittest.TestCase):
             observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
             self.assertFalse(failed, observation)
             result, failed = server.tool_call(
-                "submit_boundaries", {**self.envelope(relationships), "payload": self.payload(observation["observation_ref"], relationships)}
+                "submit_boundaries", {"payload": self.payload(observation["observation_ref"], relationships)}
             )
 
         self.assertFalse(failed, result)
@@ -100,7 +95,7 @@ class BoundariesStageTests(unittest.TestCase):
             unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
             result, rejected = server.tool_call(
                 "submit_boundaries",
-                {**self.envelope(relationships), "payload": self.payload(
+                {"payload": self.payload(
                     observation["observation_ref"], relationships,
                     workload_units=[unit, {**unit, "id": "unit-other", "process_ids": ["process-missing"]}],
                 )},
@@ -119,7 +114,7 @@ class BoundariesStageTests(unittest.TestCase):
             unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
             result, rejected = server.tool_call(
                 "submit_boundaries",
-                {**self.envelope(relationships), "payload": self.payload(
+                {"payload": self.payload(
                     observation["observation_ref"], relationships,
                     workload_units=[{**unit, "independent_lifecycle_status": "unknown", "boundary_status": "unknown"}],
                 )},
@@ -136,7 +131,7 @@ class BoundariesStageTests(unittest.TestCase):
             self.assertFalse(failed, observation)
             result, rejected = server.tool_call(
                 "submit_boundaries",
-                {**self.envelope(relationships), "payload": self.payload(
+                {"payload": self.payload(
                     observation["observation_ref"], relationships,
                     claims=[
                         {"id": "claim-web-boundary", "status": "inferred", "evidence_aliases": ["boundary"]},
@@ -156,7 +151,7 @@ class BoundariesStageTests(unittest.TestCase):
             observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
             self.assertFalse(failed, observation)
             unit = self.payload(observation["observation_ref"], relationships)["workload_units"][0]
-            result, rejected = server.tool_call("submit_boundaries", {**self.envelope(relationships), "payload": self.payload(observation["observation_ref"], relationships, workload_units=[{**unit, "start_definition_status": "unknown", "independent_lifecycle_status": "unknown", "deployable": False}] )})
+            result, rejected = server.tool_call("submit_boundaries", {"payload": self.payload(observation["observation_ref"], relationships, workload_units=[{**unit, "start_definition_status": "unknown", "independent_lifecycle_status": "unknown", "deployable": False}] )})
         self.assertTrue(rejected)
         self.assertNotIn("unit-web", json.dumps(result, sort_keys=True))
 
@@ -190,7 +185,7 @@ class BoundariesStageTests(unittest.TestCase):
                     "state_decision": "unknown",
                 }],
             )
-            result, rejected = server.tool_call("submit_boundaries", {**self.envelope(relationships), "payload": payload})
+            result, rejected = server.tool_call("submit_boundaries", {"payload": payload})
 
         self.assertFalse(rejected, result)
         self.assertEqual(result["accepted_output"]["unknown_ids"], ["claim-web-state"])
@@ -205,7 +200,6 @@ class BoundariesStageTests(unittest.TestCase):
             omitted, rejected = server.tool_call(
                 "submit_boundaries",
                 {
-                    **self.envelope(relationships),
                     "payload": self.payload(
                         observation["observation_ref"], relationships,
                         workload_units=[{**unit, "candidate_ids": [], "deployable": False}],
@@ -217,7 +211,6 @@ class BoundariesStageTests(unittest.TestCase):
             accepted, failed = server.tool_call(
                 "submit_boundaries",
                 {
-                    **self.envelope(relationships),
                     "payload": self.payload(
                         observation["observation_ref"], relationships,
                         claims=[
@@ -248,7 +241,7 @@ class BoundariesStageTests(unittest.TestCase):
             self.assertFalse(failed, observation)
             contracts, failed = server.tool_call(
                 "submit_boundaries",
-                {**self.envelope(relationships), "payload": self.payload(observation["observation_ref"], relationships)},
+                {"payload": self.payload(observation["observation_ref"], relationships)},
             )
             self.assertFalse(failed, contracts)
 
@@ -277,7 +270,6 @@ class BoundariesStageTests(unittest.TestCase):
                     relationships, failed = server.tool_call(
                         "submit_relationships",
                         {
-                            **self.envelope(execution),
                             "payload": helper.relationships_payload(
                                 observation["observation_ref"],
                                 discovery["stage_input"]["discovery_fact_refs"],
@@ -290,7 +282,7 @@ class BoundariesStageTests(unittest.TestCase):
                     self.assertFalse(failed, observation)
                     result, failed = server.tool_call(
                         "submit_boundaries",
-                        {**self.envelope(relationships), "payload": self.payload(observation["observation_ref"], relationships)},
+                        {"payload": self.payload(observation["observation_ref"], relationships)},
                     )
 
                 self.assertFalse(failed, result)

@@ -28,14 +28,6 @@ class ExecutionStageTests(unittest.TestCase):
         return temporary, command_directory, target
 
     @staticmethod
-    def envelope(handoff: dict) -> dict:
-        return {
-            "analysis_id": handoff["analysis_id"],
-            "revision": handoff["revision"],
-            "transition_token": handoff["transition_token"],
-        }
-
-    @staticmethod
     def discovery_payload(observation_ref: str) -> dict:
         return {
             "schema_version": 1,
@@ -71,7 +63,7 @@ class ExecutionStageTests(unittest.TestCase):
         self.assertFalse(observation_failed, discovery_observation)
         discovery, discovery_failed = server.tool_call(
             "submit_discovery",
-            {**self.envelope(started), "payload": self.discovery_payload(discovery_observation["observation_ref"])},
+            {"payload": self.discovery_payload(discovery_observation["observation_ref"])},
         )
         self.assertFalse(discovery_failed, discovery)
         return temporary, server, target, started, discovery
@@ -84,17 +76,18 @@ class ExecutionStageTests(unittest.TestCase):
             result, failed = server.tool_call(
                 "submit_execution",
                 {
-                    **self.envelope(discovery),
                     "payload": self.execution_payload(
                         observation["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],
                     ),
                 },
             )
-            stale, stale_failed = server.tool_call(
+            # There is no client-supplied revision/token to go stale anymore;
+            # a resubmission after a successful transition is now just an
+            # out-of-order call against the new current stage.
+            repeated, repeated_failed = server.tool_call(
                 "submit_execution",
                 {
-                    **self.envelope(discovery),
                     "payload": self.execution_payload(
                         observation["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],
@@ -123,13 +116,13 @@ class ExecutionStageTests(unittest.TestCase):
         self.assertEqual(budget, {"precision_calls_remaining": 1, "submit_rejections_remaining": 3})
         self.assertEqual(result["revision"], discovery["revision"] + 1)
         self.assertNotEqual(result["transition_token"], discovery["transition_token"])
-        self.assertTrue(stale_failed)
-        self.assertEqual(stale["code"], "stale_revision")
+        self.assertTrue(repeated_failed)
+        self.assertEqual(repeated["code"], "stage_order")
         handoff_only = json.dumps({**result, "stage_input": stage_input}, sort_keys=True)
         self.assertNotIn("Dockerfile", handoff_only)
         self.assertNotIn("observation_ref", handoff_only)
 
-    def test_rejects_execution_before_discovery_with_a_current_envelope(self) -> None:
+    def test_rejects_execution_before_discovery(self) -> None:
         temporary, command_directory, _ = self.fixture()
         with temporary:
             server = Server(command_directory=command_directory)
@@ -137,7 +130,7 @@ class ExecutionStageTests(unittest.TestCase):
             self.assertFalse(started_failed, started)
             wrong_stage, wrong_stage_failed = server.tool_call(
                 "submit_execution",
-                {**self.envelope(started), "payload": {}},
+                {"payload": {}},
             )
 
         self.assertTrue(wrong_stage_failed)
@@ -153,7 +146,6 @@ class ExecutionStageTests(unittest.TestCase):
             foreign_fact, foreign_fact_failed = server.tool_call(
                 "submit_execution",
                 {
-                    **self.envelope(discovery),
                     "payload": self.execution_payload(execution_observation["observation_ref"], ["fact_discovery-foreign"]),
                 },
             )
@@ -161,7 +153,6 @@ class ExecutionStageTests(unittest.TestCase):
             foreign_observation_result, foreign_observation_failed = server.tool_call(
                 "submit_execution",
                 {
-                    **self.envelope(discovery),
                     "payload": self.execution_payload(
                         foreign_observation["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],
@@ -185,7 +176,6 @@ class ExecutionStageTests(unittest.TestCase):
             result, failed = server.tool_call(
                 "submit_execution",
                 {
-                    **self.envelope(discovery),
                     "payload": self.execution_payload(
                         observation["observation_ref"],
                         discovery["stage_input"]["discovery_fact_refs"],
