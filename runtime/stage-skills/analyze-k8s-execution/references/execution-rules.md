@@ -34,6 +34,11 @@ For Go, inspect the main package and server binding. For .NET, launch settings
 are development-only evidence. Keep conflicting equally-applicable commands as
 conflicts and preserve unknowns as scoped absence evidence.
 
+## Rule applications
+
+If no trusted rule context is present in the incoming handoff, leave
+`rule_applications` empty; do not invent rule or decision identifiers.
+
 ## Mode boundary
 
 In Summary, stop after the material execution facts required to decide whether

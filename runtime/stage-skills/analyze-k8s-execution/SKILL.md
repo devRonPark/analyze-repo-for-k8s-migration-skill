@@ -36,6 +36,15 @@ submit with `unknown`/`inferred` status on the blocked field instead.
 references. Every `payload.evidence[].observation_ref` must come from this
 stage's `stage_input.survey.observations` or its one precision call.
 
+**Rule applications:** the incoming `stage_input` does not provide
+`decision_ids` or `required_rule_ids` for this stage. If it does not
+explicitly provide trusted rule or decision identifiers to apply, submit
+`"rule_applications": []`. Do not create or infer a `rule_id` or `decision_id`
+from claim ids, execution concerns, build/startup facts, process ids,
+filenames, or observation aliases. `rule_applications` being a required
+payload field does not mean the list must contain an item — an empty list is
+valid when no rule context is supplied.
+
 **Checkpoint:** do not draft or send user-facing Markdown before
 `submit_execution` returns. A rejected submission may be corrected and
 resubmitted; after three rejections in this stage, further attempts are
