@@ -1,0 +1,2656 @@
+{
+  "actual_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+  "case_id": "jpetstore-6-summary",
+  "expected_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+  "golden": "static-mcp-jpetstore-6-summary-golden.md",
+  "golden_sha256": "4cb7865998591f1e63adc01492766cb229ae26c706f89e0bd1d03234062c402c",
+  "mode": "summary",
+  "reason": "OpenCode PTY did not produce a complete final Markdown report before timeout",
+  "status": "FAIL",
+  "target": "C:\\temp\\opencode-e2e-jpetstore-6",
+  "target_status_before": {
+    "returncode": 0,
+    "stderr": "",
+    "stdout": "## HEAD (no branch)\n"
+  },
+  "terminal_file": "C:\\Users\\박병찬\\Desktop\\analyze-repo-for-k8s-migration-skill-worktrees\\trusted-analysis-pipeline\\tests\\evaluation\\vs-031-stage-timing\\attempt-3\\jpetstore-6-summary\\terminal.log",
+  "tool_calls": [
+    {
+      "name": "analysis_start_analysis",
+      "row_time_created": 1786328849244,
+      "row_time_updated": 1786328851006,
+      "state": {
+        "input": {
+          "mode": "summary",
+          "target_path": "C:\\temp\\opencode-e2e-jpetstore-6"
+        },
+        "metadata": {
+          "truncated": false
+        },
+        "output": "{\"accepted_output\": {}, \"analysis_id\": \"an_P59dz5xkwkOUU4Gt3b1EFGOi\", \"completed_stage\": null, \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-discovery\", \"revision\": 0, \"stage_input\": {\"accepted_fact_refs\": [], \"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"candidate_ids\": [], \"mode\": \"summary\", \"survey\": {\"categories\": {\"build/package manifests\": true, \"container and orchestration declarations\": true, \"runtime configuration\": false, \"startup descriptors\": true}, \"observations\": [{\"category\": \"build/package manifests\", \"observation_ref\": \"obs_hPU56SQ4ckWg-1mDnbt3osbf\", \"reference\": \"pom.xml:1\", \"status\": \"confirmed\"}, {\"category\": \"container and orchestration declarations\", \"observation_ref\": \"obs_naFHTZqSzUQkdthiaDgxuBp6\", \"reference\": \"Dockerfile:1\", \"status\": \"confirmed\"}, {\"category\": \"container and orchestration declarations\", \"observation_ref\": \"obs_cY9GVw_GOhmnnBmdur78YVzT\", \"reference\": \"docker-compose.yaml:1\", \"status\": \"confirmed\"}, {\"category\": \"startup descriptors\", \"observation_ref\": \"obs_t17_NfT_1A7qTyp4J2kZwOnI\", \"reference\": \"src/main/webapp/WEB-INF/web.xml:1\", \"status\": \"confirmed\"}, {\"category\": \"startup descriptors\", \"observation_ref\": \"obs_lvvlV769KPQDCLi3gop1-cyq\", \"reference\": \"src/main/webapp/WEB-INF/applicationContext.xml:1\", \"status\": \"confirmed\"}, {\"category\": \"runtime configuration\", \"observation_ref\": \"obs_LejgigxRjfoUXKgOAb1WFPd0\", \"status\": \"unknown\"}], \"stage\": \"discovery\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_pA_6EKAwH4db1Br-tiDvPtHf\"}",
+        "status": "completed",
+        "time": {
+          "end": 1786328851005,
+          "start": 1786328850405
+        },
+        "title": ""
+      }
+    },
+    {
+      "name": "analysis_locate_evidence",
+      "row_time_created": 1786328864728,
+      "row_time_updated": 1786328865305,
+      "state": {
+        "input": {
+          "glob": "*.xml"
+        },
+        "metadata": {
+          "truncated": false
+        },
+        "output": "{\"budget\": {\"precision_calls_remaining\": 0, \"submit_rejections_remaining\": 3}, \"observation_ref\": \"obs_mIeAy3nbqEx_qRYdhXkRQLzK\", \"reference\": \"format.xml:1\", \"status\": \"found\", \"value\": \"<?xml version=\\\"1.0\\\" encoding=\\\"UTF-8\\\"?>\"}",
+        "status": "completed",
+        "time": {
+          "end": 1786328865304,
+          "start": 1786328865213
+        },
+        "title": ""
+      }
+    },
+    {
+      "name": "analysis_locate_evidence",
+      "row_time_created": 1786328865614,
+      "row_time_updated": 1786328866168,
+      "state": {
+        "error": "{\"code\": \"precision_budget_exhausted\", \"issues\": [\"the current discovery stage's one-call content-search budget (read_evidence/locate_evidence/list_target_paths) is exhausted; submit now with unknown/inferred status for anything still ungrounded\"], \"retryable\": false}",
+        "input": {
+          "glob": "pom.xml"
+        },
+        "status": "error",
+        "time": {
+          "end": 1786328866165,
+          "start": 1786328866115
+        }
+      }
+    },
+    {
+      "name": "analysis_locate_evidence",
+      "row_time_created": 1786328866521,
+      "row_time_updated": 1786328867099,
+      "state": {
+        "error": "{\"code\": \"precision_budget_exhausted\", \"issues\": [\"the current discovery stage's one-call content-search budget (read_evidence/locate_evidence/list_target_paths) is exhausted; submit now with unknown/inferred status for anything still ungrounded\"], \"retryable\": false}",
+        "input": {
+          "glob": "Dockerfile"
+        },
+        "status": "error",
+        "time": {
+          "end": 1786328867098,
+          "start": 1786328867040
+        }
+      }
+    },
+    {
+      "name": "analysis_locate_evidence",
+      "row_time_created": 1786328867450,
+      "row_time_updated": 1786328868023,
+      "state": {
+        "error": "{\"code\": \"precision_budget_exhausted\", \"issues\": [\"the current discovery stage's one-call content-search budget (read_evidence/locate_evidence/list_target_paths) is exhausted; submit now with unknown/inferred status for anything still ungrounded\"], \"retryable\": false}",
+        "input": {
+          "glob": "docker-compose.yaml"
+        },
+        "status": "error",
+        "time": {
+          "end": 1786328868022,
+          "start": 1786328867984
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_discovery",
+      "row_time_created": 1786328869478,
+      "row_time_updated": 1786328881435,
+      "state": {
+        "error": "{\"code\": \"invalid signals\", \"issues\": [\"invalid signals\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_ids": [
+              "jpetstore-webapp"
+            ],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "evidence_pom",
+                  "evidence_webxml",
+                  "evidence_appcontext"
+                ],
+                "id": "claim_lifecycle_monolith",
+                "scope": "jpETStore monolithic web application",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_dockerfile",
+                  "evidence_docker-compose"
+                ],
+                "id": "claim_docker_existing",
+                "scope": "Application has existing Dockerfile and docker-compose configuration",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_runtime_unknown"
+                ],
+                "id": "claim_runtime_config_missing",
+                "scope": "External runtime configuration files not confirmed",
+                "status": "unknown"
+              }
+            ],
+            "decisions": [],
+            "evidence": [
+              {
+                "alias": "evidence_pom",
+                "observation_ref": "obs_hPU56SQ4ckWg-1mDnbt3osbf"
+              },
+              {
+                "alias": "evidence_dockerfile",
+                "observation_ref": "obs_naFHTZqSzUQkdthiaDgxuBp6"
+              },
+              {
+                "alias": "evidence_docker-compose",
+                "observation_ref": "obs_cY9GVw_GOhmnnBmdur78YVzT"
+              },
+              {
+                "alias": "evidence_webxml",
+                "observation_ref": "obs_t17_NfT_1A7qTyp4J2kZwOnI"
+              },
+              {
+                "alias": "evidence_appcontext",
+                "observation_ref": "obs_lvvlV769KPQDCLi3gop1-cyq"
+              },
+              {
+                "alias": "evidence_runtime_unknown",
+                "observation_ref": "obs_LejgigxRjfoUXKgOAb1WFPd0"
+              }
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "signals": [],
+            "stage": "discovery"
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786328881434,
+          "start": 1786328881362
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_discovery",
+      "row_time_created": 1786328884608,
+      "row_time_updated": 1786328895567,
+      "state": {
+        "error": "{\"code\": \"invalid signals\", \"issues\": [\"invalid signals\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_ids": [
+              "jpetstore-webapp"
+            ],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "evidence_pom",
+                  "evidence_webxml",
+                  "evidence_appcontext"
+                ],
+                "id": "claim_lifecycle_monolith",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_dockerfile",
+                  "evidence_docker-compose"
+                ],
+                "id": "claim_docker_existing",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_runtime_unknown"
+                ],
+                "id": "claim_runtime_config_missing",
+                "status": "unknown"
+              }
+            ],
+            "decisions": [],
+            "evidence": [
+              {
+                "alias": "evidence_pom",
+                "observation_ref": "obs_hPU56SQ4ckWg-1mDnbt3osbf"
+              },
+              {
+                "alias": "evidence_dockerfile",
+                "observation_ref": "obs_naFHTZqSzUQkdthiaDgxuBp6"
+              },
+              {
+                "alias": "evidence_docker-compose",
+                "observation_ref": "obs_cY9GVw_GOhmnnBmdur78YVzT"
+              },
+              {
+                "alias": "evidence_webxml",
+                "observation_ref": "obs_t17_NfT_1A7qTyp4J2kZwOnI"
+              },
+              {
+                "alias": "evidence_appcontext",
+                "observation_ref": "obs_lvvlV769KPQDCLi3gop1-cyq"
+              },
+              {
+                "alias": "evidence_runtime_unknown",
+                "observation_ref": "obs_LejgigxRjfoUXKgOAb1WFPd0"
+              }
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "signals": [],
+            "stage": "discovery"
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786328895566,
+          "start": 1786328895496
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_discovery",
+      "row_time_created": 1786328898179,
+      "row_time_updated": 1786328909538,
+      "state": {
+        "error": "{\"code\": \"unknown claim lacks scope/decision\", \"issues\": [\"unknown claim lacks scope/decision\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_ids": [
+              "jpetstore-webapp"
+            ],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "evidence_pom",
+                  "evidence_webxml",
+                  "evidence_appcontext"
+                ],
+                "id": "claim_lifecycle_monolith",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_dockerfile",
+                  "evidence_docker-compose"
+                ],
+                "id": "claim_docker_existing",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_runtime"
+                ],
+                "id": "claim_runtime_missing",
+                "status": "unknown"
+              }
+            ],
+            "decisions": [],
+            "evidence": [
+              {
+                "alias": "evidence_pom",
+                "observation_ref": "obs_hPU56SQ4ckWg-1mDnbt3osbf"
+              },
+              {
+                "alias": "evidence_dockerfile",
+                "observation_ref": "obs_naFHTZqSzUQkdthiaDgxuBp6"
+              },
+              {
+                "alias": "evidence_docker-compose",
+                "observation_ref": "obs_cY9GVw_GOhmnnBmdur78YVzT"
+              },
+              {
+                "alias": "evidence_webxml",
+                "observation_ref": "obs_t17_NfT_1A7qTyp4J2kZwOnI"
+              },
+              {
+                "alias": "evidence_appcontext",
+                "observation_ref": "obs_lvvlV769KPQDCLi3gop1-cyq"
+              },
+              {
+                "alias": "evidence_runtime",
+                "observation_ref": "obs_LejgigxRjfoUXKgOAb1WFPd0"
+              }
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "signals": [
+              "obs_hPU56SQ4ckWg-1mDnbt3osbf"
+            ],
+            "stage": "discovery"
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786328909537,
+          "start": 1786328909475
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_discovery",
+      "row_time_created": 1786328915668,
+      "row_time_updated": 1786328926925,
+      "state": {
+        "error": "{\"code\": \"invalid signals\", \"issues\": [\"invalid signals - this is beyond the current discovery stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_ids": [
+              "jpetstore-webapp"
+            ],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "evidence_pom",
+                  "evidence_webxml",
+                  "evidence_appcontext"
+                ],
+                "id": "claim_lifecycle_monolith",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_dockerfile",
+                  "evidence_docker-compose"
+                ],
+                "id": "claim_docker_existing",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_runtime"
+                ],
+                "id": "claim_runtime_missing",
+                "scope": "External runtime configuration files were not confirmed in the surveyed target",
+                "status": "unknown"
+              }
+            ],
+            "decisions": [],
+            "evidence": [
+              {
+                "alias": "evidence_pom",
+                "observation_ref": "obs_hPU56SQ4ckWg-1mDnbt3osbf"
+              },
+              {
+                "alias": "evidence_dockerfile",
+                "observation_ref": "obs_naFHTZqSzUQkdthiaDgxuBp6"
+              },
+              {
+                "alias": "evidence_docker-compose",
+                "observation_ref": "obs_cY9GVw_GOhmnnBmdur78YVzT"
+              },
+              {
+                "alias": "evidence_webxml",
+                "observation_ref": "obs_t17_NfT_1A7qTyp4J2kZwOnI"
+              },
+              {
+                "alias": "evidence_appcontext",
+                "observation_ref": "obs_lvvlV769KPQDCLi3gop1-cyq"
+              },
+              {
+                "alias": "evidence_runtime",
+                "observation_ref": "obs_LejgigxRjfoUXKgOAb1WFPd0"
+              }
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "signals": [],
+            "stage": "discovery"
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786328926924,
+          "start": 1786328926850
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_discovery",
+      "row_time_created": 1786328930656,
+      "row_time_updated": 1786328942224,
+      "state": {
+        "error": "{\"code\": \"unknown claim lacks scope/decision\", \"issues\": [\"unknown claim lacks scope/decision - this is beyond the current discovery stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_ids": [
+              "jpetstore-webapp"
+            ],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "evidence_pom",
+                  "evidence_webxml",
+                  "evidence_appcontext"
+                ],
+                "id": "claim_lifecycle_monolith",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_dockerfile",
+                  "evidence_docker-compose"
+                ],
+                "id": "claim_docker_existing",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_runtime"
+                ],
+                "id": "claim_runtime_missing",
+                "scope": "External runtime configuration files are not confirmed in the surveyed target",
+                "status": "unknown"
+              }
+            ],
+            "decisions": [],
+            "evidence": [
+              {
+                "alias": "evidence_pom",
+                "observation_ref": "obs_hPU56SQ4ckWg-1mDnbt3osbf"
+              },
+              {
+                "alias": "evidence_dockerfile",
+                "observation_ref": "obs_naFHTZqSzUQkdthiaDgxuBp6"
+              },
+              {
+                "alias": "evidence_docker-compose",
+                "observation_ref": "obs_cY9GVw_GOhmnnBmdur78YVzT"
+              },
+              {
+                "alias": "evidence_webxml",
+                "observation_ref": "obs_t17_NfT_1A7qTyp4J2kZwOnI"
+              },
+              {
+                "alias": "evidence_appcontext",
+                "observation_ref": "obs_lvvlV769KPQDCLi3gop1-cyq"
+              },
+              {
+                "alias": "evidence_runtime",
+                "observation_ref": "obs_LejgigxRjfoUXKgOAb1WFPd0"
+              }
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "signals": [
+              "obs_hPU56SQ4ckWg"
+            ],
+            "stage": "discovery"
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786328942224,
+          "start": 1786328942143
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_discovery",
+      "row_time_created": 1786328948259,
+      "row_time_updated": 1786328959746,
+      "state": {
+        "input": {
+          "payload": {
+            "candidate_ids": [
+              "jpetstore-webapp"
+            ],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "evidence_pom",
+                  "evidence_webxml",
+                  "evidence_appcontext"
+                ],
+                "id": "claimLife",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_dockerfile",
+                  "evidence_docker-compose"
+                ],
+                "id": "claimDocker",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "evidence_runtime"
+                ],
+                "id": "claimRuntime",
+                "status": "inferred"
+              }
+            ],
+            "decisions": [],
+            "evidence": [
+              {
+                "alias": "evidence_pom",
+                "observation_ref": "obs_hPU56SQ4ckWg-1mDnbt3osbf"
+              },
+              {
+                "alias": "evidence_dockerfile",
+                "observation_ref": "obs_naFHTZqSzUQkdthiaDgxuBp6"
+              },
+              {
+                "alias": "evidence_docker-compose",
+                "observation_ref": "obs_cY9GVw_GOhmnnBmdur78YVzT"
+              },
+              {
+                "alias": "evidence_webxml",
+                "observation_ref": "obs_t17_NfT_1A7qTyp4J2kZwOnI"
+              },
+              {
+                "alias": "evidence_appcontext",
+                "observation_ref": "obs_lvvlV769KPQDCLi3gop1-cyq"
+              },
+              {
+                "alias": "evidence_runtime",
+                "observation_ref": "obs_LejgigxRjfoUXKgOAb1WFPd0"
+              }
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "signals": [
+              "obs_hPU56SQ4ckWg"
+            ],
+            "stage": "discovery"
+          }
+        },
+        "metadata": {
+          "truncated": false
+        },
+        "output": "{\"accepted_output\": {\"candidate_ids\": [\"jpetstore-webapp\"], \"discovery_fact_refs\": [\"fact_discovery_claimLife\", \"fact_discovery_claimDocker\", \"fact_discovery_claimRuntime\"], \"unknown_ids\": []}, \"analysis_id\": \"an_P59dz5xkwkOUU4Gt3b1EFGOi\", \"completed_stage\": \"discovery\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-execution\", \"revision\": 1, \"stage_input\": {\"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"candidate_ids\": [\"jpetstore-webapp\"], \"discovery_fact_refs\": [\"fact_discovery_claimLife\", \"fact_discovery_claimDocker\", \"fact_discovery_claimRuntime\"], \"mode\": \"summary\", \"survey\": {\"categories\": {\"build commands\": true, \"entrypoints\": true, \"image definitions\": true, \"listening ports\": true, \"runtime launch configuration\": false}, \"observations\": [{\"category\": \"build commands\", \"observation_ref\": \"obs_raZySeWqjcMVbTleY3ETk8eb\", \"reference\": \"Dockerfile:20\", \"status\": \"confirmed\"}, {\"category\": \"build commands\", \"observation_ref\": \"obs_JPf8eCA8yjzUFDLOsfdTdoT1\", \"reference\": \"mvnw:1\", \"status\": \"confirmed\"}, {\"category\": \"image definitions\", \"observation_ref\": \"obs_IaApTOzFFUWtvr0Q-phjLWAU\", \"reference\": \"Dockerfile:17\", \"status\": \"confirmed\"}, {\"category\": \"entrypoints\", \"observation_ref\": \"obs_MSvQl3Lpfazx5DGKZwx0UOvt\", \"reference\": \"Dockerfile:21\", \"status\": \"confirmed\"}, {\"category\": \"listening ports\", \"observation_ref\": \"obs_u_ztNlUtCy48bq46YL_cuv8U\", \"reference\": \"docker-compose.yaml:24\", \"status\": \"confirmed\"}, {\"category\": \"runtime launch configuration\", \"observation_ref\": \"obs_g6aCFanCbOvhSfvpY_JiR2CB\", \"status\": \"unknown\"}], \"stage\": \"execution\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_gzR5HMld9aQHGn5q1oSVWJTx\"}",
+        "status": "completed",
+        "time": {
+          "end": 1786328959743,
+          "start": 1786328959155
+        },
+        "title": ""
+      }
+    },
+    {
+      "name": "analysis_submit_execution",
+      "row_time_created": 1786328973165,
+      "row_time_updated": 1786328985281,
+      "state": {
+        "input": {
+          "payload": {
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "exec_build_dockerfile",
+                  "exec_build_mvnw"
+                ],
+                "id": "execClaimBuild",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "exec_image"
+                ],
+                "id": "execClaimImage",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "exec_entrypoint"
+                ],
+                "id": "execClaimEntrypoint",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "exec_port"
+                ],
+                "id": "execClaimPort",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "exec_runtime_launch"
+                ],
+                "id": "execClaimRuntime",
+                "status": "inferred"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "exec_build_dockerfile",
+                "observation_ref": "obs_raZySeWqjcMVbTleY3ETk8eb"
+              },
+              {
+                "alias": "exec_build_mvnw",
+                "observation_ref": "obs_JPf8eCA8yjzUFDLOsfdTdoT1"
+              },
+              {
+                "alias": "exec_image",
+                "observation_ref": "obs_IaApTOzFFUWtvr0Q-phjLWAU"
+              },
+              {
+                "alias": "exec_entrypoint",
+                "observation_ref": "obs_MSvQl3Lpfazx5DGKZwx0UOvt"
+              },
+              {
+                "alias": "exec_port",
+                "observation_ref": "obs_u_ztNlUtCy48bq46YL_cuv8U"
+              },
+              {
+                "alias": "exec_runtime_launch",
+                "observation_ref": "obs_g6aCFanCbOvhSfvpY_JiR2CB"
+              }
+            ],
+            "process_ids": [
+              "jpetstore-webapp"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "execution"
+          }
+        },
+        "metadata": {
+          "truncated": false
+        },
+        "output": "{\"accepted_output\": {\"execution_fact_refs\": [\"fact_execution_execClaimBuild\", \"fact_execution_execClaimImage\", \"fact_execution_execClaimEntrypoint\", \"fact_execution_execClaimPort\", \"fact_execution_execClaimRuntime\"], \"process_ids\": [\"jpetstore-webapp\"], \"unknown_ids\": []}, \"analysis_id\": \"an_P59dz5xkwkOUU4Gt3b1EFGOi\", \"completed_stage\": \"execution\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-relationships\", \"revision\": 2, \"stage_input\": {\"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"discovery_fact_refs\": [\"fact_discovery_claimLife\", \"fact_discovery_claimDocker\", \"fact_discovery_claimRuntime\"], \"execution_fact_refs\": [\"fact_execution_execClaimBuild\", \"fact_execution_execClaimImage\", \"fact_execution_execClaimEntrypoint\", \"fact_execution_execClaimPort\", \"fact_execution_execClaimRuntime\"], \"mode\": \"summary\", \"process_ids\": [\"jpetstore-webapp\"], \"survey\": {\"categories\": {\"brokers, queues, caches\": false, \"connection settings\": false, \"declared dependencies\": true, \"identity and external service configuration\": false}, \"observations\": [{\"category\": \"declared dependencies\", \"observation_ref\": \"obs_amVMvcIWVt_bjJo5zY-l-b5g\", \"reference\": \"pom.xml:85\", \"status\": \"confirmed\"}, {\"category\": \"connection settings\", \"observation_ref\": \"obs_D1kN-lG1fVE5E6H5KQ8YNNUV\", \"status\": \"unknown\"}, {\"category\": \"brokers, queues, caches\", \"observation_ref\": \"obs_5W3L4x5mLPIsrOjhem4JEfj6\", \"status\": \"unknown\"}, {\"category\": \"identity and external service configuration\", \"observation_ref\": \"obs__i8VrEO9SAy1R8OGtUNzsxhN\", \"status\": \"unknown\"}], \"stage\": \"relationships\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_PQoOqa1Gm0R9VWlbYAyVCW7u\"}",
+        "status": "completed",
+        "time": {
+          "end": 1786328985280,
+          "start": 1786328985065
+        },
+        "title": ""
+      }
+    },
+    {
+      "name": "analysis_submit_relationships",
+      "row_time_created": 1786328992594,
+      "row_time_updated": 1786329006239,
+      "state": {
+        "error": "{\"code\": \"relationship claim requires graph edge\", \"issues\": [\"relationship claim requires graph edge\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "rel_deps"
+                ],
+                "id": "relClaimDeps",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "rel_conn_settings"
+                ],
+                "id": "relClaimConn",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "rel_brokers"
+                ],
+                "id": "relClaimBrokers",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "rel_identity"
+                ],
+                "id": "relClaimIdentity",
+                "status": "inferred"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "rel_deps",
+                "observation_ref": "obs_amVMvcIWVt_bjJo5zY-l-b5g"
+              },
+              {
+                "alias": "rel_conn_settings",
+                "observation_ref": "obs_D1kN-lG1fVE5E6H5KQ8YNNUV"
+              },
+              {
+                "alias": "rel_brokers",
+                "observation_ref": "obs_5W3L4x5mLPIsrOjhem4JEfj6"
+              },
+              {
+                "alias": "rel_identity",
+                "observation_ref": "obs__i8VrEO9SAy1R8OGtUNzsxhN"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "graph_edges": [
+              {
+                "claim_ids": [
+                  "relClaimDeps"
+                ],
+                "dependency_type": "data_store",
+                "endpoint_name": "database",
+                "execution_location": "server_process",
+                "id": "edge_db",
+                "management_boundary": "externally_managed",
+                "mechanism": "jdbc",
+                "required_for_function": "confirmed",
+                "source_process_id": "jpetstore-webapp",
+                "startup_use": "confirmed",
+                "status": "confirmed",
+                "target_id": "jpetstore-db",
+                "target_kind": "external_system",
+                "timing": "runtime"
+              }
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "relationships"
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329006238,
+          "start": 1786329006139
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_relationships",
+      "row_time_created": 1786329007738,
+      "row_time_updated": 1786329020293,
+      "state": {
+        "input": {
+          "payload": {
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "rel_deps"
+                ],
+                "id": "relClaimDeps",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "rel_conn_settings",
+                  "rel_brokers",
+                  "rel_identity"
+                ],
+                "id": "relClaimMissing",
+                "status": "not_applicable"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "rel_deps",
+                "observation_ref": "obs_amVMvcIWVt_bjJo5zY-l-b5g"
+              },
+              {
+                "alias": "rel_conn_settings",
+                "observation_ref": "obs_D1kN-lG1fVE5E6H5KQ8YNNUV"
+              },
+              {
+                "alias": "rel_brokers",
+                "observation_ref": "obs_5W3L4x5mLPIsrOjhem4JEfj6"
+              },
+              {
+                "alias": "rel_identity",
+                "observation_ref": "obs__i8VrEO9SAy1R8OGtUNzsxhN"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "graph_edges": [
+              {
+                "claim_ids": [
+                  "relClaimDeps"
+                ],
+                "dependency_type": "data_store",
+                "endpoint_name": "database",
+                "execution_location": "server_process",
+                "id": "edge_db",
+                "management_boundary": "externally_managed",
+                "mechanism": "jdbc",
+                "required_for_function": "confirmed",
+                "source_process_id": "jpetstore-webapp",
+                "startup_use": "confirmed",
+                "status": "confirmed",
+                "target_id": "jpetstore-db",
+                "target_kind": "external_system",
+                "timing": "runtime"
+              }
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "relationships"
+          }
+        },
+        "metadata": {
+          "truncated": false
+        },
+        "output": "{\"accepted_output\": {\"graph_edge_ids\": [\"edge_db\"], \"relationship_fact_refs\": [\"fact_relationships_relClaimDeps\", \"fact_relationships_relClaimMissing\"], \"unknown_ids\": []}, \"analysis_id\": \"an_P59dz5xkwkOUU4Gt3b1EFGOi\", \"completed_stage\": \"relationships\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-boundaries\", \"revision\": 3, \"stage_input\": {\"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"candidate_ids\": [\"jpetstore-webapp\"], \"discovery_fact_refs\": [\"fact_discovery_claimLife\", \"fact_discovery_claimDocker\", \"fact_discovery_claimRuntime\"], \"execution_fact_refs\": [\"fact_execution_execClaimBuild\", \"fact_execution_execClaimImage\", \"fact_execution_execClaimEntrypoint\", \"fact_execution_execClaimPort\", \"fact_execution_execClaimRuntime\"], \"graph_edge_ids\": [\"edge_db\"], \"mode\": \"summary\", \"process_ids\": [\"jpetstore-webapp\"], \"relationship_fact_refs\": [\"fact_relationships_relClaimDeps\", \"fact_relationships_relClaimMissing\"], \"survey\": {\"categories\": {\"independent start definitions\": true, \"lifecycle signals\": false, \"persistent writable locations\": false, \"worker or schedule declarations\": false}, \"observations\": [{\"category\": \"independent start definitions\", \"observation_ref\": \"obs_jg0zkVzgoXCgRgkhvVOY_gRk\", \"reference\": \"docker-compose.yaml:19\", \"status\": \"confirmed\"}, {\"category\": \"worker or schedule declarations\", \"observation_ref\": \"obs_2d-peQANG6hDsocHXtikHuBk\", \"status\": \"unknown\"}, {\"category\": \"lifecycle signals\", \"observation_ref\": \"obs_Su5MMqe4CP8KnULfN1SsQSlK\", \"status\": \"unknown\"}, {\"category\": \"persistent writable locations\", \"observation_ref\": \"obs_q4J85RXh_YXXByZDD5lj7hiv\", \"status\": \"unknown\"}], \"stage\": \"boundaries\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_PlBuJhRo9KYBdsoe2xocAEnZ\"}",
+        "status": "completed",
+        "time": {
+          "end": 1786329020292,
+          "start": 1786329020079
+        },
+        "title": ""
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329037048,
+      "row_time_updated": 1786329051181,
+      "state": {
+        "error": "{\"code\": \"invalid_nested_stage_payload\", \"issues\": [\"payload.workload_units[] permits only: boundary_claim_ids, boundary_status, candidate_ids, deployability_claim_ids, deployability_status, deployable, id, independent_lifecycle_status, lifecycle, lifecycle_claim_ids, process_ids, start_definition_status, state_claim_ids, state_decision\"], \"retryable\": true}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "claimBoundary",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_lifecycle"
+                ],
+                "id": "claimLifecycle",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_persistent"
+                ],
+                "id": "claimState",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_worker"
+                ],
+                "id": "claimWorker",
+                "status": "inferred"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              },
+              {
+                "alias": "bound_worker",
+                "observation_ref": "obs_2d-peQANG6hDsocHXtikHuBk"
+              },
+              {
+                "alias": "bound_lifecycle",
+                "observation_ref": "obs_Su5MMqe4CP8KnULfN1SsQSlK"
+              },
+              {
+                "alias": "bound_persistent",
+                "observation_ref": "obs_q4J85RXh_YXXByZDD5lj7hiv"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "claimBoundary"
+                ],
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [
+                  "claimLifecycle"
+                ],
+                "lifecycle_status": "confirmed",
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [
+                  "claimState"
+                ],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329051180,
+          "start": 1786329051081
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329052305,
+      "row_time_updated": 1786329066619,
+      "state": {
+        "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "claimBoundary",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_lifecycle"
+                ],
+                "id": "claimLifecycle",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_persistent"
+                ],
+                "id": "claimState",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_worker"
+                ],
+                "id": "claimWorker",
+                "status": "inferred"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              },
+              {
+                "alias": "bound_worker",
+                "observation_ref": "obs_2d-peQANG6hDsocHXtikHuBk"
+              },
+              {
+                "alias": "bound_lifecycle",
+                "observation_ref": "obs_Su5MMqe4CP8KnULfN1SsQSlK"
+              },
+              {
+                "alias": "bound_persistent",
+                "observation_ref": "obs_q4J85RXh_YXXByZDD5lj7hiv"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "claimBoundary"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [
+                  "claimLifecycle"
+                ],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [
+                  "claimState"
+                ],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329066618,
+          "start": 1786329066540
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329068999,
+      "row_time_updated": 1786329084357,
+      "state": {
+        "error": "{\"code\": \"observation_stage_mismatch\", \"issues\": [\"payload.evidence observation_ref values must be issued in the current boundaries stage; incoming *_fact_refs are accepted facts, not observation_ref values\"], \"retryable\": true}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "claimBoundary",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_lifecycle"
+                ],
+                "id": "claimLifecycle",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_persistent"
+                ],
+                "id": "claimState",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_deployability"
+                ],
+                "id": "claimDeployability",
+                "status": "confirmed"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              },
+              {
+                "alias": "bound_worker",
+                "observation_ref": "obs_2d-peQANG6hDsocHXtikHuBk"
+              },
+              {
+                "alias": "bound_lifecycle",
+                "observation_ref": "obs_Su5MMqe4CP8KnULfN1SsQSlK"
+              },
+              {
+                "alias": "bound_persistent",
+                "observation_ref": "obs_q4J85RXh_YXXByZDD5lj7hiv"
+              },
+              {
+                "alias": "bound_deployability",
+                "observation_ref": "obs_cY9GVw_GOhmnnBmdur78YVzT"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "claimBoundary"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [
+                  "claimDeployability"
+                ],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [
+                  "claimLifecycle"
+                ],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [
+                  "claimState"
+                ],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329084356,
+          "start": 1786329084289
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329089851,
+      "row_time_updated": 1786329104220,
+      "state": {
+        "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "claimBoundary",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_lifecycle"
+                ],
+                "id": "claimLifecycle",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_persistent"
+                ],
+                "id": "claimState",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_worker"
+                ],
+                "id": "claimWorker",
+                "status": "not_applicable"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              },
+              {
+                "alias": "bound_worker",
+                "observation_ref": "obs_2d-peQANG6hDsocHXtikHuBk"
+              },
+              {
+                "alias": "bound_lifecycle",
+                "observation_ref": "obs_Su5MMqe4CP8KnULfN1SsQSlK"
+              },
+              {
+                "alias": "bound_persistent",
+                "observation_ref": "obs_q4J85RXh_YXXByZDD5lj7hiv"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "claimBoundary"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [
+                  "claimLifecycle"
+                ],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [
+                  "claimState"
+                ],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329104219,
+          "start": 1786329104145
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329107383,
+      "row_time_updated": 1786329120128,
+      "state": {
+        "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "claimBoundary",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_lifecycle"
+                ],
+                "id": "claimLifecycle",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_persistent"
+                ],
+                "id": "claimState",
+                "status": "inferred"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              },
+              {
+                "alias": "bound_lifecycle",
+                "observation_ref": "obs_Su5MMqe4CP8KnULfN1SsQSlK"
+              },
+              {
+                "alias": "bound_persistent",
+                "observation_ref": "obs_q4J85RXh_YXXByZDD5lj7hiv"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "claimBoundary"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [
+                  "claimLifecycle"
+                ],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [
+                  "claimState"
+                ],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329120127,
+          "start": 1786329120032
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329125745,
+      "row_time_updated": 1786329138540,
+      "state": {
+        "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "claimBoundary",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_lifecycle"
+                ],
+                "id": "claimLifecycle",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_persistent"
+                ],
+                "id": "claimState",
+                "status": "inferred"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              },
+              {
+                "alias": "bound_lifecycle",
+                "observation_ref": "obs_Su5MMqe4CP8KnULfN1SsQSlK"
+              },
+              {
+                "alias": "bound_persistent",
+                "observation_ref": "obs_q4J85RXh_YXXByZDD5lj7hiv"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "claimBoundary"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [
+                  "claimLifecycle"
+                ],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [
+                  "claimState"
+                ],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329138540,
+          "start": 1786329138448
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329140973,
+      "row_time_updated": 1786329153735,
+      "state": {
+        "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "claimBoundary",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_lifecycle"
+                ],
+                "id": "claimLifecycle",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_persistent"
+                ],
+                "id": "claimState",
+                "status": "inferred"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              },
+              {
+                "alias": "bound_lifecycle",
+                "observation_ref": "obs_Su5MMqe4CP8KnULfN1SsQSlK"
+              },
+              {
+                "alias": "bound_persistent",
+                "observation_ref": "obs_q4J85RXh_YXXByZDD5lj7hiv"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "claimBoundary"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [
+                  "claimLifecycle"
+                ],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [
+                  "claimState"
+                ],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329153734,
+          "start": 1786329153668
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329154931,
+      "row_time_updated": 1786329163440,
+      "state": {
+        "error": "{\"code\": \"boundaries requires trusted evidence and claims\", \"issues\": [\"boundaries requires trusted evidence and claims - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [],
+                "state_decision": "unknown"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329163439,
+          "start": 1786329163366
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329164963,
+      "row_time_updated": 1786329174725,
+      "state": {
+        "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "claimBoundary",
+                "scope": "The web application has a confirmed independent start definition from docker-compose.yaml",
+                "status": "confirmed"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "claimBoundary"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [],
+                "state_decision": "unknown"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329174724,
+          "start": 1786329174633
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329181258,
+      "row_time_updated": 1786329191014,
+      "state": {
+        "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "boundary_claim",
+                "scope": "The web application has a confirmed independent start definition from docker-compose.yaml",
+                "status": "confirmed"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "boundary_claim"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [],
+                "state_decision": "unknown"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329191013,
+          "start": 1786329190949
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329194286,
+      "row_time_updated": 1786329208367,
+      "state": {
+        "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "bound_start"
+                ],
+                "id": "boundary_claim",
+                "scope": "The web application has a confirmed independent start definition from docker-compose.yaml",
+                "status": "confirmed"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_lifecycle"
+                ],
+                "id": "lifecycle_claim",
+                "scope": "The application runs continuously as a Spring web application",
+                "status": "inferred"
+              },
+              {
+                "evidence_aliases": [
+                  "bound_persistent"
+                ],
+                "id": "state_claim",
+                "scope": "No persistent writable locations were identified for this web application",
+                "status": "inferred"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "bound_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              },
+              {
+                "alias": "bound_lifecycle",
+                "observation_ref": "obs_Su5MMqe4CP8KnULfN1SsQSlK"
+              },
+              {
+                "alias": "bound_persistent",
+                "observation_ref": "obs_q4J85RXh_YXXByZDD5lj7hiv"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "boundary_claim"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "wu-jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [
+                  "lifecycle_claim"
+                ],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [
+                  "state_claim"
+                ],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329208367,
+          "start": 1786329208303
+        }
+      }
+    },
+    {
+      "name": "analysis_reopen_analysis",
+      "row_time_created": 1786329211641,
+      "row_time_updated": 1786329213469,
+      "state": {
+        "error": "{\"code\": \"reopen_not_ready\", \"issues\": [\"reopen_is_not_delivered - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "reason": "Boundaries stage submission has 'workload claim dangling' error that persists despite all claims being properly referenced in workload unit claim arrays. Need to retry with different claim structure.",
+          "stage": "boundaries"
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329213468,
+          "start": 1786329213433
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329218010,
+      "row_time_updated": 1786329227717,
+      "state": {
+        "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "candidate_exclusions": [],
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "evidence_start"
+                ],
+                "id": "boundary-claim",
+                "scope": "Confirmed independent start definition in docker-compose",
+                "status": "confirmed"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "evidence_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [
+                  "boundary-claim"
+                ],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329227716,
+          "start": 1786329227631
+        }
+      }
+    },
+    {
+      "name": "analysis_finalize_analysis",
+      "row_time_created": 1786329234639,
+      "row_time_updated": 1786329234815,
+      "state": {
+        "error": "{\"code\": \"stage_order\", \"issues\": [\"stage_order - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {},
+        "status": "error",
+        "time": {
+          "end": 1786329234814,
+          "start": 1786329234753
+        }
+      }
+    },
+    {
+      "name": "analysis_reopen_analysis",
+      "row_time_created": 1786329236432,
+      "row_time_updated": 1786329238067,
+      "state": {
+        "error": "{\"code\": \"reopen_not_ready\", \"issues\": [\"reopen_is_not_delivered - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "reason": "Persistently receiving 'workload claim dangling' despite correct claim references in workload unit. Need fresh retry budget to attempt different claim structure.",
+          "stage": "boundaries"
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329238067,
+          "start": 1786329238029
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329242030,
+      "row_time_updated": 1786329249461,
+      "state": {
+        "error": "{\"code\": \"missing boundaries payload field\", \"issues\": [\"missing boundaries payload field - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "claims": [],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329249461,
+          "start": 1786329249380
+        }
+      }
+    },
+    {
+      "name": "analysis_submit_boundaries",
+      "row_time_created": 1786329250652,
+      "row_time_updated": 1786329259627,
+      "state": {
+        "error": "{\"code\": \"missing boundaries payload field\", \"issues\": [\"missing boundaries payload field - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+        "input": {
+          "payload": {
+            "claims": [
+              {
+                "evidence_aliases": [
+                  "e_start"
+                ],
+                "id": "c1",
+                "status": "unknown"
+              }
+            ],
+            "discovery_fact_refs": [
+              "fact_discovery_claimLife",
+              "fact_discovery_claimDocker",
+              "fact_discovery_claimRuntime"
+            ],
+            "evidence": [
+              {
+                "alias": "e_start",
+                "observation_ref": "obs_jg0zkVzgoXCgRgkhvVOY_gRk"
+              }
+            ],
+            "execution_fact_refs": [
+              "fact_execution_execClaimBuild",
+              "fact_execution_execClaimImage",
+              "fact_execution_execClaimEntrypoint",
+              "fact_execution_execClaimPort",
+              "fact_execution_execClaimRuntime"
+            ],
+            "relationship_fact_refs": [
+              "fact_relationships_relClaimDeps",
+              "fact_relationships_relClaimMissing"
+            ],
+            "rule_applications": [],
+            "schema_version": 1,
+            "stage": "boundaries",
+            "workload_units": [
+              {
+                "boundary_claim_ids": [],
+                "boundary_status": "confirmed",
+                "candidate_ids": [
+                  "jpetstore-webapp"
+                ],
+                "deployability_claim_ids": [],
+                "deployability_status": "confirmed",
+                "deployable": true,
+                "id": "jpetstore-webapp",
+                "independent_lifecycle_status": "confirmed",
+                "lifecycle": "continuous",
+                "lifecycle_claim_ids": [],
+                "process_ids": [
+                  "jpetstore-webapp"
+                ],
+                "start_definition_status": "confirmed",
+                "state_claim_ids": [],
+                "state_decision": "stateless"
+              }
+            ]
+          }
+        },
+        "status": "error",
+        "time": {
+          "end": 1786329259626,
+          "start": 1786329259558
+        }
+      }
+    }
+  ],
+  "total_elapsed_ms": 609612,
+  "turns": [
+    {
+      "completed_at": 1786328850405,
+      "elapsed_ms": null,
+      "input_chars": null,
+      "output_chars": 72,
+      "stage": "dispatcher/start",
+      "started_at": null,
+      "tool_calls": [
+        {
+          "elapsed_ms": 600,
+          "tool": "start_analysis"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328865213,
+      "elapsed_ms": 14208,
+      "input_chars": 1570,
+      "output_chars": 17,
+      "stage": "discovery",
+      "started_at": 1786328851005,
+      "tool_calls": [
+        {
+          "elapsed_ms": 91,
+          "tool": "locate_evidence"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328866115,
+      "elapsed_ms": 811,
+      "input_chars": 232,
+      "output_chars": 19,
+      "stage": "discovery",
+      "started_at": 1786328865304,
+      "tool_calls": [
+        {
+          "elapsed_ms": 50,
+          "tool": "locate_evidence"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328867040,
+      "elapsed_ms": 875,
+      "input_chars": null,
+      "output_chars": 22,
+      "stage": "discovery",
+      "started_at": 1786328866165,
+      "tool_calls": [
+        {
+          "elapsed_ms": 58,
+          "tool": "locate_evidence"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328867984,
+      "elapsed_ms": 886,
+      "input_chars": null,
+      "output_chars": 31,
+      "stage": "discovery",
+      "started_at": 1786328867098,
+      "tool_calls": [
+        {
+          "elapsed_ms": 38,
+          "tool": "locate_evidence"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328881362,
+      "elapsed_ms": 13340,
+      "input_chars": null,
+      "output_chars": 1257,
+      "stage": "discovery",
+      "started_at": 1786328868022,
+      "tool_calls": [
+        {
+          "elapsed_ms": 72,
+          "tool": "submit_discovery"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328895496,
+      "elapsed_ms": 14062,
+      "input_chars": null,
+      "output_chars": 1064,
+      "stage": "discovery",
+      "started_at": 1786328881434,
+      "tool_calls": [
+        {
+          "elapsed_ms": 70,
+          "tool": "submit_discovery"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328909475,
+      "elapsed_ms": 13909,
+      "input_chars": null,
+      "output_chars": 1071,
+      "stage": "discovery",
+      "started_at": 1786328895566,
+      "tool_calls": [
+        {
+          "elapsed_ms": 62,
+          "tool": "submit_discovery"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328926850,
+      "elapsed_ms": 17313,
+      "input_chars": null,
+      "output_chars": 1132,
+      "stage": "discovery",
+      "started_at": 1786328909537,
+      "tool_calls": [
+        {
+          "elapsed_ms": 74,
+          "tool": "submit_discovery"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328942143,
+      "elapsed_ms": 15219,
+      "input_chars": null,
+      "output_chars": 1149,
+      "stage": "discovery",
+      "started_at": 1786328926924,
+      "tool_calls": [
+        {
+          "elapsed_ms": 81,
+          "tool": "submit_discovery"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328959155,
+      "elapsed_ms": 16931,
+      "input_chars": null,
+      "output_chars": 1026,
+      "stage": "discovery",
+      "started_at": 1786328942224,
+      "tool_calls": [
+        {
+          "elapsed_ms": 588,
+          "tool": "submit_discovery"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786328985065,
+      "elapsed_ms": 25322,
+      "input_chars": 1726,
+      "output_chars": 1216,
+      "stage": "execution",
+      "started_at": 1786328959743,
+      "tool_calls": [
+        {
+          "elapsed_ms": 215,
+          "tool": "submit_execution"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329006139,
+      "elapsed_ms": 20859,
+      "input_chars": 1715,
+      "output_chars": 1526,
+      "stage": "relationships",
+      "started_at": 1786328985280,
+      "tool_calls": [
+        {
+          "elapsed_ms": 99,
+          "tool": "submit_relationships"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329020079,
+      "elapsed_ms": 13841,
+      "input_chars": null,
+      "output_chars": 1392,
+      "stage": "relationships",
+      "started_at": 1786329006238,
+      "tool_calls": [
+        {
+          "elapsed_ms": 213,
+          "tool": "submit_relationships"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329051081,
+      "elapsed_ms": 30789,
+      "input_chars": 1795,
+      "output_chars": 1687,
+      "stage": "boundaries",
+      "started_at": 1786329020292,
+      "tool_calls": [
+        {
+          "elapsed_ms": 99,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329066540,
+      "elapsed_ms": 15360,
+      "input_chars": null,
+      "output_chars": 1717,
+      "stage": "boundaries",
+      "started_at": 1786329051180,
+      "tool_calls": [
+        {
+          "elapsed_ms": 78,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329084289,
+      "elapsed_ms": 17671,
+      "input_chars": null,
+      "output_chars": 1837,
+      "stage": "boundaries",
+      "started_at": 1786329066618,
+      "tool_calls": [
+        {
+          "elapsed_ms": 67,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329104145,
+      "elapsed_ms": 19789,
+      "input_chars": null,
+      "output_chars": 1723,
+      "stage": "boundaries",
+      "started_at": 1786329084356,
+      "tool_calls": [
+        {
+          "elapsed_ms": 74,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329120032,
+      "elapsed_ms": 15813,
+      "input_chars": null,
+      "output_chars": 1556,
+      "stage": "boundaries",
+      "started_at": 1786329104219,
+      "tool_calls": [
+        {
+          "elapsed_ms": 95,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329138448,
+      "elapsed_ms": 18321,
+      "input_chars": null,
+      "output_chars": 1556,
+      "stage": "boundaries",
+      "started_at": 1786329120127,
+      "tool_calls": [
+        {
+          "elapsed_ms": 92,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329153668,
+      "elapsed_ms": 15128,
+      "input_chars": null,
+      "output_chars": 1556,
+      "stage": "boundaries",
+      "started_at": 1786329138540,
+      "tool_calls": [
+        {
+          "elapsed_ms": 66,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329163366,
+      "elapsed_ms": 9632,
+      "input_chars": null,
+      "output_chars": 1090,
+      "stage": "boundaries",
+      "started_at": 1786329153734,
+      "tool_calls": [
+        {
+          "elapsed_ms": 73,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329174633,
+      "elapsed_ms": 11194,
+      "input_chars": null,
+      "output_chars": 1290,
+      "stage": "boundaries",
+      "started_at": 1786329163439,
+      "tool_calls": [
+        {
+          "elapsed_ms": 91,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329190949,
+      "elapsed_ms": 16225,
+      "input_chars": null,
+      "output_chars": 1292,
+      "stage": "boundaries",
+      "started_at": 1786329174724,
+      "tool_calls": [
+        {
+          "elapsed_ms": 64,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329208303,
+      "elapsed_ms": 17290,
+      "input_chars": null,
+      "output_chars": 1824,
+      "stage": "boundaries",
+      "started_at": 1786329191013,
+      "tool_calls": [
+        {
+          "elapsed_ms": 64,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329213433,
+      "elapsed_ms": 5066,
+      "input_chars": null,
+      "output_chars": 236,
+      "stage": "boundaries",
+      "started_at": 1786329208367,
+      "tool_calls": [
+        {
+          "elapsed_ms": 35,
+          "tool": "reopen_analysis"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329227631,
+      "elapsed_ms": 14163,
+      "input_chars": null,
+      "output_chars": 1264,
+      "stage": "boundaries",
+      "started_at": 1786329213468,
+      "tool_calls": [
+        {
+          "elapsed_ms": 85,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329234753,
+      "elapsed_ms": 7037,
+      "input_chars": null,
+      "output_chars": 2,
+      "stage": "finalize",
+      "started_at": 1786329227716,
+      "tool_calls": [
+        {
+          "elapsed_ms": 61,
+          "tool": "finalize_analysis"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329238029,
+      "elapsed_ms": 3215,
+      "input_chars": null,
+      "output_chars": 198,
+      "stage": "boundaries",
+      "started_at": 1786329234814,
+      "tool_calls": [
+        {
+          "elapsed_ms": 38,
+          "tool": "reopen_analysis"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329249380,
+      "elapsed_ms": 11313,
+      "input_chars": null,
+      "output_chars": 986,
+      "stage": "boundaries",
+      "started_at": 1786329238067,
+      "tool_calls": [
+        {
+          "elapsed_ms": 81,
+          "tool": "submit_boundaries"
+        }
+      ]
+    },
+    {
+      "completed_at": 1786329259558,
+      "elapsed_ms": 10097,
+      "input_chars": null,
+      "output_chars": 1123,
+      "stage": "boundaries",
+      "started_at": 1786329249461,
+      "tool_calls": [
+        {
+          "elapsed_ms": 68,
+          "tool": "submit_boundaries"
+        }
+      ]
+    }
+  ]
+}

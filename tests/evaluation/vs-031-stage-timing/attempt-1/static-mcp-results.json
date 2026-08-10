@@ -1,0 +1,3083 @@
+{
+  "cases": [
+    {
+      "actual_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "case_id": "jpetstore-6-summary",
+      "expected_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "golden": "static-mcp-jpetstore-6-summary-golden.md",
+      "golden_sha256": "4cb7865998591f1e63adc01492766cb229ae26c706f89e0bd1d03234062c402c",
+      "mode": "summary",
+      "reason": "OpenCode PTY did not produce a complete final Markdown report before timeout",
+      "status": "FAIL",
+      "target": "C:\\temp\\opencode-e2e-jpetstore-6",
+      "target_status_before": {
+        "returncode": 0,
+        "stderr": "",
+        "stdout": "## HEAD (no branch)\n"
+      },
+      "terminal_file": "C:\\Users\\박병찬\\Desktop\\analyze-repo-for-k8s-migration-skill-worktrees\\trusted-analysis-pipeline\\tests\\evaluation\\vs-031-stage-timing\\attempt-1\\jpetstore-6-summary\\terminal.log",
+      "tool_calls": [
+        {
+          "name": "analysis_start_analysis",
+          "row_time_created": 1786327402424,
+          "row_time_updated": 1786327404229,
+          "state": {
+            "input": {
+              "mode": "summary",
+              "target_path": "C:\\temp\\opencode-e2e-jpetstore-6"
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"accepted_output\": {}, \"analysis_id\": \"an_N9DU3xjtcn6MsukR7SIxBbm8\", \"completed_stage\": null, \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-discovery\", \"revision\": 0, \"stage_input\": {\"accepted_fact_refs\": [], \"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"candidate_ids\": [], \"mode\": \"summary\", \"survey\": {\"categories\": {\"build/package manifests\": true, \"container and orchestration declarations\": true, \"runtime configuration\": false, \"startup descriptors\": true}, \"observations\": [{\"category\": \"build/package manifests\", \"observation_ref\": \"obs_Vj3TKhSrkExRXwS1ucFyGH_U\", \"reference\": \"pom.xml:1\", \"status\": \"confirmed\"}, {\"category\": \"container and orchestration declarations\", \"observation_ref\": \"obs_9tMM1eQBnyHkC5Q_uWV_m8bI\", \"reference\": \"Dockerfile:1\", \"status\": \"confirmed\"}, {\"category\": \"container and orchestration declarations\", \"observation_ref\": \"obs_8mWbfargq_H5pIxXQrMj8jZw\", \"reference\": \"docker-compose.yaml:1\", \"status\": \"confirmed\"}, {\"category\": \"startup descriptors\", \"observation_ref\": \"obs_6Oth2OdOff0VzJU2RrMMbXHU\", \"reference\": \"src/main/webapp/WEB-INF/web.xml:1\", \"status\": \"confirmed\"}, {\"category\": \"startup descriptors\", \"observation_ref\": \"obs_akUOCbEmTMrmkCAoOr0JpX3y\", \"reference\": \"src/main/webapp/WEB-INF/applicationContext.xml:1\", \"status\": \"confirmed\"}, {\"category\": \"runtime configuration\", \"observation_ref\": \"obs_PVz5jSKiYQ5yZJ7QEULsmNwp\", \"status\": \"unknown\"}], \"stage\": \"discovery\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_KAdPPIM_tAXSihApAdIqKh4S\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786327404228,
+              "start": 1786327403612
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_submit_discovery",
+          "row_time_created": 1786327417824,
+          "row_time_updated": 1786327430604,
+          "state": {
+            "error": "{\"code\": \"unknown discovery payload field\", \"issues\": [\"unknown discovery payload field\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_ids": [
+                  "jpetstore-web"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_pom",
+                      "e_dockerfile",
+                      "e_web_xml"
+                    ],
+                    "id": "c_candidate_java_web",
+                    "scope": "jpetstore-web",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_dockerfile",
+                      "e_docker_compose"
+                    ],
+                    "id": "c_candidate_dockerized",
+                    "scope": "jpetstore-web",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_spring_xml"
+                    ],
+                    "id": "c_candidate_spring_app",
+                    "scope": "jpetstore-web",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_pom"
+                    ],
+                    "id": "c_candidate_maven_build",
+                    "scope": "jpetstore-web",
+                    "status": "confirmed"
+                  }
+                ],
+                "decisions": [
+                  "war_deployable"
+                ],
+                "discovery_fact_refs": [],
+                "evidence": [
+                  {
+                    "alias": "e_pom",
+                    "observation_ref": "obs_Vj3TKhSrkExRXwS1ucFyGH_U"
+                  },
+                  {
+                    "alias": "e_dockerfile",
+                    "observation_ref": "obs_9tMM1eQBnyHkC5Q_uWV_m8bI"
+                  },
+                  {
+                    "alias": "e_docker_compose",
+                    "observation_ref": "obs_8mWbfargq_H5pIxXQrMj8jZw"
+                  },
+                  {
+                    "alias": "e_web_xml",
+                    "observation_ref": "obs_6Oth2OdOff0VzJU2RrMMbXHU"
+                  },
+                  {
+                    "alias": "e_spring_xml",
+                    "observation_ref": "obs_akUOCbEmTMrmkCAoOr0JpX3y"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "signals": [
+                  "s_maven_pom",
+                  "s_dockerfile",
+                  "s_docker_compose",
+                  "s_web_xml",
+                  "s_spring_context"
+                ],
+                "stage": "discovery"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327430603,
+              "start": 1786327430467
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_discovery",
+          "row_time_created": 1786327434814,
+          "row_time_updated": 1786327447557,
+          "state": {
+            "input": {
+              "payload": {
+                "candidate_ids": [
+                  "jpetstore-web"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_pom",
+                      "e_dockerfile",
+                      "e_web_xml"
+                    ],
+                    "id": "c_candidate_java_web",
+                    "scope": "jpetstore-web",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_dockerfile",
+                      "e_docker_compose"
+                    ],
+                    "id": "c_candidate_dockerized",
+                    "scope": "jpetstore-web",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_spring_xml"
+                    ],
+                    "id": "c_candidate_spring_app",
+                    "scope": "jpetstore-web",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_pom"
+                    ],
+                    "id": "c_candidate_maven_build",
+                    "scope": "jpetstore-web",
+                    "status": "confirmed"
+                  }
+                ],
+                "decisions": [
+                  "war_deployable"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_pom",
+                    "observation_ref": "obs_Vj3TKhSrkExRXwS1ucFyGH_U"
+                  },
+                  {
+                    "alias": "e_dockerfile",
+                    "observation_ref": "obs_9tMM1eQBnyHkC5Q_uWV_m8bI"
+                  },
+                  {
+                    "alias": "e_docker_compose",
+                    "observation_ref": "obs_8mWbfargq_H5pIxXQrMj8jZw"
+                  },
+                  {
+                    "alias": "e_web_xml",
+                    "observation_ref": "obs_6Oth2OdOff0VzJU2RrMMbXHU"
+                  },
+                  {
+                    "alias": "e_spring_xml",
+                    "observation_ref": "obs_akUOCbEmTMrmkCAoOr0JpX3y"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "signals": [
+                  "s_maven_pom",
+                  "s_dockerfile",
+                  "s_docker_compose",
+                  "s_web_xml",
+                  "s_spring_context"
+                ],
+                "stage": "discovery"
+              }
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"accepted_output\": {\"candidate_ids\": [\"jpetstore-web\"], \"discovery_fact_refs\": [\"fact_discovery_c_candidate_java_web\", \"fact_discovery_c_candidate_dockerized\", \"fact_discovery_c_candidate_spring_app\", \"fact_discovery_c_candidate_maven_build\"], \"unknown_ids\": []}, \"analysis_id\": \"an_N9DU3xjtcn6MsukR7SIxBbm8\", \"completed_stage\": \"discovery\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-execution\", \"revision\": 1, \"stage_input\": {\"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"candidate_ids\": [\"jpetstore-web\"], \"discovery_fact_refs\": [\"fact_discovery_c_candidate_java_web\", \"fact_discovery_c_candidate_dockerized\", \"fact_discovery_c_candidate_spring_app\", \"fact_discovery_c_candidate_maven_build\"], \"mode\": \"summary\", \"survey\": {\"categories\": {\"build commands\": true, \"entrypoints\": true, \"image definitions\": true, \"listening ports\": true, \"runtime launch configuration\": false}, \"observations\": [{\"category\": \"build commands\", \"observation_ref\": \"obs_bVRI9D3u86BwI134JDGWWYBy\", \"reference\": \"Dockerfile:20\", \"status\": \"confirmed\"}, {\"category\": \"build commands\", \"observation_ref\": \"obs_vryoFmsXQW9zifQcjUTcX0AK\", \"reference\": \"mvnw:1\", \"status\": \"confirmed\"}, {\"category\": \"image definitions\", \"observation_ref\": \"obs_UzScybrKYJuX6cRMRAfkYxGj\", \"reference\": \"Dockerfile:17\", \"status\": \"confirmed\"}, {\"category\": \"entrypoints\", \"observation_ref\": \"obs_Q8yXh9gMNCFtGl-tz1S3FRMm\", \"reference\": \"Dockerfile:21\", \"status\": \"confirmed\"}, {\"category\": \"listening ports\", \"observation_ref\": \"obs_og41lPQvSP0h-0zFV8J_gZHQ\", \"reference\": \"docker-compose.yaml:24\", \"status\": \"confirmed\"}, {\"category\": \"runtime launch configuration\", \"observation_ref\": \"obs_jEck43cmMQuSGM6-dJKuykvr\", \"status\": \"unknown\"}], \"stage\": \"execution\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_RBxBMwAP19pgONT-VSwmqaIJ\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786327447557,
+              "start": 1786327447264
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_submit_execution",
+          "row_time_created": 1786327453086,
+          "row_time_updated": 1786327465404,
+          "state": {
+            "input": {
+              "payload": {
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_build_commands",
+                      "e_run_commands"
+                    ],
+                    "id": "c_build_maven",
+                    "scope": "jpetstore-web-process",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_image_definitions"
+                    ],
+                    "id": "c_image_docker",
+                    "scope": "jpetstore-web-process",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_entrypoints"
+                    ],
+                    "id": "c_entrypoint_java",
+                    "scope": "jpetstore-web-process",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_listening_ports"
+                    ],
+                    "id": "c_port_listening",
+                    "scope": "jpetstore-web-process",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_build_commands",
+                    "observation_ref": "obs_bVRI9D3u86BwI134JDGWWYBy"
+                  },
+                  {
+                    "alias": "e_entrypoints",
+                    "observation_ref": "obs_Q8yXh9gMNCFtGl-tz1S3FRMm"
+                  },
+                  {
+                    "alias": "e_image_definitions",
+                    "observation_ref": "obs_UzScybrKYJuX6cRMRAfkYxGj"
+                  },
+                  {
+                    "alias": "e_listening_ports",
+                    "observation_ref": "obs_og41lPQvSP0h-0zFV8J_gZHQ"
+                  },
+                  {
+                    "alias": "e_run_commands",
+                    "observation_ref": "obs_vryoFmsXQW9zifQcjUTcX0AK"
+                  }
+                ],
+                "process_ids": [
+                  "jpetstore-web-process"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "execution"
+              }
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"accepted_output\": {\"execution_fact_refs\": [\"fact_execution_c_build_maven\", \"fact_execution_c_image_docker\", \"fact_execution_c_entrypoint_java\", \"fact_execution_c_port_listening\"], \"process_ids\": [\"jpetstore-web-process\"], \"unknown_ids\": []}, \"analysis_id\": \"an_N9DU3xjtcn6MsukR7SIxBbm8\", \"completed_stage\": \"execution\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-relationships\", \"revision\": 2, \"stage_input\": {\"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"discovery_fact_refs\": [\"fact_discovery_c_candidate_java_web\", \"fact_discovery_c_candidate_dockerized\", \"fact_discovery_c_candidate_spring_app\", \"fact_discovery_c_candidate_maven_build\"], \"execution_fact_refs\": [\"fact_execution_c_build_maven\", \"fact_execution_c_image_docker\", \"fact_execution_c_entrypoint_java\", \"fact_execution_c_port_listening\"], \"mode\": \"summary\", \"process_ids\": [\"jpetstore-web-process\"], \"survey\": {\"categories\": {\"brokers, queues, caches\": false, \"connection settings\": false, \"declared dependencies\": true, \"identity and external service configuration\": false}, \"observations\": [{\"category\": \"declared dependencies\", \"observation_ref\": \"obs_2wddw2f4piIORMqD0KCg1q7R\", \"reference\": \"pom.xml:85\", \"status\": \"confirmed\"}, {\"category\": \"connection settings\", \"observation_ref\": \"obs_7SpMRRt-e3DNEE-Pk0AWAigP\", \"status\": \"unknown\"}, {\"category\": \"brokers, queues, caches\", \"observation_ref\": \"obs_PhX04o68gzGmBgyPQR-t22wD\", \"status\": \"unknown\"}, {\"category\": \"identity and external service configuration\", \"observation_ref\": \"obs_oxPlhAGU3RTMzhcd_o7CaUK3\", \"status\": \"unknown\"}], \"stage\": \"relationships\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_H3GUbYXPYGJjiR6OWiZ4eBsg\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786327465403,
+              "start": 1786327465180
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_submit_relationships",
+          "row_time_created": 1786327471481,
+          "row_time_updated": 1786327480918,
+          "state": {
+            "error": "{\"code\": \"invalid relationship endpoint_name\", \"issues\": [\"invalid relationship endpoint_name\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_declared_deps"
+                    ],
+                    "id": "c_dependency_db",
+                    "scope": "jpetstore-web-process",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_declared_deps",
+                    "observation_ref": "obs_2wddw2f4piIORMqD0KCg1q7R"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "graph_edges": [
+                  {
+                    "claim_ids": [
+                      "c_dependency_db"
+                    ],
+                    "dependency_type": "data_store",
+                    "endpoint_name": "MySQL Database",
+                    "execution_location": "server_process",
+                    "id": "edge_db_connection",
+                    "management_boundary": "externally_managed",
+                    "mechanism": "jdbc",
+                    "required_for_function": "confirmed",
+                    "source_process_id": "jpetstore-web-process",
+                    "startup_use": "unknown",
+                    "status": "confirmed",
+                    "target_id": "jpetstore-db-external",
+                    "target_kind": "external_system",
+                    "timing": "runtime"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "relationships"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327480918,
+              "start": 1786327480839
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_relationships",
+          "row_time_created": 1786327483176,
+          "row_time_updated": 1786327492845,
+          "state": {
+            "input": {
+              "payload": {
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_declared_deps"
+                    ],
+                    "id": "c_dependency_db",
+                    "scope": "jpetstore-web-process",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_declared_deps",
+                    "observation_ref": "obs_2wddw2f4piIORMqD0KCg1q7R"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "graph_edges": [
+                  {
+                    "claim_ids": [
+                      "c_dependency_db"
+                    ],
+                    "dependency_type": "data_store",
+                    "endpoint_name": "mysql-db",
+                    "execution_location": "server_process",
+                    "id": "edge_db_connection",
+                    "management_boundary": "externally_managed",
+                    "mechanism": "jdbc",
+                    "required_for_function": "confirmed",
+                    "source_process_id": "jpetstore-web-process",
+                    "startup_use": "unknown",
+                    "status": "confirmed",
+                    "target_id": "jpetstore-db-external",
+                    "target_kind": "external_system",
+                    "timing": "runtime"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "relationships"
+              }
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"accepted_output\": {\"graph_edge_ids\": [\"edge_db_connection\"], \"relationship_fact_refs\": [\"fact_relationships_c_dependency_db\"], \"unknown_ids\": []}, \"analysis_id\": \"an_N9DU3xjtcn6MsukR7SIxBbm8\", \"completed_stage\": \"relationships\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-boundaries\", \"revision\": 3, \"stage_input\": {\"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"candidate_ids\": [\"jpetstore-web\"], \"discovery_fact_refs\": [\"fact_discovery_c_candidate_java_web\", \"fact_discovery_c_candidate_dockerized\", \"fact_discovery_c_candidate_spring_app\", \"fact_discovery_c_candidate_maven_build\"], \"execution_fact_refs\": [\"fact_execution_c_build_maven\", \"fact_execution_c_image_docker\", \"fact_execution_c_entrypoint_java\", \"fact_execution_c_port_listening\"], \"graph_edge_ids\": [\"edge_db_connection\"], \"mode\": \"summary\", \"process_ids\": [\"jpetstore-web-process\"], \"relationship_fact_refs\": [\"fact_relationships_c_dependency_db\"], \"survey\": {\"categories\": {\"independent start definitions\": true, \"lifecycle signals\": false, \"persistent writable locations\": false, \"worker or schedule declarations\": false}, \"observations\": [{\"category\": \"independent start definitions\", \"observation_ref\": \"obs_02fcwDkXnxlDDO94s1Bg4U-0\", \"reference\": \"docker-compose.yaml:19\", \"status\": \"confirmed\"}, {\"category\": \"worker or schedule declarations\", \"observation_ref\": \"obs_ntxGy1HhnJfrzgUhcQZ2wBna\", \"status\": \"unknown\"}, {\"category\": \"lifecycle signals\", \"observation_ref\": \"obs_G2fDMo2fKGD_r-2uLBHgpo20\", \"status\": \"unknown\"}, {\"category\": \"persistent writable locations\", \"observation_ref\": \"obs_9Z2zWg4hXiQaWWmYPDYx0vIS\", \"status\": \"unknown\"}], \"stage\": \"boundaries\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_w7iJ_ZYqLaIXUTKFSWSemc5U\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786327492844,
+              "start": 1786327492509
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786327498814,
+          "row_time_updated": 1786327512360,
+          "state": {
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_start_def"
+                    ],
+                    "id": "c_boundary_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_start_def"
+                    ],
+                    "id": "c_boundary_lifecycle",
+                    "scope": "jpetstore-web-unit",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_start_def"
+                    ],
+                    "id": "c_boundary_state",
+                    "scope": "jpetstore-web-unit",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_start_def"
+                    ],
+                    "id": "c_boundary_deployable",
+                    "scope": "jpetstore-web-unit",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_start_def",
+                    "observation_ref": "obs_02fcwDkXnxlDDO94s1Bg4U-0"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "c_boundary_start"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [
+                      "c_boundary_deployable"
+                    ],
+                    "deployability_status": "confirmed",
+                    "deployable": true,
+                    "id": "jpetstore-web-unit",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "c_boundary_lifecycle"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web-process"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [
+                      "c_boundary_state"
+                    ],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"accepted_output\": {\"boundaries_fact_refs\": [\"fact_boundaries_c_boundary_start\", \"fact_boundaries_c_boundary_lifecycle\", \"fact_boundaries_c_boundary_state\", \"fact_boundaries_c_boundary_deployable\"], \"deployable_unit_ids\": [\"jpetstore-web-unit\"], \"excluded_candidate_ids\": [], \"included_candidate_ids\": [\"jpetstore-web\"], \"unit_ids\": [\"jpetstore-web-unit\"], \"unknown_ids\": []}, \"analysis_id\": \"an_N9DU3xjtcn6MsukR7SIxBbm8\", \"completed_stage\": \"boundaries\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-contracts\", \"revision\": 4, \"stage_input\": {\"boundaries_fact_refs\": [\"fact_boundaries_c_boundary_start\", \"fact_boundaries_c_boundary_lifecycle\", \"fact_boundaries_c_boundary_state\", \"fact_boundaries_c_boundary_deployable\"], \"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"deployable_unit_ids\": [\"jpetstore-web-unit\"], \"discovery_fact_refs\": [\"fact_discovery_c_candidate_java_web\", \"fact_discovery_c_candidate_dockerized\", \"fact_discovery_c_candidate_spring_app\", \"fact_discovery_c_candidate_maven_build\"], \"excluded_candidate_ids\": [], \"execution_fact_refs\": [\"fact_execution_c_build_maven\", \"fact_execution_c_image_docker\", \"fact_execution_c_entrypoint_java\", \"fact_execution_c_port_listening\"], \"fact_statuses\": {\"fact_boundaries_c_boundary_deployable\": \"confirmed\", \"fact_boundaries_c_boundary_lifecycle\": \"confirmed\", \"fact_boundaries_c_boundary_start\": \"confirmed\", \"fact_boundaries_c_boundary_state\": \"confirmed\", \"fact_discovery_c_candidate_dockerized\": \"confirmed\", \"fact_discovery_c_candidate_java_web\": \"confirmed\", \"fact_discovery_c_candidate_maven_build\": \"confirmed\", \"fact_discovery_c_candidate_spring_app\": \"confirmed\", \"fact_execution_c_build_maven\": \"confirmed\", \"fact_execution_c_entrypoint_java\": \"confirmed\", \"fact_execution_c_image_docker\": \"confirmed\", \"fact_execution_c_port_listening\": \"confirmed\", \"fact_relationships_c_dependency_db\": \"confirmed\"}, \"included_candidate_ids\": [\"jpetstore-web\"], \"mode\": \"summary\", \"relationship_fact_refs\": [\"fact_relationships_c_dependency_db\"], \"required_report_slot_ids\": [\"deployment_targets\", \"build_image_start\", \"reachable_port_or_path\", \"runtime_dependencies_state\", \"execution_conflicts\", \"credential_exposure\", \"minimum_design_inputs\"], \"survey\": {\"categories\": {\"configuration timing\": false, \"credentials markers\": false, \"health or readiness signals\": false, \"observability configuration\": false}, \"observations\": [{\"category\": \"configuration timing\", \"observation_ref\": \"obs_xIYnWt-7-rUoHhKNJrWJgVfc\", \"status\": \"unknown\"}, {\"category\": \"credentials markers\", \"observation_ref\": \"obs_BdlMvLycB0eCnIr27Yr9QTvI\", \"status\": \"unknown\"}, {\"category\": \"health or readiness signals\", \"observation_ref\": \"obs_NmBY2bp_Q2Ftaw13rgUUePlA\", \"status\": \"unknown\"}, {\"category\": \"observability configuration\", \"observation_ref\": \"obs_pbE4-j6xbkkgH6x7HZ6gfQoo\", \"status\": \"unknown\"}], \"stage\": \"contracts\", \"surveyed\": true}, \"unit_ids\": [\"jpetstore-web-unit\"], \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_9XQRZGhh-Bkq5SMMaegFRO1T\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786327512359,
+              "start": 1786327512145
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327518746,
+          "row_time_updated": 1786327540802,
+          "state": {
+            "error": "{\"code\": \"claim evidence aliases required\", \"issues\": [\"claim evidence aliases required\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  },
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [
+                      "fact_boundaries_c_boundary_start"
+                    ],
+                    "id": "deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_image_docker"
+                    ],
+                    "id": "build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_port_listening"
+                    ],
+                    "id": "reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [
+                      "fact_relationships_c_dependency_db"
+                    ],
+                    "id": "runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327540801,
+              "start": 1786327540729
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327542587,
+          "row_time_updated": 1786327565094,
+          "state": {
+            "error": "{\"code\": \"report slot fact stage mismatch\", \"issues\": [\"report slot fact stage mismatch\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  },
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [
+                      "fact_boundaries_c_boundary_start"
+                    ],
+                    "id": "deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_image_docker"
+                    ],
+                    "id": "build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_port_listening"
+                    ],
+                    "id": "reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [
+                      "fact_relationships_c_dependency_db"
+                    ],
+                    "id": "runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327565093,
+              "start": 1786327565024
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327567678,
+          "row_time_updated": 1786327590545,
+          "state": {
+            "error": "{\"code\": \"report slot fact stage mismatch\", \"issues\": [\"report slot fact stage mismatch\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  },
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [
+                      "fact_boundaries_c_boundary_deployable"
+                    ],
+                    "id": "deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_image_docker",
+                      "fact_execution_c_build_maven"
+                    ],
+                    "id": "build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_port_listening"
+                    ],
+                    "id": "reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [
+                      "fact_relationships_c_dependency_db"
+                    ],
+                    "id": "runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327590543,
+              "start": 1786327590432
+            }
+          }
+        },
+        {
+          "name": "analysis_locate_evidence",
+          "row_time_created": 1786327598999,
+          "row_time_updated": 1786327600057,
+          "state": {
+            "input": {
+              "glob": "**/analyze-k8s-contracts/references/report-slots.json"
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"budget\": {\"precision_calls_remaining\": 0, \"submit_rejections_remaining\": 0}, \"observation_ref\": \"obs_q8XhCy6lcIe9LtWpbFddbnRJ\", \"searched\": {\"glob\": \"**/analyze-k8s-contracts/references/report-slots.json\", \"pattern\": null, \"scope\": \".\"}, \"status\": \"not_found\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786327600056,
+              "start": 1786327599857
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327610234,
+          "row_time_updated": 1786327632764,
+          "state": {
+            "error": "{\"code\": \"report slot fact stage mismatch\", \"issues\": [\"report slot fact stage mismatch - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  },
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [
+                      "fact_boundaries_c_boundary_deployable"
+                    ],
+                    "id": "deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_image_docker",
+                      "fact_execution_c_build_maven"
+                    ],
+                    "id": "build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_port_listening"
+                    ],
+                    "id": "reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [
+                      "fact_relationships_c_dependency_db"
+                    ],
+                    "id": "runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327632762,
+              "start": 1786327632584
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327636580,
+          "row_time_updated": 1786327658727,
+          "state": {
+            "error": "{\"code\": \"report slot fact stage mismatch\", \"issues\": [\"report slot fact stage mismatch - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  },
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [
+                      "fact_boundaries_c_boundary_start"
+                    ],
+                    "id": "deployment_targets",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_image_docker"
+                    ],
+                    "id": "build_image_start",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [
+                      "fact_execution_c_port_listening"
+                    ],
+                    "id": "reachable_port_or_path",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [
+                      "fact_relationships_c_dependency_db"
+                    ],
+                    "id": "runtime_dependencies_state",
+                    "status": "confirmed"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327658724,
+              "start": 1786327658541
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327666575,
+          "row_time_updated": 1786327688031,
+          "state": {
+            "error": "{\"code\": \"unreferenced observation\", \"issues\": [\"unreferenced observation - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  },
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [],
+                    "id": "deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [],
+                    "id": "build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [],
+                    "id": "reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [],
+                    "id": "runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327688029,
+              "start": 1786327687845
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327689853,
+          "row_time_updated": 1786327714271,
+          "state": {
+            "error": "{\"code\": \"report slot evidence duplicate\", \"issues\": [\"report slot evidence duplicate - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing",
+                      "e_credentials",
+                      "e_health_signals",
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing",
+                      "e_credentials",
+                      "e_health_signals",
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing",
+                      "e_credentials",
+                      "e_health_signals",
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing",
+                      "e_credentials",
+                      "e_health_signals",
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing",
+                      "e_credentials",
+                      "e_health_signals",
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing",
+                      "e_credentials",
+                      "e_health_signals",
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing",
+                      "e_credentials",
+                      "e_health_signals",
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  },
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [],
+                    "id": "deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [],
+                    "id": "build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [],
+                    "id": "reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [],
+                    "id": "runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327714270,
+              "start": 1786327714090
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327716037,
+          "row_time_updated": 1786327737611,
+          "state": {
+            "error": "{\"code\": \"report slot evidence duplicate\", \"issues\": [\"report slot evidence duplicate - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  },
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [],
+                    "id": "deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [],
+                    "id": "build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [],
+                    "id": "reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [],
+                    "id": "runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327737609,
+              "start": 1786327737449
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327739427,
+          "row_time_updated": 1786327761059,
+          "state": {
+            "error": "{\"code\": \"report slot evidence duplicate\", \"issues\": [\"report slot evidence duplicate - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  },
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [],
+                    "id": "deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [],
+                    "id": "build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [],
+                    "id": "reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [],
+                    "id": "runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327761056,
+              "start": 1786327760912
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327764508,
+          "row_time_updated": 1786327786560,
+          "state": {
+            "error": "{\"code\": \"claim evidence aliases required\", \"issues\": [\"claim evidence aliases required - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "evidence_aliases": [],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "evidence_aliases": [],
+                    "id": "c_slot_credential_exposure",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "evidence_aliases": [],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "not_applicable"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  },
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [],
+                    "id": "deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [],
+                    "id": "build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [],
+                    "id": "reachable_port_or_path",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [],
+                    "id": "runtime_dependencies_state",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "not_applicable"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327786559,
+              "start": 1786327786402
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327788396,
+          "row_time_updated": 1786327810715,
+          "state": {
+            "error": "{\"code\": \"report slot evidence duplicate\", \"issues\": [\"report slot evidence duplicate - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials",
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials",
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots",
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  },
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [],
+                    "id": "deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [],
+                    "id": "build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [],
+                    "id": "reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [],
+                    "id": "runtime_dependencies_state",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327810713,
+              "start": 1786327810547
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327820383,
+          "row_time_updated": 1786327842603,
+          "state": {
+            "error": "{\"code\": \"report slot evidence duplicate\", \"issues\": [\"report slot evidence duplicate - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing",
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  },
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [],
+                    "id": "deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [],
+                    "id": "build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [],
+                    "id": "reachable_port_or_path",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [],
+                    "id": "runtime_dependencies_state",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_execution_conflicts"
+                    ],
+                    "fact_refs": [],
+                    "id": "execution_conflicts",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_credential_exposure"
+                    ],
+                    "fact_refs": [],
+                    "id": "credential_exposure",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_minimum_design_inputs"
+                    ],
+                    "fact_refs": [],
+                    "id": "minimum_design_inputs",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327842602,
+              "start": 1786327842531
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_contracts",
+          "row_time_created": 1786327853751,
+          "row_time_updated": 1786327870322,
+          "state": {
+            "error": "{\"code\": \"report slots do not close the selected mode\", \"issues\": [\"report slots do not close the selected mode - this is beyond the current contracts stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "boundaries_fact_refs": [
+                  "fact_boundaries_c_boundary_start",
+                  "fact_boundaries_c_boundary_lifecycle",
+                  "fact_boundaries_c_boundary_state",
+                  "fact_boundaries_c_boundary_deployable"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "e_config_timing"
+                    ],
+                    "id": "c_slot_deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_credentials"
+                    ],
+                    "id": "c_slot_build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_health_signals"
+                    ],
+                    "id": "c_slot_reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "e_report_slots"
+                    ],
+                    "id": "c_slot_runtime_dependencies_state",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_c_candidate_java_web",
+                  "fact_discovery_c_candidate_dockerized",
+                  "fact_discovery_c_candidate_spring_app",
+                  "fact_discovery_c_candidate_maven_build"
+                ],
+                "evidence": [
+                  {
+                    "alias": "e_config_timing",
+                    "observation_ref": "obs_xIYnWt-7-rUoHhKNJrWJgVfc"
+                  },
+                  {
+                    "alias": "e_credentials",
+                    "observation_ref": "obs_BdlMvLycB0eCnIr27Yr9QTvI"
+                  },
+                  {
+                    "alias": "e_health_signals",
+                    "observation_ref": "obs_NmBY2bp_Q2Ftaw13rgUUePlA"
+                  },
+                  {
+                    "alias": "e_report_slots",
+                    "observation_ref": "obs_pbE4-j6xbkkgH6x7HZ6gfQoo"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_c_build_maven",
+                  "fact_execution_c_image_docker",
+                  "fact_execution_c_entrypoint_java",
+                  "fact_execution_c_port_listening"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_c_dependency_db"
+                ],
+                "report_slots": [
+                  {
+                    "claim_ids": [
+                      "c_slot_deployment_targets"
+                    ],
+                    "fact_refs": [],
+                    "id": "deployment_targets",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_build_image_start"
+                    ],
+                    "fact_refs": [],
+                    "id": "build_image_start",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_reachable_port_or_path"
+                    ],
+                    "fact_refs": [],
+                    "id": "reachable_port_or_path",
+                    "status": "unknown"
+                  },
+                  {
+                    "claim_ids": [
+                      "c_slot_runtime_dependencies_state"
+                    ],
+                    "fact_refs": [],
+                    "id": "runtime_dependencies_state",
+                    "status": "unknown"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "contracts"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786327870322,
+              "start": 1786327870246
+            }
+          }
+        }
+      ],
+      "total_elapsed_ms": 609911,
+      "turns": [
+        {
+          "completed_at": 1786327403612,
+          "elapsed_ms": null,
+          "input_chars": null,
+          "output_chars": 72,
+          "stage": "dispatcher/start",
+          "started_at": null,
+          "tool_calls": [
+            {
+              "elapsed_ms": 616,
+              "tool": "start_analysis"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327430467,
+          "elapsed_ms": 26239,
+          "input_chars": 1570,
+          "output_chars": 1202,
+          "stage": "discovery",
+          "started_at": 1786327404228,
+          "tool_calls": [
+            {
+              "elapsed_ms": 136,
+              "tool": "submit_discovery"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327447264,
+          "elapsed_ms": 16661,
+          "input_chars": null,
+          "output_chars": 1175,
+          "stage": "discovery",
+          "started_at": 1786327430603,
+          "tool_calls": [
+            {
+              "elapsed_ms": 293,
+              "tool": "submit_discovery"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327465180,
+          "elapsed_ms": 17623,
+          "input_chars": 1868,
+          "output_chars": 1269,
+          "stage": "execution",
+          "started_at": 1786327447557,
+          "tool_calls": [
+            {
+              "elapsed_ms": 223,
+              "tool": "submit_execution"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327480839,
+          "elapsed_ms": 15436,
+          "input_chars": 1729,
+          "output_chars": 1147,
+          "stage": "relationships",
+          "started_at": 1786327465403,
+          "tool_calls": [
+            {
+              "elapsed_ms": 79,
+              "tool": "submit_relationships"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327492509,
+          "elapsed_ms": 11591,
+          "input_chars": null,
+          "output_chars": 1141,
+          "stage": "relationships",
+          "started_at": 1786327480918,
+          "tool_calls": [
+            {
+              "elapsed_ms": 335,
+              "tool": "submit_relationships"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327512145,
+          "elapsed_ms": 19301,
+          "input_chars": 1788,
+          "output_chars": 1630,
+          "stage": "boundaries",
+          "started_at": 1786327492844,
+          "tool_calls": [
+            {
+              "elapsed_ms": 214,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327540729,
+          "elapsed_ms": 28370,
+          "input_chars": 3041,
+          "output_chars": 2663,
+          "stage": "contracts",
+          "started_at": 1786327512359,
+          "tool_calls": [
+            {
+              "elapsed_ms": 72,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327565024,
+          "elapsed_ms": 24223,
+          "input_chars": null,
+          "output_chars": 2710,
+          "stage": "contracts",
+          "started_at": 1786327540801,
+          "tool_calls": [
+            {
+              "elapsed_ms": 69,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327590432,
+          "elapsed_ms": 25339,
+          "input_chars": null,
+          "output_chars": 2747,
+          "stage": "contracts",
+          "started_at": 1786327565093,
+          "tool_calls": [
+            {
+              "elapsed_ms": 111,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327599857,
+          "elapsed_ms": 9314,
+          "input_chars": null,
+          "output_chars": 65,
+          "stage": "unknown",
+          "started_at": 1786327590543,
+          "tool_calls": [
+            {
+              "elapsed_ms": 199,
+              "tool": "locate_evidence"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327632584,
+          "elapsed_ms": 32528,
+          "input_chars": 262,
+          "output_chars": 2747,
+          "stage": "contracts",
+          "started_at": 1786327600056,
+          "tool_calls": [
+            {
+              "elapsed_ms": 178,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327658541,
+          "elapsed_ms": 25779,
+          "input_chars": null,
+          "output_chars": 2710,
+          "stage": "contracts",
+          "started_at": 1786327632762,
+          "tool_calls": [
+            {
+              "elapsed_ms": 183,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327687845,
+          "elapsed_ms": 29121,
+          "input_chars": null,
+          "output_chars": 2561,
+          "stage": "contracts",
+          "started_at": 1786327658724,
+          "tool_calls": [
+            {
+              "elapsed_ms": 184,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327714090,
+          "elapsed_ms": 26061,
+          "input_chars": null,
+          "output_chars": 2951,
+          "stage": "contracts",
+          "started_at": 1786327688029,
+          "tool_calls": [
+            {
+              "elapsed_ms": 180,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327737449,
+          "elapsed_ms": 23179,
+          "input_chars": null,
+          "output_chars": 2560,
+          "stage": "contracts",
+          "started_at": 1786327714270,
+          "tool_calls": [
+            {
+              "elapsed_ms": 160,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327760912,
+          "elapsed_ms": 23303,
+          "input_chars": null,
+          "output_chars": 2560,
+          "stage": "contracts",
+          "started_at": 1786327737609,
+          "tool_calls": [
+            {
+              "elapsed_ms": 144,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327786402,
+          "elapsed_ms": 25346,
+          "input_chars": null,
+          "output_chars": 2583,
+          "stage": "contracts",
+          "started_at": 1786327761056,
+          "tool_calls": [
+            {
+              "elapsed_ms": 157,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327810547,
+          "elapsed_ms": 23988,
+          "input_chars": null,
+          "output_chars": 2615,
+          "stage": "contracts",
+          "started_at": 1786327786559,
+          "tool_calls": [
+            {
+              "elapsed_ms": 166,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327842531,
+          "elapsed_ms": 31818,
+          "input_chars": null,
+          "output_chars": 2607,
+          "stage": "contracts",
+          "started_at": 1786327810713,
+          "tool_calls": [
+            {
+              "elapsed_ms": 71,
+              "tool": "submit_contracts"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786327870246,
+          "elapsed_ms": 27644,
+          "input_chars": null,
+          "output_chars": 1916,
+          "stage": "contracts",
+          "started_at": 1786327842602,
+          "tool_calls": [
+            {
+              "elapsed_ms": 76,
+              "tool": "submit_contracts"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

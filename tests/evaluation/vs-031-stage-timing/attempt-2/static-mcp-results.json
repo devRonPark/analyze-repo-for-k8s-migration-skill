@@ -1,0 +1,3402 @@
+{
+  "cases": [
+    {
+      "actual_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "case_id": "jpetstore-6-summary",
+      "expected_revision": "e1dd9a31d1cef68793cd0933ae06898e6fcfa807",
+      "golden": "static-mcp-jpetstore-6-summary-golden.md",
+      "golden_sha256": "4cb7865998591f1e63adc01492766cb229ae26c706f89e0bd1d03234062c402c",
+      "mode": "summary",
+      "reason": "OpenCode PTY did not produce a complete final Markdown report before timeout",
+      "status": "FAIL",
+      "target": "C:\\temp\\opencode-e2e-jpetstore-6",
+      "target_status_before": {
+        "returncode": 0,
+        "stderr": "",
+        "stdout": "## HEAD (no branch)\n"
+      },
+      "terminal_file": "C:\\Users\\박병찬\\Desktop\\analyze-repo-for-k8s-migration-skill-worktrees\\trusted-analysis-pipeline\\tests\\evaluation\\vs-031-stage-timing\\attempt-2\\jpetstore-6-summary\\terminal.log",
+      "tool_calls": [
+        {
+          "name": "analysis_start_analysis",
+          "row_time_created": 1786328220759,
+          "row_time_updated": 1786328222505,
+          "state": {
+            "input": {
+              "mode": "summary",
+              "target_path": "C:\\temp\\opencode-e2e-jpetstore-6"
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"accepted_output\": {}, \"analysis_id\": \"an_NMbMGtFuQ_U44s-hHPm6b7hf\", \"completed_stage\": null, \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-discovery\", \"revision\": 0, \"stage_input\": {\"accepted_fact_refs\": [], \"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"candidate_ids\": [], \"mode\": \"summary\", \"survey\": {\"categories\": {\"build/package manifests\": true, \"container and orchestration declarations\": true, \"runtime configuration\": false, \"startup descriptors\": true}, \"observations\": [{\"category\": \"build/package manifests\", \"observation_ref\": \"obs_so0Rh8843ydZBNEPQc9cnSmL\", \"reference\": \"pom.xml:1\", \"status\": \"confirmed\"}, {\"category\": \"container and orchestration declarations\", \"observation_ref\": \"obs_8sn9NpCmXIfSR4VOQbVyLCuF\", \"reference\": \"Dockerfile:1\", \"status\": \"confirmed\"}, {\"category\": \"container and orchestration declarations\", \"observation_ref\": \"obs_LkePBjFXgLAF9TTSJapwltI8\", \"reference\": \"docker-compose.yaml:1\", \"status\": \"confirmed\"}, {\"category\": \"startup descriptors\", \"observation_ref\": \"obs_vHSyzW0KGrP1qKxbODAXCxgz\", \"reference\": \"src/main/webapp/WEB-INF/web.xml:1\", \"status\": \"confirmed\"}, {\"category\": \"startup descriptors\", \"observation_ref\": \"obs_YkWq0gP86sZlUNE_Ssg4mHVe\", \"reference\": \"src/main/webapp/WEB-INF/applicationContext.xml:1\", \"status\": \"confirmed\"}, {\"category\": \"runtime configuration\", \"observation_ref\": \"obs__oK3YX4T55atyJL2VrIH0Spy\", \"status\": \"unknown\"}], \"stage\": \"discovery\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_nKutwU4u5XeWm30mmtbiensr\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786328222504,
+              "start": 1786328221956
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_locate_evidence",
+          "row_time_created": 1786328235149,
+          "row_time_updated": 1786328235718,
+          "state": {
+            "input": {
+              "glob": "pom.xml"
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"budget\": {\"precision_calls_remaining\": 0, \"submit_rejections_remaining\": 3}, \"observation_ref\": \"obs_BX4nZaoOsak9hqdjOUNMViIO\", \"reference\": \"pom.xml:1\", \"status\": \"found\", \"value\": \"<?xml version=\\\"1.0\\\" encoding=\\\"UTF-8\\\"?>\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786328235717,
+              "start": 1786328235642
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_locate_evidence",
+          "row_time_created": 1786328236039,
+          "row_time_updated": 1786328236599,
+          "state": {
+            "error": "{\"code\": \"precision_budget_exhausted\", \"issues\": [\"the current discovery stage's one-call content-search budget (read_evidence/locate_evidence/list_target_paths) is exhausted; submit now with unknown/inferred status for anything still ungrounded\"], \"retryable\": false}",
+            "input": {
+              "glob": "Dockerfile"
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328236598,
+              "start": 1786328236565
+            }
+          }
+        },
+        {
+          "name": "analysis_locate_evidence",
+          "row_time_created": 1786328236980,
+          "row_time_updated": 1786328237525,
+          "state": {
+            "error": "{\"code\": \"precision_budget_exhausted\", \"issues\": [\"the current discovery stage's one-call content-search budget (read_evidence/locate_evidence/list_target_paths) is exhausted; submit now with unknown/inferred status for anything still ungrounded\"], \"retryable\": false}",
+            "input": {
+              "glob": "docker-compose.yaml"
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328237524,
+              "start": 1786328237488
+            }
+          }
+        },
+        {
+          "name": "analysis_locate_evidence",
+          "row_time_created": 1786328237884,
+          "row_time_updated": 1786328238471,
+          "state": {
+            "error": "{\"code\": \"precision_budget_exhausted\", \"issues\": [\"the current discovery stage's one-call content-search budget (read_evidence/locate_evidence/list_target_paths) is exhausted; submit now with unknown/inferred status for anything still ungrounded\"], \"retryable\": false}",
+            "input": {
+              "glob": "**/web.xml"
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328238471,
+              "start": 1786328238433
+            }
+          }
+        },
+        {
+          "name": "analysis_locate_evidence",
+          "row_time_created": 1786328238840,
+          "row_time_updated": 1786328239454,
+          "state": {
+            "error": "{\"code\": \"precision_budget_exhausted\", \"issues\": [\"the current discovery stage's one-call content-search budget (read_evidence/locate_evidence/list_target_paths) is exhausted; submit now with unknown/inferred status for anything still ungrounded\"], \"retryable\": false}",
+            "input": {
+              "glob": "**/applicationContext.xml"
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328239453,
+              "start": 1786328239414
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_discovery",
+          "row_time_created": 1786328244315,
+          "row_time_updated": 1786328261562,
+          "state": {
+            "error": "{\"code\": \"unreferenced observation\", \"issues\": [\"unreferenced observation\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_ids": [
+                  "jpetstore-web"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_pom"
+                    ],
+                    "id": "claim-java-maven",
+                    "scope": "jpetstore-web is a Java Maven 프로젝트",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_app_context"
+                    ],
+                    "id": "claim-spring-mvc",
+                    "scope": "Spring Framework 기반의 MVC 웹 애플리케이션",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_web_xml"
+                    ],
+                    "id": "claim-servlet-webapp",
+                    "scope": "WAR 기반의 서블릿 웹 애플리케이션",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_dockerfile"
+                    ],
+                    "id": "claim-dockerfile-exists",
+                    "scope": "Docker 이미지 빌드용 Dockerfile 존재",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_docker_compose"
+                    ],
+                    "id": "claim-docker-compose-exists",
+                    "scope": "docker-compose 기반의 다중 서비스 구성",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_web_xml"
+                    ],
+                    "id": "claim-stateless-decision",
+                    "scope": "Stateless 웹 애플리케이션",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_pom"
+                    ],
+                    "id": "claim-sql-database",
+                    "scope": "SQL 데이터베이스를 사용한 영구 저장소 (H2 또는 PostgreSQL)",
+                    "status": "confirmed"
+                  }
+                ],
+                "decisions": [
+                  "stateless"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_pom",
+                    "observation_ref": "obs_BX4nZaoOsak9hqdjOUNMViIO"
+                  },
+                  {
+                    "alias": "evidence_dockerfile",
+                    "observation_ref": "obs_8sn9NpCmXIfSR4VOQbVyLCuF"
+                  },
+                  {
+                    "alias": "evidence_docker_compose",
+                    "observation_ref": "obs_LkePBjFXgLAF9TTSJapwltI8"
+                  },
+                  {
+                    "alias": "evidence_web_xml",
+                    "observation_ref": "obs_vHSyzW0KGrP1qKxbODAXCxgz"
+                  },
+                  {
+                    "alias": "evidence_app_context",
+                    "observation_ref": "obs_YkWq0gP86sZlUNE_Ssg4mHVe"
+                  },
+                  {
+                    "alias": "evidence_runtime_unknown",
+                    "observation_ref": "obs__oK3YX4T55atyJL2VrIH0Spy"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "signals": [
+                  "java-maven",
+                  "tomcat-embedded",
+                  "spring-mvc",
+                  "postgresql"
+                ],
+                "stage": "discovery"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328261561,
+              "start": 1786328261493
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_discovery",
+          "row_time_created": 1786328263018,
+          "row_time_updated": 1786328277523,
+          "state": {
+            "error": "{\"code\": \"unreferenced observation\", \"issues\": [\"unreferenced observation\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_ids": [
+                  "jpetstore-web"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_pom"
+                    ],
+                    "id": "claim-java-maven",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_app_context"
+                    ],
+                    "id": "claim-spring-mvc",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_web_xml"
+                    ],
+                    "id": "claim-servlet-webapp",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_dockerfile"
+                    ],
+                    "id": "claim-dockerfile-exists",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_docker_compose"
+                    ],
+                    "id": "claim-docker-compose-exists",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_web_xml"
+                    ],
+                    "id": "claim-stateless-decision",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_pom"
+                    ],
+                    "id": "claim-sql-database",
+                    "status": "inferred"
+                  }
+                ],
+                "decisions": [
+                  "stateless"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_pom",
+                    "observation_ref": "obs_so0Rh8843ydZBNEPQc9cnSmL"
+                  },
+                  {
+                    "alias": "evidence_dockerfile",
+                    "observation_ref": "obs_8sn9NpCmXIfSR4VOQbVyLCuF"
+                  },
+                  {
+                    "alias": "evidence_docker_compose",
+                    "observation_ref": "obs_LkePBjFXgLAF9TTSJapwltI8"
+                  },
+                  {
+                    "alias": "evidence_web_xml",
+                    "observation_ref": "obs_vHSyzW0KGrP1qKxbODAXCxgz"
+                  },
+                  {
+                    "alias": "evidence_app_context",
+                    "observation_ref": "obs_YkWq0gP86sZlUNE_Ssg4mHVe"
+                  },
+                  {
+                    "alias": "evidence_runtime_config",
+                    "observation_ref": "obs__oK3YX4T55atyJL2VrIH0Spy"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "signals": [
+                  "java-maven",
+                  "tomcat-embedded",
+                  "spring-mvc",
+                  "postgresql"
+                ],
+                "stage": "discovery"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328277522,
+              "start": 1786328277422
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_discovery",
+          "row_time_created": 1786328288751,
+          "row_time_updated": 1786328301360,
+          "state": {
+            "input": {
+              "payload": {
+                "candidate_ids": [
+                  "jpetstore-web"
+                ],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_pom"
+                    ],
+                    "id": "claim-java-maven",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_app_context"
+                    ],
+                    "id": "claim-spring-mvc",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_web_xml"
+                    ],
+                    "id": "claim-servlet-webapp",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_dockerfile"
+                    ],
+                    "id": "claim-dockerfile-exists",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_docker_compose"
+                    ],
+                    "id": "claim-docker-compose-exists",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_web_xml"
+                    ],
+                    "id": "claim-stateless-decision",
+                    "status": "confirmed"
+                  }
+                ],
+                "decisions": [
+                  "stateless"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_pom",
+                    "observation_ref": "obs_so0Rh8843ydZBNEPQc9cnSmL"
+                  },
+                  {
+                    "alias": "evidence_dockerfile",
+                    "observation_ref": "obs_8sn9NpCmXIfSR4VOQbVyLCuF"
+                  },
+                  {
+                    "alias": "evidence_docker_compose",
+                    "observation_ref": "obs_LkePBjFXgLAF9TTSJapwltI8"
+                  },
+                  {
+                    "alias": "evidence_web_xml",
+                    "observation_ref": "obs_vHSyzW0KGrP1qKxbODAXCxgz"
+                  },
+                  {
+                    "alias": "evidence_app_context",
+                    "observation_ref": "obs_YkWq0gP86sZlUNE_Ssg4mHVe"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "signals": [
+                  "java-maven",
+                  "spring-mvc"
+                ],
+                "stage": "discovery"
+              }
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"accepted_output\": {\"candidate_ids\": [\"jpetstore-web\"], \"discovery_fact_refs\": [\"fact_discovery_claim-java-maven\", \"fact_discovery_claim-spring-mvc\", \"fact_discovery_claim-servlet-webapp\", \"fact_discovery_claim-dockerfile-exists\", \"fact_discovery_claim-docker-compose-exists\", \"fact_discovery_claim-stateless-decision\"], \"unknown_ids\": []}, \"analysis_id\": \"an_NMbMGtFuQ_U44s-hHPm6b7hf\", \"completed_stage\": \"discovery\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-execution\", \"revision\": 1, \"stage_input\": {\"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"candidate_ids\": [\"jpetstore-web\"], \"discovery_fact_refs\": [\"fact_discovery_claim-java-maven\", \"fact_discovery_claim-spring-mvc\", \"fact_discovery_claim-servlet-webapp\", \"fact_discovery_claim-dockerfile-exists\", \"fact_discovery_claim-docker-compose-exists\", \"fact_discovery_claim-stateless-decision\"], \"mode\": \"summary\", \"survey\": {\"categories\": {\"build commands\": true, \"entrypoints\": true, \"image definitions\": true, \"listening ports\": true, \"runtime launch configuration\": false}, \"observations\": [{\"category\": \"build commands\", \"observation_ref\": \"obs_HP9bYwLKX3lKNNCbJrLy13Bs\", \"reference\": \"Dockerfile:20\", \"status\": \"confirmed\"}, {\"category\": \"build commands\", \"observation_ref\": \"obs_49zaZolj_NeYMRQ6QwGYb5tQ\", \"reference\": \"mvnw:1\", \"status\": \"confirmed\"}, {\"category\": \"image definitions\", \"observation_ref\": \"obs_crtCIpcoc5f59MSlNNA2LcA4\", \"reference\": \"Dockerfile:17\", \"status\": \"confirmed\"}, {\"category\": \"entrypoints\", \"observation_ref\": \"obs_ewfDyolpP1hrDkaVb2PD9BMk\", \"reference\": \"Dockerfile:21\", \"status\": \"confirmed\"}, {\"category\": \"listening ports\", \"observation_ref\": \"obs_jR3KBPLVh_ajio3KroNI2E8h\", \"reference\": \"docker-compose.yaml:24\", \"status\": \"confirmed\"}, {\"category\": \"runtime launch configuration\", \"observation_ref\": \"obs_akvd57SWJCs4FW-JIRtEstkB\", \"status\": \"unknown\"}], \"stage\": \"execution\", \"surveyed\": true}, \"unknown_ids\": []}, \"status\": \"accepted\", \"transition_token\": \"tr_Croclg_5hwHCsKsewEjoij1j\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786328301359,
+              "start": 1786328300975
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_submit_execution",
+          "row_time_created": 1786328315827,
+          "row_time_updated": 1786328329667,
+          "state": {
+            "error": "{\"code\": \"unknown claim lacks scope/decision\", \"issues\": [\"unknown claim lacks scope/decision\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_build_commands",
+                      "evidence_mvnw"
+                    ],
+                    "id": "claim-maven-build",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_image_def"
+                    ],
+                    "id": "claim-docker-image",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_entrypoint"
+                    ],
+                    "id": "claim-entrypoint",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_listening_ports"
+                    ],
+                    "id": "claim-listening-port",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_runtime_config"
+                    ],
+                    "id": "claim-runtime-config",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_build_commands",
+                    "observation_ref": "obs_HP9bYwLKX3lKNNCbJrLy13Bs"
+                  },
+                  {
+                    "alias": "evidence_mvnw",
+                    "observation_ref": "obs_49zaZolj_NeYMRQ6QwGYb5tQ"
+                  },
+                  {
+                    "alias": "evidence_image_def",
+                    "observation_ref": "obs_crtCIpcoc5f59MSlNNA2LcA4"
+                  },
+                  {
+                    "alias": "evidence_entrypoint",
+                    "observation_ref": "obs_ewfDyolpP1hrDkaVb2PD9BMk"
+                  },
+                  {
+                    "alias": "evidence_listening_ports",
+                    "observation_ref": "obs_jR3KBPLVh_ajio3KroNI2E8h"
+                  },
+                  {
+                    "alias": "evidence_runtime_config",
+                    "observation_ref": "obs_akvd57SWJCs4FW-JIRtEstkB"
+                  }
+                ],
+                "process_ids": [
+                  "jpetstore-web"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "execution"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328329666,
+              "start": 1786328329593
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_execution",
+          "row_time_created": 1786328330805,
+          "row_time_updated": 1786328344827,
+          "state": {
+            "error": "{\"code\": \"unknown claim lacks scope/decision\", \"issues\": [\"unknown claim lacks scope/decision\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_build_commands",
+                      "evidence_mvnw"
+                    ],
+                    "id": "claim-maven-build",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_image_def"
+                    ],
+                    "id": "claim-docker-image",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_entrypoint"
+                    ],
+                    "id": "claim-entrypoint",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_listening_ports"
+                    ],
+                    "id": "claim-listening-port",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_runtime_config"
+                    ],
+                    "id": "claim-runtime-config",
+                    "scope": "runtime launch configuration",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_build_commands",
+                    "observation_ref": "obs_HP9bYwLKX3lKNNCbJrLy13Bs"
+                  },
+                  {
+                    "alias": "evidence_mvnw",
+                    "observation_ref": "obs_49zaZolj_NeYMRQ6QwGYb5tQ"
+                  },
+                  {
+                    "alias": "evidence_image_def",
+                    "observation_ref": "obs_crtCIpcoc5f59MSlNNA2LcA4"
+                  },
+                  {
+                    "alias": "evidence_entrypoint",
+                    "observation_ref": "obs_ewfDyolpP1hrDkaVb2PD9BMk"
+                  },
+                  {
+                    "alias": "evidence_listening_ports",
+                    "observation_ref": "obs_jR3KBPLVh_ajio3KroNI2E8h"
+                  },
+                  {
+                    "alias": "evidence_runtime_config",
+                    "observation_ref": "obs_akvd57SWJCs4FW-JIRtEstkB"
+                  }
+                ],
+                "process_ids": [
+                  "jpetstore-web"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "execution"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328344826,
+              "start": 1786328344762
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_execution",
+          "row_time_created": 1786328349157,
+          "row_time_updated": 1786328363530,
+          "state": {
+            "input": {
+              "payload": {
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_build_commands",
+                      "evidence_mvnw"
+                    ],
+                    "id": "claim-maven-build",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_image_def"
+                    ],
+                    "id": "claim-docker-image",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_entrypoint"
+                    ],
+                    "id": "claim-entrypoint",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_listening_ports"
+                    ],
+                    "id": "claim-listening-port",
+                    "status": "confirmed"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_runtime_config"
+                    ],
+                    "id": "claim-runtime-config",
+                    "scope": "runtime launch configuration",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_build_commands",
+                    "observation_ref": "obs_HP9bYwLKX3lKNNCbJrLy13Bs"
+                  },
+                  {
+                    "alias": "evidence_mvnw",
+                    "observation_ref": "obs_49zaZolj_NeYMRQ6QwGYb5tQ"
+                  },
+                  {
+                    "alias": "evidence_image_def",
+                    "observation_ref": "obs_crtCIpcoc5f59MSlNNA2LcA4"
+                  },
+                  {
+                    "alias": "evidence_entrypoint",
+                    "observation_ref": "obs_ewfDyolpP1hrDkaVb2PD9BMk"
+                  },
+                  {
+                    "alias": "evidence_listening_ports",
+                    "observation_ref": "obs_jR3KBPLVh_ajio3KroNI2E8h"
+                  },
+                  {
+                    "alias": "evidence_runtime_config",
+                    "observation_ref": "obs_akvd57SWJCs4FW-JIRtEstkB"
+                  }
+                ],
+                "process_ids": [
+                  "jpetstore-web"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "execution"
+              }
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"accepted_output\": {\"execution_fact_refs\": [\"fact_execution_claim-maven-build\", \"fact_execution_claim-docker-image\", \"fact_execution_claim-entrypoint\", \"fact_execution_claim-listening-port\"], \"process_ids\": [\"jpetstore-web\"], \"unknown_ids\": [\"claim-runtime-config\"]}, \"analysis_id\": \"an_NMbMGtFuQ_U44s-hHPm6b7hf\", \"completed_stage\": \"execution\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-relationships\", \"revision\": 2, \"stage_input\": {\"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"discovery_fact_refs\": [\"fact_discovery_claim-java-maven\", \"fact_discovery_claim-spring-mvc\", \"fact_discovery_claim-servlet-webapp\", \"fact_discovery_claim-dockerfile-exists\", \"fact_discovery_claim-docker-compose-exists\", \"fact_discovery_claim-stateless-decision\"], \"execution_fact_refs\": [\"fact_execution_claim-maven-build\", \"fact_execution_claim-docker-image\", \"fact_execution_claim-entrypoint\", \"fact_execution_claim-listening-port\"], \"mode\": \"summary\", \"process_ids\": [\"jpetstore-web\"], \"survey\": {\"categories\": {\"brokers, queues, caches\": false, \"connection settings\": false, \"declared dependencies\": true, \"identity and external service configuration\": false}, \"observations\": [{\"category\": \"declared dependencies\", \"observation_ref\": \"obs_HeBRcr7gZE981Zt7GvIzWPcr\", \"reference\": \"pom.xml:85\", \"status\": \"confirmed\"}, {\"category\": \"connection settings\", \"observation_ref\": \"obs_2NEIrUYFboBxnhfXsSIvv70t\", \"status\": \"unknown\"}, {\"category\": \"brokers, queues, caches\", \"observation_ref\": \"obs_CvmRC5IyStV1TvEChgsDuvKY\", \"status\": \"unknown\"}, {\"category\": \"identity and external service configuration\", \"observation_ref\": \"obs_29kOKCbZQCStn44l_c4-yxVG\", \"status\": \"unknown\"}], \"stage\": \"relationships\", \"surveyed\": true}, \"unknown_ids\": [\"claim-runtime-config\"]}, \"status\": \"accepted\", \"transition_token\": \"tr_bTeaI9xVsi_agcITL23BiLcr\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786328363529,
+              "start": 1786328363328
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_submit_relationships",
+          "row_time_created": 1786328374598,
+          "row_time_updated": 1786328387359,
+          "state": {
+            "error": "{\"code\": \"unreferenced observation\", \"issues\": [\"unreferenced observation\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_declared_deps"
+                    ],
+                    "id": "claim-needs-database",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_declared_deps",
+                    "observation_ref": "obs_HeBRcr7gZE981Zt7GvIzWPcr"
+                  },
+                  {
+                    "alias": "evidence_connection_settings",
+                    "observation_ref": "obs_2NEIrUYFboBxnhfXsSIvv70t"
+                  },
+                  {
+                    "alias": "evidence_brokers_queues",
+                    "observation_ref": "obs_CvmRC5IyStV1TvEChgsDuvKY"
+                  },
+                  {
+                    "alias": "evidence_identity_config",
+                    "observation_ref": "obs_29kOKCbZQCStn44l_c4-yxVG"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "graph_edges": [
+                  {
+                    "claim_ids": [
+                      "claim-needs-database"
+                    ],
+                    "dependency_type": "data_store",
+                    "endpoint_name": "petstore-mysql",
+                    "execution_location": "server_process",
+                    "id": "edge-jpetstore-db",
+                    "management_boundary": "externally_managed",
+                    "mechanism": "jdbc",
+                    "required_for_function": "confirmed",
+                    "source_process_id": "jpetstore-web",
+                    "startup_use": "unknown",
+                    "status": "confirmed",
+                    "target_id": "postgresql-db",
+                    "target_kind": "external_system",
+                    "timing": "runtime"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "relationships"
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328387358,
+              "start": 1786328387292
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_relationships",
+          "row_time_created": 1786328393327,
+          "row_time_updated": 1786328410274,
+          "state": {
+            "input": {
+              "payload": {
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_declared_deps"
+                    ],
+                    "id": "claim-needs-database",
+                    "status": "confirmed"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_connection_settings"
+                    ],
+                    "id": "claim-connection-settings-unknown",
+                    "scope": "connection settings",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_brokers_queues"
+                    ],
+                    "id": "claim-no-brokers-queues",
+                    "scope": "brokers, queues, caches",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_identity_config"
+                    ],
+                    "id": "claim-identity-config-unknown",
+                    "scope": "identity and external service configuration",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_declared_deps",
+                    "observation_ref": "obs_HeBRcr7gZE981Zt7GvIzWPcr"
+                  },
+                  {
+                    "alias": "evidence_connection_settings",
+                    "observation_ref": "obs_2NEIrUYFboBxnhfXsSIvv70t"
+                  },
+                  {
+                    "alias": "evidence_brokers_queues",
+                    "observation_ref": "obs_CvmRC5IyStV1TvEChgsDuvKY"
+                  },
+                  {
+                    "alias": "evidence_identity_config",
+                    "observation_ref": "obs_29kOKCbZQCStn44l_c4-yxVG"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "graph_edges": [
+                  {
+                    "claim_ids": [
+                      "claim-needs-database"
+                    ],
+                    "dependency_type": "data_store",
+                    "endpoint_name": "petstore-mysql",
+                    "execution_location": "server_process",
+                    "id": "edge-jpetstore-db",
+                    "management_boundary": "externally_managed",
+                    "mechanism": "jdbc",
+                    "required_for_function": "confirmed",
+                    "source_process_id": "jpetstore-web",
+                    "startup_use": "unknown",
+                    "status": "confirmed",
+                    "target_id": "postgresql-db",
+                    "target_kind": "external_system",
+                    "timing": "runtime"
+                  }
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "relationships"
+              }
+            },
+            "metadata": {
+              "truncated": false
+            },
+            "output": "{\"accepted_output\": {\"graph_edge_ids\": [\"edge-jpetstore-db\"], \"relationship_fact_refs\": [\"fact_relationships_claim-needs-database\"], \"unknown_ids\": [\"claim-connection-settings-unknown\", \"claim-no-brokers-queues\", \"claim-identity-config-unknown\"]}, \"analysis_id\": \"an_NMbMGtFuQ_U44s-hHPm6b7hf\", \"completed_stage\": \"relationships\", \"mode\": \"summary\", \"next_skill\": \"analyze-k8s-boundaries\", \"revision\": 3, \"stage_input\": {\"budget\": {\"precision_calls_remaining\": 1, \"submit_rejections_remaining\": 3}, \"candidate_ids\": [\"jpetstore-web\"], \"discovery_fact_refs\": [\"fact_discovery_claim-java-maven\", \"fact_discovery_claim-spring-mvc\", \"fact_discovery_claim-servlet-webapp\", \"fact_discovery_claim-dockerfile-exists\", \"fact_discovery_claim-docker-compose-exists\", \"fact_discovery_claim-stateless-decision\"], \"execution_fact_refs\": [\"fact_execution_claim-maven-build\", \"fact_execution_claim-docker-image\", \"fact_execution_claim-entrypoint\", \"fact_execution_claim-listening-port\"], \"graph_edge_ids\": [\"edge-jpetstore-db\"], \"mode\": \"summary\", \"process_ids\": [\"jpetstore-web\"], \"relationship_fact_refs\": [\"fact_relationships_claim-needs-database\"], \"survey\": {\"categories\": {\"independent start definitions\": true, \"lifecycle signals\": false, \"persistent writable locations\": false, \"worker or schedule declarations\": false}, \"observations\": [{\"category\": \"independent start definitions\", \"observation_ref\": \"obs_5D2rWD8NufWsYlHrQZCLRY2V\", \"reference\": \"docker-compose.yaml:19\", \"status\": \"confirmed\"}, {\"category\": \"worker or schedule declarations\", \"observation_ref\": \"obs_jIozDzIKD4UGdGzfMG0hpvy8\", \"status\": \"unknown\"}, {\"category\": \"lifecycle signals\", \"observation_ref\": \"obs_-x3Xs9XK8Lk4cVMYguIDkfLd\", \"status\": \"unknown\"}, {\"category\": \"persistent writable locations\", \"observation_ref\": \"obs_K1RUakA82Q0P1WX26IHkKYTW\", \"status\": \"unknown\"}], \"stage\": \"boundaries\", \"surveyed\": true}, \"unknown_ids\": [\"claim-connection-settings-unknown\", \"claim-no-brokers-queues\", \"claim-identity-config-unknown\"]}, \"status\": \"accepted\", \"transition_token\": \"tr_wenuxKnwAYOpU4fc5ALJCJ9S\"}",
+            "status": "completed",
+            "time": {
+              "end": 1786328410274,
+              "start": 1786328410079
+            },
+            "title": ""
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328423073,
+          "row_time_updated": 1786328440494,
+          "state": {
+            "error": "{\"code\": \"confirmed workload requires both boundary conditions\", \"issues\": [\"confirmed workload requires both boundary conditions\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_lifecycle_signals"
+                    ],
+                    "id": "claim-lifecycle-unknown",
+                    "scope": "lifecycle signals",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_worker_schedule"
+                    ],
+                    "id": "claim-worker-schedule-unknown",
+                    "scope": "worker or schedule declarations",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_persistent_writable"
+                    ],
+                    "id": "claim-persistent-unknown",
+                    "scope": "persistent writable locations",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  },
+                  {
+                    "alias": "evidence_worker_schedule",
+                    "observation_ref": "obs_jIozDzIKD4UGdGzfMG0hpvy8"
+                  },
+                  {
+                    "alias": "evidence_lifecycle_signals",
+                    "observation_ref": "obs_-x3Xs9XK8Lk4cVMYguIDkfLd"
+                  },
+                  {
+                    "alias": "evidence_persistent_writable",
+                    "observation_ref": "obs_K1RUakA82Q0P1WX26IHkKYTW"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "confirmed",
+                    "deployable": true,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-lifecycle-unknown"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328440494,
+              "start": 1786328440414
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328445581,
+          "row_time_updated": 1786328462970,
+          "state": {
+            "error": "{\"code\": \"deployable workload requires both boundary conditions\", \"issues\": [\"deployable workload requires both boundary conditions\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_lifecycle_signals"
+                    ],
+                    "id": "claim-lifecycle-unknown",
+                    "scope": "lifecycle signals",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_worker_schedule"
+                    ],
+                    "id": "claim-worker-schedule-unknown",
+                    "scope": "worker or schedule declarations",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_persistent_writable"
+                    ],
+                    "id": "claim-persistent-unknown",
+                    "scope": "persistent writable locations",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  },
+                  {
+                    "alias": "evidence_worker_schedule",
+                    "observation_ref": "obs_jIozDzIKD4UGdGzfMG0hpvy8"
+                  },
+                  {
+                    "alias": "evidence_lifecycle_signals",
+                    "observation_ref": "obs_-x3Xs9XK8Lk4cVMYguIDkfLd"
+                  },
+                  {
+                    "alias": "evidence_persistent_writable",
+                    "observation_ref": "obs_K1RUakA82Q0P1WX26IHkKYTW"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "unknown",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "confirmed",
+                    "deployable": true,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-lifecycle-unknown"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328462966,
+              "start": 1786328462868
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328465665,
+          "row_time_updated": 1786328483279,
+          "state": {
+            "error": "{\"code\": \"deployable workload requires both boundary conditions\", \"issues\": [\"deployable workload requires both boundary conditions\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_lifecycle_signals"
+                    ],
+                    "id": "claim-lifecycle-unknown",
+                    "scope": "lifecycle signals",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_worker_schedule"
+                    ],
+                    "id": "claim-worker-schedule-unknown",
+                    "scope": "worker or schedule declarations",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_persistent_writable"
+                    ],
+                    "id": "claim-persistent-unknown",
+                    "scope": "persistent writable locations",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  },
+                  {
+                    "alias": "evidence_worker_schedule",
+                    "observation_ref": "obs_jIozDzIKD4UGdGzfMG0hpvy8"
+                  },
+                  {
+                    "alias": "evidence_lifecycle_signals",
+                    "observation_ref": "obs_-x3Xs9XK8Lk4cVMYguIDkfLd"
+                  },
+                  {
+                    "alias": "evidence_persistent_writable",
+                    "observation_ref": "obs_K1RUakA82Q0P1WX26IHkKYTW"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "unknown",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "inferred",
+                    "deployable": true,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-lifecycle-unknown"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "unknown",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328483278,
+              "start": 1786328483127
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328489193,
+          "row_time_updated": 1786328506649,
+          "state": {
+            "error": "{\"code\": \"workload claim status mismatch\", \"issues\": [\"workload claim status mismatch - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_lifecycle_signals"
+                    ],
+                    "id": "claim-lifecycle-unknown",
+                    "scope": "lifecycle signals",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_worker_schedule"
+                    ],
+                    "id": "claim-worker-schedule-unknown",
+                    "scope": "worker or schedule declarations",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_persistent_writable"
+                    ],
+                    "id": "claim-persistent-unknown",
+                    "scope": "persistent writable locations",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  },
+                  {
+                    "alias": "evidence_worker_schedule",
+                    "observation_ref": "obs_jIozDzIKD4UGdGzfMG0hpvy8"
+                  },
+                  {
+                    "alias": "evidence_lifecycle_signals",
+                    "observation_ref": "obs_-x3Xs9XK8Lk4cVMYguIDkfLd"
+                  },
+                  {
+                    "alias": "evidence_persistent_writable",
+                    "observation_ref": "obs_K1RUakA82Q0P1WX26IHkKYTW"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "unknown",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-lifecycle-unknown"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "unknown",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328506648,
+              "start": 1786328506574
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328510715,
+          "row_time_updated": 1786328528496,
+          "state": {
+            "error": "{\"code\": \"unknown claim requires absence observation\", \"issues\": [\"unknown claim requires absence observation - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "scope": "independent start definitions",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_lifecycle_signals"
+                    ],
+                    "id": "claim-lifecycle-unknown",
+                    "scope": "lifecycle signals",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_worker_schedule"
+                    ],
+                    "id": "claim-worker-schedule-unknown",
+                    "scope": "worker or schedule declarations",
+                    "status": "unknown"
+                  },
+                  {
+                    "blocked_decision": "skip",
+                    "evidence_aliases": [
+                      "evidence_persistent_writable"
+                    ],
+                    "id": "claim-persistent-unknown",
+                    "scope": "persistent writable locations",
+                    "status": "unknown"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  },
+                  {
+                    "alias": "evidence_worker_schedule",
+                    "observation_ref": "obs_jIozDzIKD4UGdGzfMG0hpvy8"
+                  },
+                  {
+                    "alias": "evidence_lifecycle_signals",
+                    "observation_ref": "obs_-x3Xs9XK8Lk4cVMYguIDkfLd"
+                  },
+                  {
+                    "alias": "evidence_persistent_writable",
+                    "observation_ref": "obs_K1RUakA82Q0P1WX26IHkKYTW"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [],
+                    "boundary_status": "unknown",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-lifecycle-unknown"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "unknown",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328528496,
+              "start": 1786328528430
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328533884,
+          "row_time_updated": 1786328550039,
+          "state": {
+            "error": "{\"code\": \"workload claim status mismatch\", \"issues\": [\"workload claim status mismatch - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_lifecycle_signals"
+                    ],
+                    "id": "claim-lifecycle",
+                    "status": "inferred"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_worker_schedule"
+                    ],
+                    "id": "claim-worker-schedule",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "evidence_persistent_writable"
+                    ],
+                    "id": "claim-persistent",
+                    "status": "not_applicable"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  },
+                  {
+                    "alias": "evidence_worker_schedule",
+                    "observation_ref": "obs_jIozDzIKD4UGdGzfMG0hpvy8"
+                  },
+                  {
+                    "alias": "evidence_lifecycle_signals",
+                    "observation_ref": "obs_-x3Xs9XK8Lk4cVMYguIDkfLd"
+                  },
+                  {
+                    "alias": "evidence_persistent_writable",
+                    "observation_ref": "obs_K1RUakA82Q0P1WX26IHkKYTW"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition",
+                      "claim-lifecycle"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "confirmed",
+                    "deployable": true,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-lifecycle"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328550038,
+              "start": 1786328549942
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328557174,
+          "row_time_updated": 1786328567312,
+          "state": {
+            "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [],
+                    "boundary_status": "unknown",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "unknown",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328567311,
+              "start": 1786328567226
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328571011,
+          "row_time_updated": 1786328581237,
+          "state": {
+            "error": "{\"code\": \"workload claim status mismatch\", \"issues\": [\"workload claim status mismatch - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "unknown",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328581236,
+              "start": 1786328581165
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328584267,
+          "row_time_updated": 1786328594509,
+          "state": {
+            "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328594509,
+              "start": 1786328594436
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328597983,
+          "row_time_updated": 1786328608313,
+          "state": {
+            "error": "{\"code\": \"workload claim duplicate\", \"issues\": [\"workload claim duplicate - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328608312,
+              "start": 1786328608246
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328612421,
+          "row_time_updated": 1786328622638,
+          "state": {
+            "error": "{\"code\": \"workload claim status mismatch\", \"issues\": [\"workload claim status mismatch - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "unknown",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328622637,
+              "start": 1786328622565
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328626309,
+          "row_time_updated": 1786328636567,
+          "state": {
+            "error": "{\"code\": \"confirmed workload requires both boundary conditions\", \"issues\": [\"confirmed workload requires both boundary conditions - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328636566,
+              "start": 1786328636499
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328641640,
+          "row_time_updated": 1786328651949,
+          "state": {
+            "error": "{\"code\": \"workload claim duplicate\", \"issues\": [\"workload claim duplicate - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "evidence_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "evidence_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328651948,
+              "start": 1786328651887
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328658886,
+          "row_time_updated": 1786328667220,
+          "state": {
+            "error": "{\"code\": \"boundaries requires trusted evidence and claims\", \"issues\": [\"boundaries requires trusted evidence and claims - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [],
+                    "boundary_status": "unknown",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "unknown",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328667220,
+              "start": 1786328667156
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328672451,
+          "row_time_updated": 1786328681335,
+          "state": {
+            "error": "{\"code\": \"boundaries requires trusted evidence and claims\", \"issues\": [\"boundaries requires trusted evidence and claims - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [],
+                    "id": "claim-boundary",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328681335,
+              "start": 1786328681266
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328684729,
+          "row_time_updated": 1786328694750,
+          "state": {
+            "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "obs_start_def"
+                    ],
+                    "id": "claim-boundary",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "obs_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328694749,
+              "start": 1786328694669
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328701442,
+          "row_time_updated": 1786328711547,
+          "state": {
+            "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "obs_start_def"
+                    ],
+                    "id": "claim-boundary",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "obs_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-boundary"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328711547,
+              "start": 1786328711475
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328717285,
+          "row_time_updated": 1786328728165,
+          "state": {
+            "error": "{\"code\": \"claim evidence aliases required\", \"issues\": [\"claim evidence aliases required - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "obs_start_def"
+                    ],
+                    "id": "claim-boundary",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [],
+                    "id": "claim-lifecycle",
+                    "status": "inferred"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "obs_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-boundary"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-lifecycle"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328728164,
+              "start": 1786328728097
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328736981,
+          "row_time_updated": 1786328747157,
+          "state": {
+            "error": "{\"code\": \"workload claim status mismatch\", \"issues\": [\"workload claim status mismatch - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "obs_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "obs_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "unknown",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "unknown",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328747155,
+              "start": 1786328747034
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328750036,
+          "row_time_updated": 1786328760176,
+          "state": {
+            "error": "{\"code\": \"workload claim dangling\", \"issues\": [\"workload claim dangling - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "obs_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "obs_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328760175,
+              "start": 1786328760100
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328767689,
+          "row_time_updated": 1786328777899,
+          "state": {
+            "error": "{\"code\": \"workload claim duplicate\", \"issues\": [\"workload claim duplicate - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "obs_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "obs_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328777899,
+              "start": 1786328777833
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328785538,
+          "row_time_updated": 1786328797426,
+          "state": {
+            "error": "{\"code\": \"observation_stage_mismatch\", \"issues\": [\"payload.evidence observation_ref values must be issued in the current boundaries stage; incoming *_fact_refs are accepted facts, not observation_ref values - this is beyond the current boundaries stage's submission retry budget; resubmitting the same payload will not succeed, resolve the specific issue above or submit with unknown/inferred status on whatever it cannot ground\"], \"retryable\": false}",
+            "input": {
+              "payload": {
+                "candidate_exclusions": [],
+                "claims": [
+                  {
+                    "evidence_aliases": [
+                      "obs_start_def"
+                    ],
+                    "id": "claim-start-definition",
+                    "status": "confirmed"
+                  },
+                  {
+                    "evidence_aliases": [
+                      "obs_stateless"
+                    ],
+                    "id": "claim-lifecycle",
+                    "status": "inferred"
+                  }
+                ],
+                "discovery_fact_refs": [
+                  "fact_discovery_claim-java-maven",
+                  "fact_discovery_claim-spring-mvc",
+                  "fact_discovery_claim-servlet-webapp",
+                  "fact_discovery_claim-dockerfile-exists",
+                  "fact_discovery_claim-docker-compose-exists",
+                  "fact_discovery_claim-stateless-decision"
+                ],
+                "evidence": [
+                  {
+                    "alias": "obs_start_def",
+                    "observation_ref": "obs_5D2rWD8NufWsYlHrQZCLRY2V"
+                  },
+                  {
+                    "alias": "obs_stateless",
+                    "observation_ref": "obs_vHSyzW0KGrP1qKxbODAXCxgz"
+                  }
+                ],
+                "execution_fact_refs": [
+                  "fact_execution_claim-maven-build",
+                  "fact_execution_claim-docker-image",
+                  "fact_execution_claim-entrypoint",
+                  "fact_execution_claim-listening-port"
+                ],
+                "relationship_fact_refs": [
+                  "fact_relationships_claim-needs-database"
+                ],
+                "rule_applications": [],
+                "schema_version": 1,
+                "stage": "boundaries",
+                "workload_units": [
+                  {
+                    "boundary_claim_ids": [
+                      "claim-start-definition"
+                    ],
+                    "boundary_status": "confirmed",
+                    "candidate_ids": [
+                      "jpetstore-web"
+                    ],
+                    "deployability_claim_ids": [],
+                    "deployability_status": "unknown",
+                    "deployable": false,
+                    "id": "jpetstore-web",
+                    "independent_lifecycle_status": "confirmed",
+                    "lifecycle": "continuous",
+                    "lifecycle_claim_ids": [
+                      "claim-lifecycle"
+                    ],
+                    "process_ids": [
+                      "jpetstore-web"
+                    ],
+                    "start_definition_status": "confirmed",
+                    "state_claim_ids": [],
+                    "state_decision": "stateless"
+                  }
+                ]
+              }
+            },
+            "status": "error",
+            "time": {
+              "end": 1786328797425,
+              "start": 1786328797346
+            }
+          }
+        },
+        {
+          "name": "analysis_submit_boundaries",
+          "row_time_created": 1786328805202,
+          "row_time_updated": 1786328805204,
+          "state": {
+            "input": {},
+            "raw": "",
+            "status": "pending"
+          }
+        }
+      ],
+      "total_elapsed_ms": 609680,
+      "turns": [
+        {
+          "completed_at": 1786328221956,
+          "elapsed_ms": null,
+          "input_chars": null,
+          "output_chars": 72,
+          "stage": "dispatcher/start",
+          "started_at": null,
+          "tool_calls": [
+            {
+              "elapsed_ms": 548,
+              "tool": "start_analysis"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328235642,
+          "elapsed_ms": 13138,
+          "input_chars": 1570,
+          "output_chars": 19,
+          "stage": "discovery",
+          "started_at": 1786328222504,
+          "tool_calls": [
+            {
+              "elapsed_ms": 75,
+              "tool": "locate_evidence"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328236565,
+          "elapsed_ms": 848,
+          "input_chars": 229,
+          "output_chars": 22,
+          "stage": "discovery",
+          "started_at": 1786328235717,
+          "tool_calls": [
+            {
+              "elapsed_ms": 33,
+              "tool": "locate_evidence"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328237488,
+          "elapsed_ms": 890,
+          "input_chars": null,
+          "output_chars": 31,
+          "stage": "discovery",
+          "started_at": 1786328236598,
+          "tool_calls": [
+            {
+              "elapsed_ms": 36,
+              "tool": "locate_evidence"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328238433,
+          "elapsed_ms": 909,
+          "input_chars": null,
+          "output_chars": 22,
+          "stage": "discovery",
+          "started_at": 1786328237524,
+          "tool_calls": [
+            {
+              "elapsed_ms": 38,
+              "tool": "locate_evidence"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328239414,
+          "elapsed_ms": 943,
+          "input_chars": null,
+          "output_chars": 37,
+          "stage": "discovery",
+          "started_at": 1786328238471,
+          "tool_calls": [
+            {
+              "elapsed_ms": 39,
+              "tool": "locate_evidence"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328261493,
+          "elapsed_ms": 22040,
+          "input_chars": null,
+          "output_chars": 1737,
+          "stage": "discovery",
+          "started_at": 1786328239453,
+          "tool_calls": [
+            {
+              "elapsed_ms": 68,
+              "tool": "submit_discovery"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328277422,
+          "elapsed_ms": 15861,
+          "input_chars": null,
+          "output_chars": 1442,
+          "stage": "discovery",
+          "started_at": 1786328261561,
+          "tool_calls": [
+            {
+              "elapsed_ms": 100,
+              "tool": "submit_discovery"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328300975,
+          "elapsed_ms": 23453,
+          "input_chars": null,
+          "output_chars": 1230,
+          "stage": "discovery",
+          "started_at": 1786328277522,
+          "tool_calls": [
+            {
+              "elapsed_ms": 384,
+              "tool": "submit_discovery"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328329593,
+          "elapsed_ms": 28234,
+          "input_chars": 2022,
+          "output_chars": 1440,
+          "stage": "execution",
+          "started_at": 1786328301359,
+          "tool_calls": [
+            {
+              "elapsed_ms": 73,
+              "tool": "submit_execution"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328344762,
+          "elapsed_ms": 15096,
+          "input_chars": null,
+          "output_chars": 1481,
+          "stage": "execution",
+          "started_at": 1786328329666,
+          "tool_calls": [
+            {
+              "elapsed_ms": 64,
+              "tool": "submit_execution"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328363328,
+          "elapsed_ms": 18502,
+          "input_chars": null,
+          "output_chars": 1509,
+          "stage": "execution",
+          "started_at": 1786328344826,
+          "tool_calls": [
+            {
+              "elapsed_ms": 201,
+              "tool": "submit_execution"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328387292,
+          "elapsed_ms": 23763,
+          "input_chars": 1856,
+          "output_chars": 1481,
+          "stage": "relationships",
+          "started_at": 1786328363529,
+          "tool_calls": [
+            {
+              "elapsed_ms": 66,
+              "tool": "submit_relationships"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328410079,
+          "elapsed_ms": 22721,
+          "input_chars": null,
+          "output_chars": 2026,
+          "stage": "relationships",
+          "started_at": 1786328387358,
+          "tool_calls": [
+            {
+              "elapsed_ms": 195,
+              "tool": "submit_relationships"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328440414,
+          "elapsed_ms": 30140,
+          "input_chars": 2066,
+          "output_chars": 2137,
+          "stage": "boundaries",
+          "started_at": 1786328410274,
+          "tool_calls": [
+            {
+              "elapsed_ms": 80,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328462868,
+          "elapsed_ms": 22374,
+          "input_chars": null,
+          "output_chars": 2135,
+          "stage": "boundaries",
+          "started_at": 1786328440494,
+          "tool_calls": [
+            {
+              "elapsed_ms": 98,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328483127,
+          "elapsed_ms": 20161,
+          "input_chars": null,
+          "output_chars": 2132,
+          "stage": "boundaries",
+          "started_at": 1786328462966,
+          "tool_calls": [
+            {
+              "elapsed_ms": 151,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328506574,
+          "elapsed_ms": 23296,
+          "input_chars": null,
+          "output_chars": 2132,
+          "stage": "boundaries",
+          "started_at": 1786328483278,
+          "tool_calls": [
+            {
+              "elapsed_ms": 74,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328528430,
+          "elapsed_ms": 21782,
+          "input_chars": null,
+          "output_chars": 2176,
+          "stage": "boundaries",
+          "started_at": 1786328506648,
+          "tool_calls": [
+            {
+              "elapsed_ms": 66,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328549942,
+          "elapsed_ms": 21446,
+          "input_chars": null,
+          "output_chars": 1941,
+          "stage": "boundaries",
+          "started_at": 1786328528496,
+          "tool_calls": [
+            {
+              "elapsed_ms": 96,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328567226,
+          "elapsed_ms": 17188,
+          "input_chars": null,
+          "output_chars": 1276,
+          "stage": "boundaries",
+          "started_at": 1786328550038,
+          "tool_calls": [
+            {
+              "elapsed_ms": 85,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328581165,
+          "elapsed_ms": 13854,
+          "input_chars": null,
+          "output_chars": 1302,
+          "stage": "boundaries",
+          "started_at": 1786328567311,
+          "tool_calls": [
+            {
+              "elapsed_ms": 71,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328594436,
+          "elapsed_ms": 13200,
+          "input_chars": null,
+          "output_chars": 1306,
+          "stage": "boundaries",
+          "started_at": 1786328581236,
+          "tool_calls": [
+            {
+              "elapsed_ms": 73,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328608246,
+          "elapsed_ms": 13737,
+          "input_chars": null,
+          "output_chars": 1330,
+          "stage": "boundaries",
+          "started_at": 1786328594509,
+          "tool_calls": [
+            {
+              "elapsed_ms": 66,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328622565,
+          "elapsed_ms": 14253,
+          "input_chars": null,
+          "output_chars": 1302,
+          "stage": "boundaries",
+          "started_at": 1786328608312,
+          "tool_calls": [
+            {
+              "elapsed_ms": 72,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328636499,
+          "elapsed_ms": 13862,
+          "input_chars": null,
+          "output_chars": 1304,
+          "stage": "boundaries",
+          "started_at": 1786328622637,
+          "tool_calls": [
+            {
+              "elapsed_ms": 67,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328651887,
+          "elapsed_ms": 15321,
+          "input_chars": null,
+          "output_chars": 1330,
+          "stage": "boundaries",
+          "started_at": 1786328636566,
+          "tool_calls": [
+            {
+              "elapsed_ms": 61,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328667156,
+          "elapsed_ms": 15208,
+          "input_chars": null,
+          "output_chars": 1095,
+          "stage": "boundaries",
+          "started_at": 1786328651948,
+          "tool_calls": [
+            {
+              "elapsed_ms": 64,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328681266,
+          "elapsed_ms": 14046,
+          "input_chars": null,
+          "output_chars": 1172,
+          "stage": "boundaries",
+          "started_at": 1786328667220,
+          "tool_calls": [
+            {
+              "elapsed_ms": 69,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328694669,
+          "elapsed_ms": 13334,
+          "input_chars": null,
+          "output_chars": 1264,
+          "stage": "boundaries",
+          "started_at": 1786328681335,
+          "tool_calls": [
+            {
+              "elapsed_ms": 80,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328711475,
+          "elapsed_ms": 16726,
+          "input_chars": null,
+          "output_chars": 1280,
+          "stage": "boundaries",
+          "started_at": 1786328694749,
+          "tool_calls": [
+            {
+              "elapsed_ms": 72,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328728097,
+          "elapsed_ms": 16550,
+          "input_chars": null,
+          "output_chars": 1370,
+          "stage": "boundaries",
+          "started_at": 1786328711547,
+          "tool_calls": [
+            {
+              "elapsed_ms": 67,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328747034,
+          "elapsed_ms": 18870,
+          "input_chars": null,
+          "output_chars": 1292,
+          "stage": "boundaries",
+          "started_at": 1786328728164,
+          "tool_calls": [
+            {
+              "elapsed_ms": 121,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328760100,
+          "elapsed_ms": 12945,
+          "input_chars": null,
+          "output_chars": 1296,
+          "stage": "boundaries",
+          "started_at": 1786328747155,
+          "tool_calls": [
+            {
+              "elapsed_ms": 75,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328777833,
+          "elapsed_ms": 17658,
+          "input_chars": null,
+          "output_chars": 1320,
+          "stage": "boundaries",
+          "started_at": 1786328760175,
+          "tool_calls": [
+            {
+              "elapsed_ms": 66,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328797346,
+          "elapsed_ms": 19447,
+          "input_chars": null,
+          "output_chars": 1480,
+          "stage": "boundaries",
+          "started_at": 1786328777899,
+          "tool_calls": [
+            {
+              "elapsed_ms": 79,
+              "tool": "submit_boundaries"
+            }
+          ]
+        },
+        {
+          "completed_at": 1786328805202,
+          "elapsed_ms": 7777,
+          "input_chars": null,
+          "output_chars": 2,
+          "stage": "boundaries",
+          "started_at": 1786328797425,
+          "tool_calls": [
+            {
+              "elapsed_ms": 2,
+              "tool": "submit_boundaries"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

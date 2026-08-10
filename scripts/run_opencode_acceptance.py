@@ -1603,20 +1603,220 @@ def _static_assistant_markdown(database: Path) -> str:
     return "\n".join(text_parts)
 
 
+STATIC_MCP_PRECISION_TOOLS = ("read_evidence", "locate_evidence", "list_target_paths")
+STATIC_MCP_REOPEN_TOOL = "reopen_analysis"
+
+
 def _static_tool_calls(database: Path) -> list[dict[str, Any]]:
-    """Extract named MCP tool parts while preserving their emitted state."""
-    expected_tools = {tool for tool, _ in STATIC_MCP_TOOL_SEQUENCE}
+    """Extract named MCP tool parts while preserving their emitted state and row timing.
+
+    Includes the precision-budget and reopen tools (not only the accepted
+    `STATIC_MCP_TOOL_SEQUENCE` calls) so `attribute_stage_timeline` can build a
+    complete per-turn timeline, not just the sequence-contract-relevant subset.
+    """
+    expected_tools = (
+        {tool for tool, _ in STATIC_MCP_TOOL_SEQUENCE}
+        | set(STATIC_MCP_PRECISION_TOOLS)
+        | {STATIC_MCP_REOPEN_TOOL}
+    )
     calls: list[dict[str, Any]] = []
     for record in _static_db_records(database):
         for payload in _static_json_objects(record):
             name = payload.get("name", payload.get("tool"))
             if payload.get("type") == "tool" and _tool_name(name) in expected_tools:
-                calls.append({"name": name, "state": payload.get("state", payload)})
+                call = {"name": name, "state": payload.get("state", payload)}
+                columns = record.get("columns", {})
+                row_created = columns.get("time_created")
+                row_updated = columns.get("time_updated")
+                if isinstance(row_created, (int, float)):
+                    call["row_time_created"] = row_created
+                if isinstance(row_updated, (int, float)):
+                    call["row_time_updated"] = row_updated
+                calls.append(call)
     unique: list[dict[str, Any]] = []
     for call in calls:
         if call not in unique:
             unique.append(call)
     return unique
+
+
+STAGE_TIMING_ORDER = ("discovery", "execution", "relationships", "boundaries", "contracts")
+# Mirrors runtime/python/analysis_pipeline/protocol.py STAGES, kept as an
+# independent literal here the same way STATIC_MCP_TOOL_SEQUENCE already is,
+# so this measurement code has no import dependency on the trusted server.
+
+_STAGE_ENTRY_TOOL: dict[str, str] = {f"submit_{stage}": stage for stage in STAGE_TIMING_ORDER}
+_STAGE_ENTRY_TOOL["start_analysis"] = "dispatcher/start"
+_STAGE_ENTRY_TOOL["finalize_analysis"] = "finalize"
+
+_NEXT_STAGE_AFTER: dict[str, str] = {"dispatcher/start": STAGE_TIMING_ORDER[0]}
+for _index, _stage in enumerate(STAGE_TIMING_ORDER):
+    _NEXT_STAGE_AFTER[_stage] = (
+        STAGE_TIMING_ORDER[_index + 1] if _index + 1 < len(STAGE_TIMING_ORDER) else "finalize"
+    )
+
+
+def _tool_call_time_window(call: dict[str, Any]) -> tuple[int | None, int | None]:
+    """Best-available (start_ms, end_ms) for one tool call.
+
+    Prefers OpenCode's own `state.time.{start,end}` (present on the NDJSON
+    path today; may or may not be populated on the PTY/SQLite path -- an open
+    question this ticket's live E2E run resolves). Falls back to the SQLite
+    row's `time_created`/`time_updated` columns when `state.time` is absent.
+    Returns `(None, None)` rather than a fabricated value when neither source
+    is available.
+    """
+    state = call.get("state")
+    if isinstance(state, dict):
+        window = state.get("time")
+        if isinstance(window, dict):
+            start, end = window.get("start"), window.get("end")
+            if isinstance(start, (int, float)) and isinstance(end, (int, float)):
+                return int(start), int(end)
+    row_start = call.get("row_time_created")
+    row_end = call.get("row_time_updated")
+    if isinstance(row_start, (int, float)) and isinstance(row_end, (int, float)):
+        return int(row_start), int(row_end)
+    return None, None
+
+
+def _serialized_size(value: Any) -> int | None:
+    """Character-count size of a payload; `None` when there is nothing to measure.
+
+    Never estimates a token count -- character length is the strongest metric
+    this harness has without adding a tokenizer dependency the project does
+    not already carry.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return len(value)
+    try:
+        return len(json.dumps(value, ensure_ascii=False))
+    except TypeError:
+        return None
+
+
+def _stage_response_status(call: dict[str, Any]) -> str | None:
+    """The analysis pipeline's own accepted/rejected/finalized status for one call.
+
+    Deliberately does not reuse `_tool_result_status`: that helper checks
+    `state.status` first, which is OpenCode's own tool-execution lifecycle
+    field ("completed"/"error") and is present on every call OpenCode
+    finished running, successful or domain-rejected alike. It shadows the
+    pipeline's real status, which only exists nested inside `state.output`'s
+    JSON body -- confirmed against a live `jpetstore-6-summary`/local-sglang
+    capture, where every accepted call had `state.status == "completed"`
+    (never `"accepted"`) while `json.loads(state.output)["status"]` was the
+    real `"accepted"`. Checks both a top-level `status` (the live shape) and
+    `structuredContent.status` (the shape `_tool_result_status`'s own test
+    coverage assumes) so this reads correctly regardless of which transport
+    produced the call.
+    """
+    state = call.get("state")
+    if not isinstance(state, dict):
+        return None
+    body = state.get("output", state.get("structuredContent"))
+    if isinstance(body, str):
+        try:
+            body = json.loads(body)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(body, dict):
+        return None
+    status = body.get("status")
+    if isinstance(status, str):
+        return status
+    nested = body.get("structuredContent")
+    if isinstance(nested, dict) and isinstance(nested.get("status"), str):
+        return nested["status"]
+    return None
+
+
+def attribute_stage_timeline(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build one model-turn record per tool call from `_static_tool_calls` output.
+
+    Stage attribution: a `submit_<stage>` / `start_analysis` / `finalize_analysis`
+    call is attributed to the stage its own name names. Every other tool
+    (`read_evidence`, `locate_evidence`, `list_target_paths`, `reopen_analysis`)
+    inherits whichever stage was most recently *entered* by an accepted
+    stage-entering call -- "entered" meaning the stage that call's accepted
+    response hands control to next, not the stage it just completed -- and
+    defaults to `unknown` before the first such call. A rejected/errored
+    stage-entering call does not advance this pointer.
+
+    Timing ("model-turn latency"): `elapsed_ms` is the harness-observed
+    wall-clock gap between the previous tool call's end and this call's
+    start -- the interval OpenCode spent orchestrating/waiting on the model
+    before issuing this call -- not isolated neural-network inference time.
+    A tool call's own execution time lives separately under
+    `tool_calls[0]["elapsed_ms"]`. Either is `None`, never a fabricated
+    number, when no timestamp source is available; a negative gap (clock
+    skew between sources) clamps to `0` rather than raising, since this is
+    measurement code observing an external process.
+    """
+    turns: list[dict[str, Any]] = []
+    current_stage = "unknown"
+    previous_end: int | None = None
+    previous_output: Any = None
+    for call in tool_calls:
+        name = _tool_name(call.get("name", call.get("tool"))) or "unknown"
+        entered_stage = _STAGE_ENTRY_TOOL.get(name)
+        stage = entered_stage if entered_stage is not None else current_stage
+        start, end = _tool_call_time_window(call)
+        elapsed_ms = None if start is None or previous_end is None else max(0, start - previous_end)
+        tool_elapsed_ms = None if start is None or end is None else max(0, end - start)
+        state = call.get("state") if isinstance(call.get("state"), dict) else {}
+        turns.append(
+            {
+                "stage": stage,
+                "started_at": previous_end,
+                "completed_at": start,
+                "elapsed_ms": elapsed_ms,
+                "tool_calls": [{"tool": name, "elapsed_ms": tool_elapsed_ms}],
+                "input_chars": _serialized_size(previous_output),
+                "output_chars": _serialized_size(state.get("input")),
+            }
+        )
+        if entered_stage is not None and _stage_response_status(call) in {"accepted", "finalized"}:
+            current_stage = _NEXT_STAGE_AFTER.get(entered_stage, entered_stage)
+        if end is not None:
+            previous_end = end
+        previous_output = state.get("output", state.get("structuredContent"))
+    return turns
+
+
+def summarize_stage_timeline(turns: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Reduce `attribute_stage_timeline` output to per-stage totals for one attempt.
+
+    A stage with no timestamp coverage at all reports `None` sums/means, not
+    `0` -- an untimed stage must not look like a fast one.
+    """
+    model_ms_by_stage: dict[str, list[int]] = {}
+    tool_ms_by_stage: dict[str, list[int]] = {}
+    turn_counts: dict[str, int] = {}
+    for turn in turns:
+        stage = turn.get("stage", "unknown")
+        turn_counts[stage] = turn_counts.get(stage, 0) + 1
+        if turn.get("elapsed_ms") is not None:
+            model_ms_by_stage.setdefault(stage, []).append(turn["elapsed_ms"])
+        for tool_call in turn.get("tool_calls", []):
+            if tool_call.get("elapsed_ms") is not None:
+                tool_ms_by_stage.setdefault(stage, []).append(tool_call["elapsed_ms"])
+
+    summary: dict[str, dict[str, Any]] = {}
+    for stage, turn_count in turn_counts.items():
+        model_values = model_ms_by_stage.get(stage, [])
+        tool_values = tool_ms_by_stage.get(stage, [])
+        summary[stage] = {
+            "turn_count": turn_count,
+            "model_turn_ms_total": sum(model_values) if model_values else None,
+            "model_turn_ms_mean": (sum(model_values) / len(model_values)) if model_values else None,
+            "model_turn_ms_max": max(model_values) if model_values else None,
+            "tool_ms_total": sum(tool_values) if tool_values else None,
+            "tool_ms_mean": (sum(tool_values) / len(tool_values)) if tool_values else None,
+        }
+    return summary
 
 
 def static_mcp_runtime_environment(
@@ -1806,6 +2006,7 @@ def _run_static_mcp_case(
             launch.extend(["--model", model])
         terminal = ""
         pty: Any | None = None
+        attempt_started = time.monotonic()
         try:
             pty = spawn_windows_pty(pty_process, launch, cwd=str(command_directory), environment=environment)
             ready_deadline = time.monotonic() + min(30, timeout)
@@ -1859,6 +2060,7 @@ def _run_static_mcp_case(
                     "target_status_after": after,
                     "target_unchanged": before == after,
                     "tool_calls": tool_calls,
+                    "turns": attribute_stage_timeline(tool_calls),
                     "transition_errors": transition_errors,
                     "score": score,
                     "report_file": str((case_dir / "report.md").resolve()),
@@ -1880,6 +2082,19 @@ def _run_static_mcp_case(
             if terminal:
                 (case_dir / "terminal.log").write_text(redact(terminal), encoding="utf-8")
             trace.setdefault("terminal_file", str((case_dir / "terminal.log").resolve()))
+            trace.setdefault("total_elapsed_ms", int((time.monotonic() - attempt_started) * 1000))
+            if "turns" not in trace:
+                # A timeout/stopped/ready-deadline exit returned before the
+                # success path computed tool_calls; salvage whatever the
+                # database holds so a partial run is still measurable instead
+                # of leaving the attempt with no timing evidence at all.
+                salvaged_calls = [
+                    call
+                    for database in _static_opencode_databases(home)
+                    for call in _static_tool_calls(database)
+                ]
+                trace["tool_calls"] = salvaged_calls
+                trace["turns"] = attribute_stage_timeline(salvaged_calls)
             (case_dir / "trace.json").write_text(
                 json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
