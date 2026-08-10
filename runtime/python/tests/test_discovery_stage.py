@@ -173,3 +173,85 @@ class DiscoveryStageTests(unittest.TestCase):
         self.assertEqual(server.session.revision, 0)
         self.assertEqual(server.session.transition_token, started["transition_token"])
         self.assertNotIn("should-not-escape", json.dumps(unsafe_id, sort_keys=True))
+
+    def test_unknown_claim_with_no_evidence_alias_names_the_claim_and_absence_requirement(self) -> None:
+        temporary, server, _, started, observation = self.start_with_observation()
+        with temporary:
+            result, failed = server.tool_call(
+                "submit_discovery",
+                {
+                    "payload": self.payload(
+                        observation["observation_ref"],
+                        claims=[{"id": "claim-runtime-unknown", "status": "unknown", "evidence_aliases": []}],
+                    ),
+                },
+            )
+
+        self.assertTrue(failed)
+        self.assertEqual(
+            result["code"],
+            "unknown claim 'claim-runtime-unknown' requires an evidence alias that resolves to a "
+            "scoped absence observation",
+        )
+        self.assertEqual(server.session.current_stage, "discovery")
+
+    def test_unknown_claim_citing_a_present_observation_is_rejected(self) -> None:
+        temporary, server, _, started, observation = self.start_with_observation()
+        with temporary:
+            result, failed = server.tool_call(
+                "submit_discovery",
+                {
+                    "payload": self.payload(
+                        observation["observation_ref"],
+                        claims=[{"id": "claim-runtime-unknown", "status": "unknown", "evidence_aliases": ["container"]}],
+                    ),
+                },
+            )
+
+        self.assertTrue(failed)
+        self.assertEqual(result["code"], "unknown claim requires absence observation")
+        self.assertEqual(server.session.current_stage, "discovery")
+
+    def test_unknown_claim_citing_a_scoped_absence_observation_is_accepted(self) -> None:
+        temporary, server, _, started, observation = self.start_with_observation()
+        with temporary:
+            absence = server.session.registry.issue_absence("discovery", ".", "*.env", "RUNTIME_CONFIG")
+            result, failed = server.tool_call(
+                "submit_discovery",
+                {
+                    "payload": self.payload(
+                        observation["observation_ref"],
+                        evidence=[
+                            {"alias": "container", "observation_ref": observation["observation_ref"]},
+                            {"alias": "absence", "observation_ref": absence["observation_ref"]},
+                        ],
+                        claims=[
+                            {"id": "claim-container", "status": "confirmed", "evidence_aliases": ["container"]},
+                            {
+                                "id": "claim-runtime-unknown", "status": "unknown", "evidence_aliases": ["absence"],
+                                "scope": "runtime configuration", "blocked_decision": "runtime config presence",
+                            },
+                        ],
+                    ),
+                },
+            )
+
+        self.assertFalse(failed, result)
+        self.assertEqual(server.session.current_stage, "execution")
+
+    def test_confirmed_claim_with_a_mistyped_alias_names_the_bad_alias(self) -> None:
+        temporary, server, _, started, observation = self.start_with_observation()
+        with temporary:
+            result, failed = server.tool_call(
+                "submit_discovery",
+                {
+                    "payload": self.payload(
+                        observation["observation_ref"],
+                        claims=[{"id": "claim-container", "status": "confirmed", "evidence_aliases": ["s_container"]}],
+                    ),
+                },
+            )
+
+        self.assertTrue(failed)
+        self.assertEqual(result["code"], "claim references unknown evidence alias: s_container")
+        self.assertEqual(server.session.current_stage, "discovery")

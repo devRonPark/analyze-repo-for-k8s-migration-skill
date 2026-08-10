@@ -233,14 +233,21 @@ def normalize_submission_payload(
         if {"evidence_ids", "evidence_inputs", "content_fingerprint", "redacted", "location"}.intersection(raw_claim):
             raise ValueError("client evidence field")
         ensure_exact_keys(raw_claim, CLIENT_CLAIM_FIELDS, "client claim")
+        claim_id = raw_claim.get("id") if isinstance(raw_claim.get("id"), str) else "?"
         aliases = raw_claim.get("evidence_aliases")
         if not isinstance(aliases, list) or not aliases:
+            if raw_claim.get("status") == "unknown":
+                raise ValueError(
+                    f"unknown claim '{claim_id}' requires an evidence alias that resolves to a "
+                    "scoped absence observation"
+                )
             raise ValueError("claim evidence aliases required")
         resolved_aliases = [_require_identifier(alias, "evidence alias") for alias in aliases]
         if len(resolved_aliases) != len(set(resolved_aliases)):
             raise ValueError("duplicate claim evidence alias")
-        if any(alias not in alias_to_id for alias in resolved_aliases):
-            raise ValueError("undeclared evidence alias")
+        undeclared_aliases = sorted(alias for alias in resolved_aliases if alias not in alias_to_id)
+        if undeclared_aliases:
+            raise ValueError(f"claim references unknown evidence alias: {', '.join(undeclared_aliases)}")
         claim = {key: raw_claim[key] for key in ("id", "status", "scope", "blocked_decision") if key in raw_claim}
         claim["evidence_ids"] = [alias_to_id[alias] for alias in resolved_aliases]
         if claim.get("status") == "unknown" and not any(canonical[evidence_id]["status"] == "unknown" for evidence_id in claim["evidence_ids"]):
