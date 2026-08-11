@@ -1755,6 +1755,31 @@ def _static_assistant_messages(database: Path) -> list[dict[str, Any]]:
     return messages
 
 
+def _static_session_statuses(database: Path) -> list[dict[str, Any]]:
+    """Extract only persisted, categorical session statuses when OpenCode stores them.
+
+    OpenCode 1.18.14 does not guarantee a session-status row in every SQLite
+    capture.  This collector deliberately returns no synthetic state: callers
+    must retain ``unavailable`` when the database has no attributable status.
+    """
+    statuses: list[dict[str, Any]] = []
+    for record in _static_db_records(database):
+        if record.get("table") != "session":
+            continue
+        columns = record.get("columns", {})
+        for payload in _static_json_objects(record):
+            session_id = _static_message_id(record, payload)
+            status = payload.get("status")
+            if not isinstance(session_id, str) or not session_id or not isinstance(status, str) or not status:
+                continue
+            observed_at = columns.get("time_updated")
+            item: dict[str, Any] = {"session_id": session_id, "status": status}
+            if isinstance(observed_at, (int, float)):
+                item["observed_at"] = int(observed_at)
+            statuses.append(item)
+    return statuses
+
+
 STAGE_TIMING_ORDER = ("discovery", "execution", "relationships", "boundaries", "contracts")
 # Mirrors runtime/python/analysis_pipeline/protocol.py STAGES, kept as an
 # independent literal here the same way STATIC_MCP_TOOL_SEQUENCE already is,
@@ -2152,15 +2177,16 @@ def _event_completion_time(event: dict[str, Any] | None) -> int | None:
     return int(completed) if isinstance(completed, (int, float)) else None
 
 
-def _post_skill_turn(
-    matching_skill: dict[str, Any] | None,
+def _post_successor_context_turn(
+    context_completed_at: int | None,
+    context_session_id: str | None,
     first_action: dict[str, Any] | None,
     next_handoff: dict[str, Any] | None,
     assistant_messages: list[dict[str, Any]] | None,
     *,
     terminal_reason: str | None,
 ) -> dict[str, Any]:
-    """Project one causally bounded post-Skill assistant message, if provable.
+    """Project one assistant message after a successor context, if provable.
 
     The PTY harness observes a message only when its session and creation time
     put it strictly between the expected Skill tool part and the next accepted
@@ -2168,19 +2194,17 @@ def _post_skill_turn(
     one of them, the relation is unavailable rather than guessed.
     """
     unavailable = {"status": "lifecycle_unavailable"}
-    if assistant_messages is None or matching_skill is None:
+    if assistant_messages is None:
         return unavailable
-    skill_time = _liveness_time(matching_skill)
-    session_id = matching_skill.get("session_id")
-    if skill_time is None or not isinstance(session_id, str) or not session_id:
+    if context_completed_at is None or not isinstance(context_session_id, str) or not context_session_id:
         return unavailable
     next_handoff_time = _liveness_time(next_handoff) if next_handoff is not None else None
     candidates = [
         message
         for message in assistant_messages
-        if message.get("session_id") == session_id
+        if message.get("session_id") == context_session_id
         and isinstance(message.get("created_at"), int)
-        and message["created_at"] > skill_time
+        and message["created_at"] > context_completed_at
         and (next_handoff_time is None or message["created_at"] < next_handoff_time)
     ]
     action_message_id = first_action.get("message_id") if isinstance(first_action, dict) else None
@@ -2208,6 +2232,7 @@ def _post_skill_turn(
     return {
         "status": status,
         "message_id": message["message_id"],
+        "session_id": context_session_id,
         "created_at": message.get("created_at"),
         "completed_at": message.get("completed_at"),
         "finish_reason": message.get("finish_reason"),
@@ -2221,12 +2246,70 @@ def _post_skill_turn(
     }
 
 
+def _session_status_after_turn(
+    turn: dict[str, Any], session_statuses: list[dict[str, Any]] | None,
+) -> str:
+    """Return a persisted post-turn session state, never an inferred idle state."""
+    if not isinstance(session_statuses, list):
+        return "unavailable"
+    session_id = turn.get("session_id")
+    completed_at = turn.get("completed_at")
+    if not isinstance(session_id, str) or not session_id or not isinstance(completed_at, int):
+        return "unavailable"
+    matching = [
+        status
+        for status in session_statuses
+        if status.get("session_id") == session_id
+        and isinstance(status.get("observed_at"), int)
+        and status["observed_at"] >= completed_at
+        and isinstance(status.get("status"), str)
+    ]
+    if not matching:
+        return "unavailable"
+    return max(matching, key=lambda status: status["observed_at"])["status"]
+
+
+def _continuation_trace(
+    *,
+    context_source: str,
+    context_event: dict[str, Any] | None,
+    context_completed_at: int | None,
+    continuation_turn: dict[str, Any],
+    first_action: dict[str, Any] | None,
+    session_statuses: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Record the model-loop boundary without promoting context into control flow."""
+    context_session_id = context_event.get("session_id") if isinstance(context_event, dict) else None
+    native_lifecycle = "not_applicable"
+    native_result = "not_applicable"
+    if context_source == "native_skill_tool":
+        state = context_event.get("state") if isinstance(context_event, dict) and isinstance(context_event.get("state"), dict) else {}
+        native_lifecycle = "completed" if state.get("status") == "completed" else "unavailable"
+        native_result = "persisted" if "output" in state else "unavailable"
+    observed_turn = continuation_turn.get("status") != "lifecycle_unavailable"
+    return {
+        "context_source": context_source,
+        "context_message_id": context_event.get("message_id") if isinstance(context_event, dict) else None,
+        "context_session_id": context_session_id if isinstance(context_session_id, str) else None,
+        "context_completed_at": context_completed_at,
+        "native_tool_lifecycle": native_lifecycle,
+        "native_tool_result": native_result,
+        "continuation_turn_created": "observed" if observed_turn else "unavailable",
+        "continuation_turn_completed": continuation_turn.get("status"),
+        "continuation_finish": continuation_turn.get("finish_reason"),
+        "first_followup_tool": _liveness_event_detail(first_action) if first_action is not None else None,
+        "next_model_step_observed": "observed" if observed_turn else "unavailable",
+        "session_status_after_turn": _session_status_after_turn(continuation_turn, session_statuses),
+    }
+
+
 def trace_stage_transitions(
     tool_calls: list[dict[str, Any]],
     assistant_text_parts: list[dict[str, Any]],
     *,
     terminal_reason: str | None,
     assistant_messages: list[dict[str, Any]] | None = None,
+    session_statuses: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Characterize accepted handoffs from structured OpenCode artifacts.
 
@@ -2338,23 +2421,37 @@ def trace_stage_transitions(
         skill_completed_at = handoff_time if host_owned else _event_completion_time(matching_skill)
         first_action_at = _liveness_time(first_action) if first_action is not None else None
         handoff_stage_input = payload.get("stage_input")
-        post_skill_turn = (
-            {"status": "host_owned_continuation"}
-            if host_owned
-            else _post_skill_turn(
-                matching_skill,
-                first_action,
-                next_handoff,
-                assistant_messages,
-                terminal_reason=terminal_reason,
-            )
+        context_event = handoff_call if host_owned else matching_skill
+        context_completed_at = handoff_time if host_owned else _event_completion_time(matching_skill)
+        context_session_id = context_event.get("session_id") if isinstance(context_event, dict) else None
+        post_skill_turn = _post_successor_context_turn(
+            context_completed_at,
+            context_session_id if isinstance(context_session_id, str) else None,
+            first_action,
+            next_handoff,
+            assistant_messages,
+            terminal_reason=terminal_reason,
+        )
+        continuation_trace = _continuation_trace(
+            context_source="host_activation" if host_owned else "native_skill_tool",
+            context_event=context_event,
+            context_completed_at=context_completed_at,
+            continuation_turn=post_skill_turn,
+            first_action=first_action,
+            session_statuses=session_statuses,
         )
         if accepted_submission is not None:
             classification = "stage_progressed"
         elif first_action is not None:
             classification = "stage_action_observed_no_submission"
         elif host_owned:
-            classification = "host_continuation_loaded_no_stage_action"
+            classification = {
+                "active_at_timeout": "host_continuation_turn_active_at_timeout",
+                "completed": "host_continuation_turn_completed_no_stage_action",
+                "errored": "host_continuation_turn_errored_before_stage_action",
+                "aborted": "host_continuation_turn_aborted_before_stage_action",
+                "lifecycle_unavailable": "host_continuation_loaded_no_stage_action",
+            }[post_skill_turn["status"]]
         elif matching_skill is not None and assistant_messages is not None:
             classification = {
                 "active_at_timeout": "model_turn_active_at_timeout",
@@ -2421,6 +2518,7 @@ def trace_stage_transitions(
                 "first_next_stage_action": _liveness_event_detail(first_action) if first_action is not None else None,
                 "assistant_text_relation_to_next_stage_action": assistant_text_relation,
                 "post_skill_turn": post_skill_turn,
+                "continuation_trace": continuation_trace,
                 "next_stage_submission": {
                     "observed": bool(submission_calls),
                     "accepted": accepted_submission is not None,
@@ -2834,11 +2932,21 @@ def _run_static_mcp_case(
                 for database in databases
                 for message in _static_assistant_messages(database)
             ]
+            session_statuses = [
+                status
+                for database in databases
+                for status in _static_session_statuses(database)
+            ]
+            # These are categorical lifecycle fields only; assistant prose,
+            # provider payloads, and raw session metadata stay out of traces.
+            trace["assistant_messages"] = assistant_messages
+            trace["session_statuses"] = session_statuses
             trace["stage_transitions"] = trace_stage_transitions(
                 trace.get("tool_calls", []),
                 assistant_text_parts,
                 terminal_reason=trace.get("reason"),
                 assistant_messages=assistant_messages,
+                session_statuses=session_statuses,
             )
             trace["stage_transition_observability"] = {
                 "skill_load": (
@@ -2850,6 +2958,7 @@ def _run_static_mcp_case(
                 "post_skill_turn_lifecycle": (
                     "available" if assistant_messages else "unavailable"
                 ),
+                "session_status": "available" if session_statuses else "unavailable",
             }
             (case_dir / "trace.json").write_text(
                 json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",

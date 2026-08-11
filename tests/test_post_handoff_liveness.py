@@ -212,6 +212,96 @@ class PostHandoffLivenessTests(unittest.TestCase):
         self.assertEqual(transition["first_next_stage_action"]["name"], "read_evidence")
         self.assertEqual(transition["classification"], "stage_action_observed_no_submission")
 
+    def test_native_tool_result_records_the_followup_model_step_and_action(self):
+        native = _skill("analyze-k8s-execution", start=140, end=150, message_id="skill-call", session_id="session-1")
+        native["state"].update({"status": "completed", "output": "stage instructions"})
+        transitions = adapter.trace_stage_transitions(
+            [
+                _call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution", message_id="handoff", session_id="session-1"),
+                native,
+                _call("read_evidence", start=190, end=200, status="completed", message_id="followup", session_id="session-1"),
+            ],
+            [],
+            terminal_reason=None,
+            assistant_messages=[
+                _assistant("followup", created_at=170, completed_at=210, terminal_state="completed", finish_reason="tool-calls", part_types=("tool", "step-start", "step-finish")),
+            ],
+        )
+
+        continuation = transitions[0]["continuation_trace"]
+        self.assertEqual(continuation["context_source"], "native_skill_tool")
+        self.assertEqual(continuation["native_tool_lifecycle"], "completed")
+        self.assertEqual(continuation["native_tool_result"], "persisted")
+        self.assertEqual(continuation["continuation_turn_created"], "observed")
+        self.assertEqual(continuation["continuation_finish"], "tool-calls")
+        self.assertEqual(continuation["first_followup_tool"]["name"], "read_evidence")
+
+    def test_host_context_stop_is_distinguishable_from_native_tool_continuation(self):
+        handoff = _call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution", message_id="handoff", session_id="session-1")
+        handoff["state"]["output"] = json.dumps({
+            "status": "accepted", "completed_stage": "discovery", "next_skill": "analyze-k8s-execution",
+            "host_continuation": {"transition_owner": "host", "requested_skill": "analyze-k8s-execution", "skill_load": "completed", "skill_content": "stage instructions"},
+        })
+        transitions = adapter.trace_stage_transitions(
+            [handoff], [], terminal_reason=None,
+            assistant_messages=[_assistant("host-stop", created_at=140, completed_at=170, terminal_state="completed", finish_reason="stop", part_types=("text", "step-start", "step-finish"))],
+        )
+
+        transition = transitions[0]
+        continuation = transition["continuation_trace"]
+        self.assertEqual(transition["classification"], "host_continuation_turn_completed_no_stage_action")
+        self.assertEqual(continuation["context_source"], "host_activation")
+        self.assertEqual(continuation["native_tool_lifecycle"], "not_applicable")
+        self.assertEqual(continuation["continuation_turn_completed"], "completed")
+        self.assertEqual(continuation["continuation_finish"], "stop")
+        self.assertIsNone(continuation["first_followup_tool"])
+
+    def test_host_context_with_action_is_not_classified_as_zero_action_stop(self):
+        handoff = _call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution", message_id="handoff", session_id="session-1")
+        handoff["state"]["output"] = json.dumps({
+            "status": "accepted", "completed_stage": "discovery", "next_skill": "analyze-k8s-execution",
+            "host_continuation": {"transition_owner": "host", "requested_skill": "analyze-k8s-execution", "skill_load": "completed", "skill_content": "stage instructions"},
+        })
+        transitions = adapter.trace_stage_transitions(
+            [handoff, _call("read_evidence", start=150, end=160, status="completed", message_id="host-action", session_id="session-1")],
+            [], terminal_reason=None,
+            assistant_messages=[_assistant("host-action", created_at=140, completed_at=170, terminal_state="completed", finish_reason="tool-calls", part_types=("tool",))],
+        )
+
+        self.assertEqual(transitions[0]["classification"], "stage_action_observed_no_submission")
+        self.assertEqual(transitions[0]["continuation_trace"]["first_followup_tool"]["name"], "read_evidence")
+
+    def test_persisted_idle_session_status_is_recorded_after_zero_action_completion(self):
+        handoff = _call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution", message_id="handoff", session_id="session-1")
+        handoff["state"]["output"] = json.dumps({
+            "status": "accepted", "completed_stage": "discovery", "next_skill": "analyze-k8s-execution",
+            "host_continuation": {"transition_owner": "host", "requested_skill": "analyze-k8s-execution", "skill_load": "completed", "skill_content": "stage instructions"},
+        })
+        transitions = adapter.trace_stage_transitions(
+            [handoff], [], terminal_reason=None,
+            assistant_messages=[_assistant("host-stop", created_at=140, completed_at=170, terminal_state="completed", finish_reason="stop")],
+            session_statuses=[{"session_id": "session-1", "status": "idle", "observed_at": 171}],
+        )
+
+        self.assertEqual(transitions[0]["continuation_trace"]["session_status_after_turn"], "idle")
+
+    def test_active_generation_and_unavailable_session_status_remain_distinct(self):
+        handoff = _call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution", message_id="handoff", session_id="session-1")
+        handoff["state"]["output"] = json.dumps({
+            "status": "accepted", "completed_stage": "discovery", "next_skill": "analyze-k8s-execution",
+            "host_continuation": {"transition_owner": "host", "requested_skill": "analyze-k8s-execution", "skill_load": "completed", "skill_content": "stage instructions"},
+        })
+        transitions = adapter.trace_stage_transitions(
+            [handoff], [], terminal_reason="OpenCode PTY did not produce a complete final Markdown report before timeout",
+            assistant_messages=[_assistant("host-active", created_at=140, terminal_state="active")],
+            session_statuses=[],
+        )
+
+        continuation = transitions[0]["continuation_trace"]
+        self.assertEqual(transitions[0]["classification"], "host_continuation_turn_active_at_timeout")
+        self.assertEqual(continuation["continuation_turn_completed"], "active_at_timeout")
+        self.assertEqual(continuation["session_status_after_turn"], "unavailable")
+
     def test_assistant_text_without_an_action_has_no_ordering_claim(self):
         transitions = adapter.trace_stage_transitions(
             [_call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution")],
@@ -397,6 +487,8 @@ class PostHandoffLivenessTests(unittest.TestCase):
         )
 
         self.assertEqual(transitions[0]["classification"], "post_skill_turn_lifecycle_unavailable")
+        self.assertEqual(transitions[0]["continuation_trace"]["native_tool_lifecycle"], "unavailable")
+        self.assertEqual(transitions[0]["continuation_trace"]["native_tool_result"], "unavailable")
 
     def test_lifecycle_evidence_is_bounded_to_its_own_handoff(self):
         transitions = adapter.trace_stage_transitions(
