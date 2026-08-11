@@ -8,8 +8,8 @@
     "skills": {
       "type": "array",
       "items": {"type": "string"},
-      "minItems": 7,
-      "maxItems": 7,
+      "minItems": 1,
+      "maxItems": 1,
       "uniqueItems": true
     },
     "skill_policies": {

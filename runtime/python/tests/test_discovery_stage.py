@@ -63,7 +63,7 @@ class DiscoveryStageTests(unittest.TestCase):
 
         self.assertFalse(failed)
         self.assertEqual(result["completed_stage"], "discovery")
-        self.assertEqual(result["next_skill"], "analyze-k8s-execution")
+        self.assertEqual(result["current_stage"], "execution")
         self.assertEqual(result["accepted_output"], {
             "candidate_ids": ["candidate-web"],
             "discovery_fact_refs": ["fact_discovery_claim-container"],

@@ -16,15 +16,7 @@ except ModuleNotFoundError:  # Direct invocation: python3 scripts/install_distri
     from validate_skill import validate_bundle
 
 
-SKILL_IDS = (
-    "analyze-repo-for-kubernetes",
-    "analyze-k8s-discovery",
-    "analyze-k8s-execution",
-    "analyze-k8s-relationships",
-    "analyze-k8s-boundaries",
-    "analyze-k8s-contracts",
-    "analyze-k8s-finalize",
-)
+SKILL_IDS = ("analyze-repo-for-kubernetes",)
 PROJECT_ID = "analyze-repo-for-kubernetes"
 AGENT_NAME = "kubernetes-migration-analyzer.md"
 COMMAND_NAME = "analyze-repo-for-kubernetes.md"

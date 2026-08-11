@@ -143,7 +143,7 @@ class SkillPackageTests(unittest.TestCase):
             "start_analysis",
             "target_path",
             "untrusted",
-            "handoff.next_skill",
+            "current_stage",
             "read-only",
         ]:
             self.assertIn(term, dispatcher)

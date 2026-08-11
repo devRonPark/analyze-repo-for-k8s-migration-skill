@@ -27,39 +27,13 @@ FRONTMATTER_MAP_FIELD_PATTERN = re.compile(r"^\s{2,}[A-Za-z][A-Za-z0-9_.-]*:\s*.
 # client adapters are not required merely because they exist in the checkout.
 REQUIRED_RUNTIME_FILES = ("scripts/validate_report.py",)
 NON_RUNTIME_DIRECTORIES = {".git", ".artifacts", "dist", "docs", "runtime", "tests"}
-BUNDLE_SKILL_IDS = (
-    "analyze-repo-for-kubernetes",
-    "analyze-k8s-discovery",
-    "analyze-k8s-execution",
-    "analyze-k8s-relationships",
-    "analyze-k8s-boundaries",
-    "analyze-k8s-contracts",
-    "analyze-k8s-finalize",
-)
+BUNDLE_SKILL_IDS = ("analyze-repo-for-kubernetes",)
 BUNDLE_STAGE_IDS = ("discovery", "execution", "relationships", "boundaries", "contracts")
 BUNDLE_SKILL_POLICIES = {
-    "analyze-repo-for-kubernetes": {"tools": ["start_analysis"], "references": []},
-    "analyze-k8s-discovery": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_discovery"],
-        "references": ["references/workflow.md", "references/language-discovery-rules.md", "references/payload-contract.json"],
+    "analyze-repo-for-kubernetes": {
+        "tools": ["start_analysis", "read_evidence", "list_target_paths", "locate_evidence", "get_target_git_metadata", "submit_discovery", "submit_execution", "submit_relationships", "submit_boundaries", "submit_contracts", "finalize_analysis"],
+        "references": [f"references/stages/{stage}.md" for stage in (*BUNDLE_STAGE_IDS, "finalize")],
     },
-    "analyze-k8s-execution": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_execution"],
-        "references": ["references/execution-rules.md", "references/payload-contract.json"],
-    },
-    "analyze-k8s-relationships": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_relationships"],
-        "references": ["references/dependency-analysis.md", "references/payload-contract.json"],
-    },
-    "analyze-k8s-boundaries": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_boundaries"],
-        "references": ["references/workload-boundary.md", "references/payload-contract.json"],
-    },
-    "analyze-k8s-contracts": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_contracts"],
-        "references": ["references/configuration-timing.md", "references/evidence-and-readiness.md", "references/repository-analysis-checklist.md", "references/report-slots.json", "references/payload-contract.json"],
-    },
-    "analyze-k8s-finalize": {"tools": ["finalize_analysis"], "references": []},
 }
 
 
@@ -230,7 +204,7 @@ def validate_bundle(root: Path) -> list[str]:
             continue
         errors.extend(validate_installed_skill(skill_path, skill_id))
     for stage in BUNDLE_STAGE_IDS:
-        projection_path = skills_root / f"analyze-k8s-{stage}" / "references" / "payload-contract.json"
+        projection_path = skills_root / "analyze-repo-for-kubernetes" / "references" / "stages" / stage / "payload-contract.json"
         try:
             projection = json.loads(projection_path.read_text(encoding="utf-8"))
         except (FileNotFoundError, json.JSONDecodeError):

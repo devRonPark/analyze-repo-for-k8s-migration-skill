@@ -37,15 +37,6 @@ from .report_projection import project_and_render
 from .tools.survey import compute_survey
 
 
-SKILL_BY_STAGE = {
-    "discovery": "analyze-k8s-discovery",
-    "execution": "analyze-k8s-execution",
-    "relationships": "analyze-k8s-relationships",
-    "boundaries": "analyze-k8s-boundaries",
-    "contracts": "analyze-k8s-contracts",
-    "finalize": "analyze-k8s-finalize",
-}
-
 # Precision-tool budget: one combined read_evidence/locate_evidence/
 # list_target_paths call per stage, on top of the pushed survey.
 PRECISION_CALL_LIMIT = 1
@@ -398,7 +389,7 @@ class AnalysisSession:
             "completed_stage": completed_stage,
             "revision": self.revision,
             "transition_token": self.transition_token,
-            "next_skill": SKILL_BY_STAGE[self.current_stage],
+            "current_stage": self.current_stage,
             "accepted_output": accepted_output,
             "stage_input": stage_input,
         }

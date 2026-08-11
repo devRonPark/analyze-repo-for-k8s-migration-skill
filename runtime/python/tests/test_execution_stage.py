@@ -97,7 +97,7 @@ class ExecutionStageTests(unittest.TestCase):
 
         self.assertFalse(failed, result)
         self.assertEqual(result["completed_stage"], "execution")
-        self.assertEqual(result["next_skill"], "analyze-k8s-relationships")
+        self.assertEqual(result["current_stage"], "relationships")
         self.assertEqual(result["accepted_output"], {
             "process_ids": ["process-web"],
             "execution_fact_refs": ["fact_execution_claim-process"],

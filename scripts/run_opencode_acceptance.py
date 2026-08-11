@@ -274,7 +274,7 @@ def copy_skill(source_root: Path, destination: Path) -> None:
 
 
 def copy_bundle(source_root: Path, destination: Path) -> Path:
-    """Build and validate a sealed seven-Skill bundle for an isolated run."""
+    """Build and validate the sealed public-Skill bundle for an isolated run."""
     bundle = build_bundle(source_root, destination)
     errors = validate_bundle(bundle)
     if errors:
@@ -457,83 +457,29 @@ def event_lines(stdout: str) -> list[dict[str, Any]]:
 
 
 def progressive_disclosure_errors(events: list[dict[str, Any]]) -> list[str]:
-    """Reject deterministic traces that load an undeclared future stage or reference."""
+    """Reject traces that use a stage procedure before server state enters it."""
     errors: list[str] = []
-    loaded: list[str] = []
-    current_skill: str | None = None
-    accepted_discovery = False
-    accepted_execution = False
-    accepted_relationships = False
-    accepted_boundaries = False
-    accepted_contracts = False
+    current_stage: str | None = None
     for event in events:
         tool = event.get("tool")
         arguments = event.get("input", {})
         result = event.get("result", event.get("output", {}))
-        if tool == "submit_discovery":
-            if current_skill != "analyze-k8s-discovery":
-                errors.append("discovery submit was called outside the discovery Skill")
-            elif isinstance(result, dict) and result.get("status") == "accepted":
-                accepted_discovery = True
-        if tool == "submit_execution":
-            if current_skill != "analyze-k8s-execution":
-                errors.append("execution submit was called outside the execution Skill")
-            elif isinstance(result, dict) and result.get("status") == "accepted":
-                accepted_execution = True
-        if tool == "submit_relationships":
-            if current_skill != "analyze-k8s-relationships":
-                errors.append("relationships submit was called outside the relationships Skill")
-            elif isinstance(result, dict) and result.get("status") == "accepted":
-                accepted_relationships = True
-        if tool == "submit_boundaries":
-            if current_skill != "analyze-k8s-boundaries":
-                errors.append("boundaries submit was called outside the boundaries Skill")
-            elif isinstance(result, dict) and result.get("status") == "accepted":
-                accepted_boundaries = True
-        if tool == "submit_contracts":
-            if current_skill != "analyze-k8s-contracts":
-                errors.append("contracts submit was called outside the contracts Skill")
-            elif isinstance(result, dict) and result.get("status") == "accepted":
-                accepted_contracts = True
-        if tool == "skill" and isinstance(arguments, dict):
-            skill_id = arguments.get("name")
-            if skill_id not in BUNDLE_SKILL_IDS:
-                errors.append("undeclared Skill load")
-                continue
-            loaded.append(skill_id)
-            current_skill = skill_id
-            if loaded[0] != SKILL_ID:
-                errors.append("dispatcher must be the first loaded Skill")
-            if len(loaded) == 2 and loaded[1] != "analyze-k8s-discovery":
-                errors.append("only discovery may follow the start handoff")
-            if len(loaded) == 3 and loaded[2] != "analyze-k8s-execution":
-                errors.append("only an accepted discovery handoff may load execution")
-            if len(loaded) == 3 and not accepted_discovery:
-                errors.append("execution was loaded without an accepted discovery handoff")
-            if len(loaded) == 4 and loaded[3] != "analyze-k8s-relationships":
-                errors.append("only an accepted execution handoff may load relationships")
-            if len(loaded) == 4 and not accepted_execution:
-                errors.append("relationships was loaded without an accepted execution handoff")
-            if len(loaded) == 5 and loaded[4] != "analyze-k8s-boundaries":
-                errors.append("only an accepted relationships handoff may load boundaries")
-            if len(loaded) == 5 and not accepted_relationships:
-                errors.append("boundaries was loaded without an accepted relationships handoff")
-            if len(loaded) == 6 and loaded[5] != "analyze-k8s-contracts":
-                errors.append("only an accepted boundaries handoff may load contracts")
-            if len(loaded) == 6 and not accepted_boundaries:
-                errors.append("contracts was loaded without an accepted boundaries handoff")
-            if len(loaded) == 7 and loaded[6] != "analyze-k8s-finalize":
-                errors.append("only an accepted contracts handoff may load finalize")
-            if len(loaded) == 7 and not accepted_contracts:
-                errors.append("finalize was loaded without an accepted contracts handoff")
-            if len(loaded) > 7:
-                errors.append("no additional Skill may load after finalize")
+        if tool == "skill" and isinstance(arguments, dict) and arguments.get("name") != SKILL_ID:
+            errors.append("successor Skill activation is not permitted")
+        if isinstance(tool, str) and tool.startswith("submit_"):
+            stage = tool.removeprefix("submit_")
+            if current_stage != stage:
+                errors.append(f"{stage} submit was called outside the server current stage")
         if tool in {"read", "skill"} and isinstance(arguments, dict):
             path = arguments.get("path") or arguments.get("filePath")
-            if isinstance(path, str) and "analyze-k8s-" in path:
-                stage_path = next((skill_id for skill_id in BUNDLE_SKILL_IDS[1:] if skill_id in path), None)
-                if stage_path is not None and stage_path != current_skill:
-                    errors.append("future Skill reference read")
+            if isinstance(path, str) and "references/stages/" in path:
+                stage_path = Path(path).stem
+                if stage_path != current_stage:
+                    errors.append("future stage procedure read")
+        if isinstance(result, dict) and result.get("status") == "accepted":
+            reported_stage = result.get("current_stage")
+            if isinstance(reported_stage, str):
+                current_stage = reported_stage
     return errors
 
 
@@ -2631,7 +2577,6 @@ def static_mcp_runtime_environment(
     config: Path,
     config_dir: Path,
     log_root: Path,
-    transition_mode: str = "model_routed",
 ) -> dict[str, str]:
     """Create an isolated Windows-native PTY environment.
 
@@ -2671,13 +2616,9 @@ def static_mcp_runtime_environment(
             "TMP": str(private_tmp.resolve()),
             "OPENCODE_DISABLE_AUTOUPDATE": "1",
             "OPENCODE_TRACE_LOG_ROOT": str(log_root.resolve()),
-            "ANALYSIS_TRANSITION_MODE": transition_mode,
-            "ANALYSIS_PIPELINE_SKILL_ROOT": str((config_dir / "skills").resolve()),
             "PYWINPTY_BLOCK": "0",
         }
     )
-    if transition_mode == "host_owned":
-        environment["ANALYSIS_HOST_ACTIVATION_STATE"] = str((home / "host-activation.json").resolve())
     return environment
 
 
@@ -2754,7 +2695,6 @@ def _run_static_mcp_case(
     timeout: float,
     runtime_python: str,
     pty_process: Any,
-    transition_mode: str = "model_routed",
 ) -> dict[str, Any]:
     """Run one fresh user command in a Windows-native PTY and preserve evidence."""
     command_directory = Path(case["command_directory"]).resolve()
@@ -2775,7 +2715,6 @@ def _run_static_mcp_case(
         "golden_sha256": golden["sha256"],
         "expected_revision": expected_revision,
         "actual_revision": actual_revision,
-        "transition_mode": transition_mode,
         "status": "FAIL",
     }
     if before["returncode"]:
@@ -2790,13 +2729,6 @@ def _run_static_mcp_case(
         bundle = copy_bundle(ROOT, temporary_root / "bundle")
         config_dir = temporary_root / "config"
         install_bundle(bundle, config_dir)
-        if transition_mode == "host_owned":
-            guard = ROOT / "scripts" / "host_owned_skill_guard.js"
-            if not guard.is_file():
-                raise ValueError("host-owned Skill guard is missing")
-            plugin_path = config_dir / "plugins" / guard.name
-            plugin_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(guard, plugin_path)
         config_path = temporary_root / "opencode.json"
         isolated_config_bundle(
             source_config,
@@ -2819,7 +2751,6 @@ def _run_static_mcp_case(
             config=config_path,
             config_dir=config_dir,
             log_root=case_dir / "logs",
-            transition_mode=transition_mode,
         )
         launch = [opencode, str(command_directory), "--mini", "--agent", AGENT_ID]
         if model:
@@ -2941,23 +2872,19 @@ def _run_static_mcp_case(
             # provider payloads, and raw session metadata stay out of traces.
             trace["assistant_messages"] = assistant_messages
             trace["session_statuses"] = session_statuses
-            trace["stage_transitions"] = trace_stage_transitions(
-                trace.get("tool_calls", []),
-                assistant_text_parts,
-                terminal_reason=trace.get("reason"),
-                assistant_messages=assistant_messages,
-                session_statuses=session_statuses,
-            )
+            trace["stage_transitions"] = [
+                {
+                    "completed_stage": _stage_response_payload(call).get("completed_stage"),
+                    "current_stage": _stage_response_payload(call).get("current_stage"),
+                    "completed_tool": _tool_name(call.get("name", call.get("tool"))),
+                }
+                for call in trace.get("tool_calls", [])
+                if _stage_response_status(call) == "accepted"
+                and isinstance(_stage_response_payload(call), dict)
+            ]
             trace["stage_transition_observability"] = {
-                "skill_load": (
-                    "available"
-                    if any(call.get("name") == "skill" for call in trace.get("tool_calls", []))
-                    else "unavailable"
-                ),
+                "server_current_stage": "available" if trace["stage_transitions"] else "unavailable",
                 "assistant_text": "available" if assistant_text_parts else "unavailable",
-                "post_skill_turn_lifecycle": (
-                    "available" if assistant_messages else "unavailable"
-                ),
                 "session_status": "available" if session_statuses else "unavailable",
             }
             (case_dir / "trace.json").write_text(
@@ -2996,7 +2923,6 @@ def _run_static_mcp_acceptance(args: argparse.Namespace, cases_path: Path) -> in
             timeout=args.timeout,
             runtime_python=runtime_python,
             pty_process=pty_process,
-            transition_mode=args.transition_mode,
         )
         for case in cases
     ]
@@ -3061,12 +2987,6 @@ def main() -> int:
         "--windows-pty-root",
         type=Path,
         help="Windows interactive E2E에만 사용하는 pywinpty 설치 경로입니다.",
-    )
-    parser.add_argument(
-        "--transition-mode",
-        choices=("model_routed", "host_owned"),
-        default="model_routed",
-        help="D12 전환 소유권 실험 모드입니다. 기본값은 기존 model_routed입니다.",
     )
     args = parser.parse_args()
     if args.repeat < 1:

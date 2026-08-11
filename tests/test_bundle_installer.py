@@ -90,7 +90,7 @@ class BundleInstallerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             bundle = self.build_bundle(root)
-            skill = bundle / "skills" / "analyze-k8s-discovery" / "SKILL.md"
+            skill = bundle / "skills" / "analyze-repo-for-kubernetes" / "SKILL.md"
             skill.write_text(skill.read_text(encoding="utf-8") + "\nTampered.\n", encoding="utf-8")
 
             with self.assertRaisesRegex(ValueError, "invalid bundle"):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the static multi-Skill distribution bundle."""
+"""Build the static single-Skill distribution bundle."""
 from __future__ import annotations
 
 import argparse
@@ -17,39 +17,13 @@ try:
 except ModuleNotFoundError:  # Direct invocation: python3 scripts/build_dist.py ...
     from validate_skill import validate_bundle
 
-SKILL_IDS = (
-    "analyze-repo-for-kubernetes",
-    "analyze-k8s-discovery",
-    "analyze-k8s-execution",
-    "analyze-k8s-relationships",
-    "analyze-k8s-boundaries",
-    "analyze-k8s-contracts",
-    "analyze-k8s-finalize",
-)
-STAGE_IDS = tuple(skill.removeprefix("analyze-k8s-") for skill in SKILL_IDS[1:] if skill != "analyze-k8s-finalize")
+SKILL_IDS = ("analyze-repo-for-kubernetes",)
+STAGE_IDS = ("discovery", "execution", "relationships", "boundaries", "contracts")
 SKILL_POLICIES = {
-    "analyze-repo-for-kubernetes": {"tools": ["start_analysis"], "references": []},
-    "analyze-k8s-discovery": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_discovery"],
-        "references": ["references/workflow.md", "references/language-discovery-rules.md", "references/payload-contract.json"],
+    "analyze-repo-for-kubernetes": {
+        "tools": ["start_analysis", "read_evidence", "list_target_paths", "locate_evidence", "get_target_git_metadata", "submit_discovery", "submit_execution", "submit_relationships", "submit_boundaries", "submit_contracts", "finalize_analysis"],
+        "references": [f"references/stages/{stage}.md" for stage in (*STAGE_IDS, "finalize")],
     },
-    "analyze-k8s-execution": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_execution"],
-        "references": ["references/execution-rules.md", "references/payload-contract.json"],
-    },
-    "analyze-k8s-relationships": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_relationships"],
-        "references": ["references/dependency-analysis.md", "references/payload-contract.json"],
-    },
-    "analyze-k8s-boundaries": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_boundaries"],
-        "references": ["references/workload-boundary.md", "references/payload-contract.json"],
-    },
-    "analyze-k8s-contracts": {
-        "tools": ["list_target_paths", "read_evidence", "locate_evidence", "get_target_git_metadata", "submit_contracts"],
-        "references": ["references/configuration-timing.md", "references/evidence-and-readiness.md", "references/repository-analysis-checklist.md", "references/report-slots.json", "references/payload-contract.json"],
-    },
-    "analyze-k8s-finalize": {"tools": ["finalize_analysis"], "references": []},
 }
 
 
@@ -67,11 +41,11 @@ def revision(root: Path) -> str:
 def project_contracts(root: Path, skills: Path) -> None:
     source = json.loads((root / "contracts" / "stage-payload-contracts.json").read_text(encoding="utf-8"))
     for stage in STAGE_IDS:
-        path = skills / f"analyze-k8s-{stage}" / "references" / "payload-contract.json"
+        path = skills / SKILL_IDS[0] / "references" / "stages" / stage / "payload-contract.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(source["stages"][stage], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     report_slots = json.loads((root / "contracts" / "accepted-report-state.schema.json").read_text(encoding="utf-8"))
-    report_path = skills / "analyze-k8s-contracts" / "references" / "report-slots.json"
+    report_path = skills / SKILL_IDS[0] / "references" / "stages" / "contracts" / "report-slots.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report_slots, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -93,8 +67,8 @@ def bundle_destination(staging: Path, relative: Path) -> Path:
     parts = relative.parts
     if relative == Path("SKILL.md"):
         return staging / "skills" / SKILL_IDS[0] / "SKILL.md"
-    if parts[:2] == ("runtime", "stage-skills"):
-        return staging / "skills" / parts[2] / Path(*parts[3:])
+    if parts[0] == "references":
+        return staging / "skills" / SKILL_IDS[0] / relative
     if parts[:2] == ("runtime", "python"):
         return staging / "runtime" / "python" / Path(*parts[2:])
     if parts[:2] == ("runtime", "agents"):

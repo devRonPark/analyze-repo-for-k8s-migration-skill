@@ -7,10 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class BoundariesSkillTests(unittest.TestCase):
     def test_boundaries_is_a_current_only_workload_boundary_quality_gate(self) -> None:
-        skill = (ROOT / "runtime/stage-skills/analyze-k8s-boundaries/SKILL.md").read_text(encoding="utf-8")
-        rules = ROOT / "runtime/stage-skills/analyze-k8s-boundaries/references/workload-boundary.md"
+        skill = (ROOT / "references/stages/boundaries.md").read_text(encoding="utf-8")
+        rules = ROOT / "references/stages/boundaries/workload-boundary.md"
 
-        for term in ("Workload Boundary", "Quality Gate", "Submit", "submit_boundaries", "process_ids", "relationship_fact_refs"):
+        for term in ("Workload Boundary", "Quality Gate", "Submit", "submit_boundaries", "processes", "fact references"):
             self.assertIn(term, skill)
         self.assertTrue(rules.is_file())
         rule_text = " ".join(rules.read_text(encoding="utf-8").split())
@@ -20,11 +20,10 @@ class BoundariesSkillTests(unittest.TestCase):
         self.assertIn("confirmed boundary may have an unknown state decision", rule_text)
         self.assertIn("Summary records only", rule_text)
         self.assertIn("Detailed additionally records", rule_text)
-        self.assertNotIn("analyze-k8s-contracts", skill)
         self.assertNotIn("submit_contracts", skill)
 
     def test_single_process_grouping_is_deterministic_and_evidence_bounded(self) -> None:
-        rules = ROOT / "runtime/stage-skills/analyze-k8s-boundaries/references/workload-boundary.md"
+        rules = ROOT / "references/stages/boundaries/workload-boundary.md"
         rule_text = " ".join(rules.read_text(encoding="utf-8").split())
 
         self.assertIn("Workload Grouping is deterministic", rule_text)

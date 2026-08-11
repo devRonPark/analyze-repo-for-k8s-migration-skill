@@ -39,7 +39,7 @@ class MCPTests(unittest.TestCase):
         self.assertEqual(json.dumps(initial, sort_keys=True), json.dumps(repeated, sort_keys=True))
         handoff = started["result"]["structuredContent"]
         self.assertEqual(handoff["completed_stage"], None)
-        self.assertEqual(handoff["next_skill"], "analyze-k8s-discovery")
+        self.assertEqual(handoff["current_stage"], "discovery")
         self.assertEqual(handoff["mode"], "summary")
 
     def test_initialize_has_no_catalog_change_capability(self):

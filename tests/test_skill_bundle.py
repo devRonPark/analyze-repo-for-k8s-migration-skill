@@ -6,15 +6,7 @@ from pathlib import Path
 from scripts import build_dist
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = (
-    "analyze-repo-for-kubernetes",
-    "analyze-k8s-discovery",
-    "analyze-k8s-execution",
-    "analyze-k8s-relationships",
-    "analyze-k8s-boundaries",
-    "analyze-k8s-contracts",
-    "analyze-k8s-finalize",
-)
+SKILLS = ("analyze-repo-for-kubernetes",)
 
 
 class SkillBundleTests(unittest.TestCase):
@@ -30,13 +22,13 @@ class SkillBundleTests(unittest.TestCase):
             source = json.loads((ROOT / "contracts" / "stage-payload-contracts.json").read_text(encoding="utf-8"))
             manifest = json.loads((output / "bundle-manifest.json").read_text(encoding="utf-8"))
             projections = {
-                stage: json.loads((skills / f"analyze-k8s-{stage}" / "references" / "payload-contract.json").read_text(encoding="utf-8"))
+                stage: json.loads((skills / "analyze-repo-for-kubernetes" / "references" / "stages" / stage / "payload-contract.json").read_text(encoding="utf-8"))
                 for stage in ("discovery", "execution", "relationships", "boundaries", "contracts")
             }
         self.assertEqual(projections, {stage: source["stages"][stage] for stage in projections})
         self.assertEqual(set(manifest["skill_policies"]), set(SKILLS))
-        self.assertEqual(manifest["skill_policies"]["analyze-repo-for-kubernetes"]["tools"], ["start_analysis"])
-        self.assertNotIn("reopen_analysis", manifest["skill_policies"]["analyze-k8s-discovery"]["tools"])
+        self.assertIn("submit_discovery", manifest["skill_policies"]["analyze-repo-for-kubernetes"]["tools"])
+        self.assertNotIn("reopen_analysis", manifest["skill_policies"]["analyze-repo-for-kubernetes"]["tools"])
 
 
 if __name__ == "__main__":

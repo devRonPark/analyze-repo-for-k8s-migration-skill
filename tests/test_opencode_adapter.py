@@ -136,84 +136,39 @@ class OpenCodeAdapterTests(unittest.TestCase):
         self.assertNotIn("| 연결 workload |", template)
 
     def test_detailed_final_output_uses_the_finalized_markdown_contract(self):
-        finalizer = (ROOT / "runtime/stage-skills/analyze-k8s-finalize/SKILL.md").read_text(encoding="utf-8")
+        finalizer = (ROOT / "references/stages/finalize.md").read_text(encoding="utf-8")
         self.assertIn("finalize_analysis", finalizer)
         self.assertIn("canonical Markdown", finalizer)
         self.assertIn("Relay", finalizer)
         self.assertNotIn("read_evidence", finalizer)
 
     def test_enabled_stages_do_not_leak_the_later_stage_procedure(self):
-        discovery = (ROOT / "runtime/stage-skills/analyze-k8s-discovery/SKILL.md").read_text(encoding="utf-8")
-        execution = (ROOT / "runtime/stage-skills/analyze-k8s-execution/SKILL.md").read_text(encoding="utf-8")
+        discovery = (ROOT / "references/stages/discovery.md").read_text(encoding="utf-8")
+        execution = (ROOT / "references/stages/execution.md").read_text(encoding="utf-8")
         self.assertIn("Vertical Slice", discovery)
         self.assertIn("Grounding", discovery)
         self.assertIn("Quality Gate", execution)
-        self.assertIn("incoming handoff only", discovery)
         self.assertIn("submit_discovery", discovery)
         self.assertNotIn("reopen_analysis", discovery)
-        self.assertNotIn("analyze-k8s-execution", discovery)
         self.assertNotIn("submit_execution", discovery)
         self.assertIn("submit_execution", execution)
         self.assertNotIn("reopen_analysis", execution)
-        self.assertNotIn("analyze-k8s-relationships", execution)
         self.assertNotIn("submit_relationships", execution)
 
     def test_progressive_disclosure_events_allow_only_dispatcher_then_discovery(self):
         valid = [
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-repo-for-kubernetes"}},
-            {"type": "tool_use", "tool": "start_analysis", "input": {}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-discovery"}},
+            {"tool": "skill", "input": {"name": "analyze-repo-for-kubernetes"}},
+            {"tool": "start_analysis", "result": {"status": "accepted", "current_stage": "discovery"}},
+            {"tool": "read", "input": {"path": "references/stages/discovery.md"}},
+            {"tool": "submit_discovery", "result": {"status": "accepted", "current_stage": "execution"}},
+            {"tool": "read", "input": {"path": "references/stages/execution.md"}},
         ]
-        future = valid + [
-            {"type": "tool_use", "tool": "read", "input": {"path": "skills/analyze-k8s-execution/references/canary.md"}},
-        ]
-        accepted = valid + [
-            {"type": "tool_use", "tool": "submit_discovery", "input": {}, "result": {"status": "accepted"}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-execution"}},
-        ]
-        unaccepted = valid + [
-            {"type": "tool_use", "tool": "submit_discovery", "input": {}, "result": {"code": "invalid"}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-execution"}},
-        ]
-        execution_accepted = accepted + [
-            {"type": "tool_use", "tool": "submit_execution", "input": {}, "result": {"status": "accepted"}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-relationships"}},
-        ]
-        relationships_accepted = execution_accepted + [
-            {"type": "tool_use", "tool": "submit_relationships", "input": {}, "result": {"status": "accepted"}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-boundaries"}},
-        ]
-        relationships_rejected = execution_accepted + [
-            {"type": "tool_use", "tool": "submit_relationships", "input": {}, "result": {"code": "invalid"}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-boundaries"}},
-        ]
-        boundaries_accepted = relationships_accepted + [
-            {"type": "tool_use", "tool": "submit_boundaries", "input": {}, "result": {"status": "accepted"}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-contracts"}},
-        ]
-        boundaries_rejected = relationships_accepted + [
-            {"type": "tool_use", "tool": "submit_boundaries", "input": {}, "result": {"code": "invalid"}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-contracts"}},
-        ]
-        contracts_accepted = boundaries_accepted + [
-            {"type": "tool_use", "tool": "submit_contracts", "input": {}, "result": {"status": "accepted"}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-finalize"}},
-        ]
-        contracts_rejected = boundaries_accepted + [
-            {"type": "tool_use", "tool": "submit_contracts", "input": {}, "result": {"code": "invalid"}},
-            {"type": "tool_use", "tool": "skill", "input": {"name": "analyze-k8s-finalize"}},
-        ]
+        wrong_stage = valid[:2] + [{"tool": "submit_execution", "result": {"code": "stage_order"}}]
+        successor_skill = valid + [{"tool": "skill", "input": {"name": "analyze-k8s-execution"}}]
+
         self.assertEqual(adapter.progressive_disclosure_errors(valid), [])
-        self.assertTrue(adapter.progressive_disclosure_errors(future))
-        self.assertEqual(adapter.progressive_disclosure_errors(accepted), [])
-        self.assertTrue(adapter.progressive_disclosure_errors(unaccepted))
-        self.assertEqual(adapter.progressive_disclosure_errors(execution_accepted), [])
-        self.assertEqual(adapter.progressive_disclosure_errors(relationships_accepted), [])
-        self.assertTrue(adapter.progressive_disclosure_errors(relationships_rejected))
-        self.assertEqual(adapter.progressive_disclosure_errors(boundaries_accepted), [])
-        self.assertTrue(adapter.progressive_disclosure_errors(boundaries_rejected))
-        self.assertEqual(adapter.progressive_disclosure_errors(contracts_accepted), [])
-        self.assertTrue(adapter.progressive_disclosure_errors(contracts_rejected))
+        self.assertTrue(adapter.progressive_disclosure_errors(wrong_stage))
+        self.assertTrue(adapter.progressive_disclosure_errors(successor_skill))
 
     def test_acceptance_cases_enforce_mode_specific_reads(self):
         cases = json.loads((ROOT / "tests/evaluation/opencode-cases.json").read_text(encoding="utf-8"))["cases"]
@@ -244,7 +199,7 @@ class OpenCodeAdapterTests(unittest.TestCase):
 
     def test_agent_uses_leading_word_runbook_without_static_stage_leakage(self):
         agent = (ROOT / "runtime/agents/kubernetes-migration-analyzer.md").read_text(encoding="utf-8")
-        self.assertIn("Load the next Skill\nonly from a successful server handoff", agent)
+        self.assertIn("server's\n`current_stage`", agent)
         self.assertNotIn("submit_discovery", agent)
         self.assertNotIn("submit_execution", agent)
         self.assertNotIn("final assistant response must be exactly one JSON object", agent)

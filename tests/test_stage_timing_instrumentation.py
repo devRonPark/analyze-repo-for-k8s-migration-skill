@@ -34,7 +34,7 @@ def _real_shaped_call(name: str, *, start, end, accepted: bool):
     state: dict = {"time": {"start": start, "end": end}}
     if accepted:
         state["status"] = "completed"
-        state["output"] = json.dumps({"status": "accepted", "next_skill": "irrelevant"})
+        state["output"] = json.dumps({"status": "accepted", "current_stage": "execution"})
     else:
         state["status"] = "error"
         state["error"] = json.dumps({"code": "some rejection", "issues": ["x"], "retryable": False})

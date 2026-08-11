@@ -110,7 +110,7 @@ class ContractsStageTests(unittest.TestCase):
                     )
 
                 self.assertFalse(failed, result)
-                self.assertEqual(result["next_skill"], "analyze-k8s-finalize")
+                self.assertEqual(result["current_stage"], "finalize")
                 self.assertEqual(result["mode"], mode)
                 self.assertEqual(result["accepted_output"]["report_slot_ids"], list(REPORT_SLOTS[mode]))
                 self.assertEqual(boundaries["stage_input"]["required_report_slot_ids"], list(REPORT_SLOTS[mode]))
@@ -132,7 +132,7 @@ class ContractsStageTests(unittest.TestCase):
         self.assertTrue(failed)
         self.assertEqual(server.session.current_stage, "contracts")
         self.assertEqual(server.session.revision, boundaries["revision"])
-        self.assertNotIn("analyze-k8s-finalize", json.dumps(rejected, sort_keys=True))
+        self.assertNotIn("current_stage", json.dumps(rejected, sort_keys=True))
 
     def test_rejects_a_conflicted_slot_without_conflicted_fact_or_claim(self) -> None:
         temporary, server, boundaries = self.start_with_boundaries("summary")
@@ -164,7 +164,7 @@ class ContractsStageTests(unittest.TestCase):
 
         self.assertTrue(failed)
         self.assertEqual(server.session.current_stage, "contracts")
-        self.assertNotIn("analyze-k8s-finalize", json.dumps(rejected, sort_keys=True))
+        self.assertNotIn("current_stage", json.dumps(rejected, sort_keys=True))
 
     def test_rejects_model_provided_mode_drift(self) -> None:
         temporary, server, boundaries = self.start_with_boundaries("summary")

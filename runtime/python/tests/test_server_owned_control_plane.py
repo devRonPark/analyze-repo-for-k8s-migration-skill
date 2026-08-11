@@ -82,7 +82,7 @@ class ServerOwnedControlPlaneTests(unittest.TestCase):
                 "submit_discovery", {"payload": self.discovery_payload(discovery_observation["observation_ref"])}
             )
             self.assertFalse(failed, discovery)
-            self.assertEqual(discovery["next_skill"], "analyze-k8s-execution")
+            self.assertEqual(discovery["current_stage"], "execution")
 
             execution_observation, failed = server.tool_call("read_evidence", {"path": "app.py"})
             self.assertFalse(failed, execution_observation)
@@ -96,7 +96,7 @@ class ServerOwnedControlPlaneTests(unittest.TestCase):
             )
 
         self.assertFalse(failed, execution)
-        self.assertEqual(execution["next_skill"], "analyze-k8s-relationships")
+        self.assertEqual(execution["current_stage"], "relationships")
 
     def test_successful_transitions_rotate_internal_state_the_client_never_supplied(self) -> None:
         temporary, server = self.started()

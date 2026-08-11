@@ -75,7 +75,7 @@ class BoundariesStageTests(unittest.TestCase):
             )
 
         self.assertFalse(failed, result)
-        self.assertEqual(result["next_skill"], "analyze-k8s-contracts")
+        self.assertEqual(result["current_stage"], "contracts")
         self.assertEqual(result["accepted_output"], {
             "unit_ids": ["unit-web"], "deployable_unit_ids": ["unit-web"],
             "included_candidate_ids": ["candidate-web"], "excluded_candidate_ids": [],

@@ -132,7 +132,7 @@ class RelationshipsStageTests(unittest.TestCase):
 
         self.assertFalse(failed, result)
         self.assertEqual(result["completed_stage"], "relationships")
-        self.assertEqual(result["next_skill"], "analyze-k8s-boundaries")
+        self.assertEqual(result["current_stage"], "boundaries")
         self.assertEqual(result["accepted_output"], {
             "graph_edge_ids": ["edge-api-db"],
             "relationship_fact_refs": ["fact_relationships_claim-api-db"],
