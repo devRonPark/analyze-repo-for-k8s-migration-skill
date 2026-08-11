@@ -1837,6 +1837,31 @@ def _liveness_event_detail(event: dict[str, Any]) -> dict[str, Any]:
     return {"kind": "analysis_tool", "name": name, "observed_at": _liveness_time(event)}
 
 
+def _observation_relation_to_action(
+    observations: list[dict[str, Any]], action: dict[str, Any] | None,
+) -> str:
+    """Return only a timestamp-proven relation to the first stage action.
+
+    This deliberately treats a missing timestamp as unknown, rather than using
+    the SQLite row order as a surrogate for temporal order.  A relation cannot
+    be expressed when text/Skill observations exist but the stage action does
+    not, so that state remains distinct from an absent observation.
+    """
+    if not observations:
+        return "not_observed"
+    if action is None:
+        return "action_not_observed"
+    action_time = _liveness_time(action)
+    observation_times = [_liveness_time(observation) for observation in observations]
+    if action_time is None or any(value is None for value in observation_times):
+        return "order_unknown"
+    if all(value <= action_time for value in observation_times):
+        return "before"
+    if all(value > action_time for value in observation_times):
+        return "after"
+    return "order_unknown"
+
+
 def trace_stage_transitions(
     tool_calls: list[dict[str, Any]],
     assistant_text_parts: list[dict[str, Any]],
@@ -1916,23 +1941,27 @@ def trace_stage_transitions(
         )
         action_time = _liveness_time(first_observable) if first_observable is not None else None
         handoff_time = _liveness_time(handoff_call, handoff=True)
-        prose_before_action = any(
-            event.get("kind") == "assistant_text"
-            and (first_action is None or _liveness_time(event) is None or _liveness_time(first_action) is None or _liveness_time(event) <= _liveness_time(first_action))
-            for event in following
+        assistant_text_parts = [
+            event for event in following if event.get("kind") == "assistant_text"
+        ]
+        assistant_text_relation = _observation_relation_to_action(
+            assistant_text_parts, first_action
+        )
+        skill_relation = _observation_relation_to_action(
+            [matching_skill] if matching_skill is not None else [], first_action
         )
         if accepted_submission is not None:
             classification = "stage_progressed"
         elif first_action is not None:
             classification = "stage_action_observed_no_submission"
-        elif prose_before_action:
+        elif assistant_text_parts:
             classification = "assistant_text_no_stage_action"
         elif matching_skill is not None:
             classification = "skill_loaded_no_stage_action"
         elif skill_events_available:
             classification = "next_skill_load_not_observed"
         elif timeout:
-            classification = "provider_turn_timeout_before_observable_action"
+            classification = "timeout_before_observable_action"
         else:
             classification = "unobservable_with_current_host_artifacts"
 
@@ -1946,10 +1975,11 @@ def trace_stage_transitions(
                 "skill_load": {
                     "status": "observed" if matching_skill is not None else ("not_observed" if skill_events_available else "unavailable"),
                     "observed_at": _liveness_time(matching_skill) if matching_skill is not None else None,
+                    "relation_to_first_stage_action": skill_relation,
                 },
                 "first_post_handoff_event": _liveness_event_detail(first_observable) if first_observable is not None else None,
                 "first_next_stage_action": _liveness_event_detail(first_action) if first_action is not None else None,
-                "assistant_text_before_next_stage_action": prose_before_action,
+                "assistant_text_relation_to_next_stage_action": assistant_text_relation,
                 "next_stage_submission": {
                     "observed": bool(submission_calls),
                     "accepted": accepted_submission is not None,

@@ -79,7 +79,14 @@ class PostHandoffLivenessTests(unittest.TestCase):
         transition = transitions[0]
         self.assertEqual(transition["completed_stage"], "discovery")
         self.assertEqual(transition["next_skill"], "analyze-k8s-execution")
-        self.assertEqual(transition["skill_load"], {"status": "observed", "observed_at": 150})
+        self.assertEqual(
+            transition["skill_load"],
+            {
+                "status": "observed",
+                "observed_at": 150,
+                "relation_to_first_stage_action": "before",
+            },
+        )
         self.assertEqual(transition["first_next_stage_action"]["name"], "read_evidence")
         self.assertTrue(transition["next_stage_submission"]["accepted"])
         self.assertEqual(transition["classification"], "stage_progressed")
@@ -93,7 +100,7 @@ class PostHandoffLivenessTests(unittest.TestCase):
 
         transition = transitions[0]
         self.assertEqual(transition["skill_load"]["status"], "unavailable")
-        self.assertEqual(transition["classification"], "provider_turn_timeout_before_observable_action")
+        self.assertEqual(transition["classification"], "timeout_before_observable_action")
 
     def test_observed_skill_without_analysis_action_is_classified_narrowly(self):
         transitions = adapter.trace_stage_transitions(
@@ -110,7 +117,7 @@ class PostHandoffLivenessTests(unittest.TestCase):
         self.assertIsNone(transition["first_next_stage_action"])
         self.assertEqual(transition["classification"], "skill_loaded_no_stage_action")
 
-    def test_assistant_prose_before_action_is_not_misattributed_to_provider_failure(self):
+    def test_assistant_text_without_an_action_has_no_ordering_claim(self):
         transitions = adapter.trace_stage_transitions(
             [_call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution")],
             [{"kind": "assistant_text", "observed_at": 150}],
@@ -118,9 +125,54 @@ class PostHandoffLivenessTests(unittest.TestCase):
         )
 
         transition = transitions[0]
-        self.assertTrue(transition["assistant_text_before_next_stage_action"])
+        self.assertEqual(
+            transition["assistant_text_relation_to_next_stage_action"],
+            "action_not_observed",
+        )
         self.assertEqual(transition["first_post_handoff_event"]["kind"], "assistant_text")
         self.assertEqual(transition["classification"], "assistant_text_no_stage_action")
+
+    def test_assistant_text_without_timestamp_has_unknown_relation_to_action(self):
+        transitions = adapter.trace_stage_transitions(
+            [
+                _call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution"),
+                {"kind": "assistant_text"},
+                _call("read_evidence", start=200, end=210, status="completed"),
+            ],
+            [],
+            terminal_reason=None,
+        )
+
+        self.assertEqual(
+            transitions[0]["assistant_text_relation_to_next_stage_action"],
+            "order_unknown",
+        )
+
+    def test_skill_loaded_after_first_action_keeps_after_relation(self):
+        transitions = adapter.trace_stage_transitions(
+            [
+                _call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution"),
+                _call("read_evidence", start=150, end=160, status="completed"),
+                _skill("analyze-k8s-execution", start=200, end=210),
+            ],
+            [],
+            terminal_reason=None,
+        )
+
+        self.assertEqual(transitions[0]["skill_load"]["relation_to_first_stage_action"], "after")
+
+    def test_skill_and_action_without_timestamps_have_unknown_relation(self):
+        transitions = adapter.trace_stage_transitions(
+            [
+                _call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution"),
+                {"name": "skill", "state": {"input": {"name": "analyze-k8s-execution"}}},
+                {"name": "analysis_read_evidence", "state": {"output": json.dumps({"status": "completed"})}},
+            ],
+            [],
+            terminal_reason=None,
+        )
+
+        self.assertEqual(transitions[0]["skill_load"]["relation_to_first_stage_action"], "order_unknown")
 
     def test_multi_stage_handoffs_have_independent_records(self):
         transitions = adapter.trace_stage_transitions(
