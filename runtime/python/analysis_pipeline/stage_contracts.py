@@ -128,9 +128,9 @@ def project_predecessor_fact_statuses(state: PipelineState) -> dict[str, str]:
 def _require_contract_fields(stage: str, payload: Mapping[str, Any]) -> None:
     required = client_payload_required_fields(stage)
     if missing := required.difference(payload):
-        raise ValueError(f"missing {stage} payload field")
+        raise ValueError(f"missing {stage} payload field(s): {', '.join(sorted(missing))}")
     if unexpected := set(payload).difference(required):
-        raise ValueError(f"unknown {stage} payload field")
+        raise ValueError(f"unknown {stage} payload field(s): {', '.join(sorted(unexpected))}")
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
@@ -337,10 +337,35 @@ def _validate_relationship_edges(raw_edges: Any, claims: Any, process_ids: list[
     seen_ids: set[str] = set()
     pairs: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
     linked_claim_ids: set[str] = set()
-    for raw_edge in raw_edges:
+    edge_field_errors: list[str] = []
+    identifier_fields = ("id", "source_process_id", "target_id", "mechanism", "endpoint_name")
+    enum_fields = (
+        ("target_kind", target_kinds),
+        ("dependency_type", dependency_types),
+        ("required_for_function", required_statuses),
+        ("startup_use", startup_statuses),
+        ("status", edge_statuses),
+        ("management_boundary", boundaries),
+        ("timing", timings),
+        ("execution_location", execution_locations),
+    )
+    for index, raw_edge in enumerate(raw_edges):
         if not isinstance(raw_edge, Mapping):
             raise ValueError("invalid relationship edge")
         ensure_exact_keys(raw_edge, edge_fields, "relationship edge")
+        for field in identifier_fields:
+            if not isinstance(raw_edge.get(field), str) or not _IDENTIFIER.fullmatch(raw_edge[field]):
+                edge_field_errors.append(
+                    f"payload.graph_edges[{index}].{field} must match ^[A-Za-z][A-Za-z0-9_.-]{{0,63}}$"
+                )
+        for field, allowed in enum_fields:
+            if raw_edge.get(field) not in allowed:
+                edge_field_errors.append(
+                    f"payload.graph_edges[{index}].{field} must be one of: {', '.join(sorted(allowed))}"
+                )
+    if edge_field_errors:
+        raise ValueError("relationship edge field errors: " + "; ".join(edge_field_errors))
+    for raw_edge in raw_edges:
         edge = {key: _edge_identifier(raw_edge.get(key), key) for key in (
             "id", "source_process_id", "target_id", "mechanism", "endpoint_name"
         )}
@@ -350,23 +375,9 @@ def _validate_relationship_edges(raw_edges: Any, claims: Any, process_ids: list[
         if edge["source_process_id"] not in known_processes:
             raise ValueError("relationship source process dangling")
         target_kind = raw_edge.get("target_kind")
-        if target_kind not in target_kinds:
-            raise ValueError("invalid relationship target kind")
         if target_kind == "process" and edge["target_id"] not in known_processes:
             raise ValueError("relationship target process dangling")
         dependency_type = raw_edge.get("dependency_type")
-        if dependency_type not in dependency_types:
-            raise ValueError("invalid relationship dependency type")
-        for field, allowed in (
-            ("required_for_function", required_statuses),
-            ("startup_use", startup_statuses),
-            ("status", edge_statuses),
-            ("management_boundary", boundaries),
-            ("timing", timings),
-            ("execution_location", execution_locations),
-        ):
-            if raw_edge.get(field) not in allowed:
-                raise ValueError(f"invalid relationship {field}")
         edge_claim_ids = raw_edge.get("claim_ids")
         if not isinstance(edge_claim_ids, list) or not edge_claim_ids:
             raise ValueError("relationship claim ids required")
@@ -550,8 +561,16 @@ def validate_boundaries_payload(payload: Mapping[str, Any], registry: Observatio
         if not isinstance(candidates, list) or len(candidates) != len(set(candidates)) or not set(candidates).issubset(known_candidates):
             raise ValueError("workload candidate dangling")
         included_candidates.update(candidates)
-        if unit.get("start_definition_status") not in condition_statuses or unit.get("independent_lifecycle_status") not in condition_statuses or unit.get("boundary_status") not in condition_statuses:
-            raise ValueError("invalid workload boundary status")
+        invalid_condition_fields = [
+            field for field in ("start_definition_status", "independent_lifecycle_status", "boundary_status")
+            if unit.get(field) not in condition_statuses
+        ]
+        if invalid_condition_fields:
+            raise ValueError(
+                "workload unit has invalid boundary field(s): "
+                + ", ".join(invalid_condition_fields)
+                + "; allowed values: " + ", ".join(sorted(condition_statuses))
+            )
         if unit.get("lifecycle") not in lifecycle_statuses or unit.get("state_decision") not in state_statuses or unit.get("deployability_status") not in deployability_statuses or unit_contract.get("deployable") != "boolean" or not isinstance(unit.get("deployable"), bool):
             raise ValueError("invalid workload unit")
         # A single accepted runtime process has no sibling to compare an
@@ -559,9 +578,20 @@ def validate_boundaries_payload(payload: Mapping[str, Any], registry: Observatio
         # and independent_lifecycle_status is not required to be confirmed.
         lifecycle_confirmed = unit_id in deterministic_unit_ids or unit["independent_lifecycle_status"] == "confirmed"
         if unit["boundary_status"] == "confirmed" and (unit["start_definition_status"] != "confirmed" or not lifecycle_confirmed):
-            raise ValueError("confirmed workload requires both boundary conditions")
+            required = ["start_definition_status=confirmed"]
+            if unit_id not in deterministic_unit_ids:
+                required.append("independent_lifecycle_status=confirmed")
+            raise ValueError(
+                "workload unit has boundary_status=confirmed but requires "
+                + " and ".join(required)
+            )
         if unit["deployable"] and (unit["boundary_status"] != "confirmed" or unit["start_definition_status"] != "confirmed" or not lifecycle_confirmed):
-            raise ValueError("deployable workload requires both boundary conditions")
+            required = ["boundary_status=confirmed", "start_definition_status=confirmed"]
+            if unit_id not in deterministic_unit_ids:
+                required.append("independent_lifecycle_status=confirmed")
+            raise ValueError(
+                "deployable workload unit requires " + " and ".join(required)
+            )
         if unit["deployable"] and unit["deployability_status"] not in {"confirmed", "inferred"}:
             raise ValueError("deployable workload requires grounded eligibility")
 
@@ -658,6 +688,20 @@ def validate_contracts_payload(payload: Mapping[str, Any], registry: Observation
     slots = normalized.get("report_slots")
     if not isinstance(slots, list):
         raise ValueError("invalid report slots")
+    submitted_slot_ids: list[str] = []
+    for slot in slots:
+        if not isinstance(slot, Mapping):
+            raise ValueError("invalid report slot")
+        submitted_slot_ids.append(_edge_identifier(slot.get("id"), "report slot id"))
+    unexpected_slots = sorted(set(submitted_slot_ids).difference(expected_slots))
+    missing_slots = sorted(set(expected_slots).difference(submitted_slot_ids))
+    if unexpected_slots or missing_slots:
+        details: list[str] = []
+        if unexpected_slots:
+            details.append("unexpected: " + ", ".join(unexpected_slots))
+        if missing_slots:
+            details.append("missing: " + ", ".join(missing_slots))
+        raise ValueError("report slots must exactly match server-selected ids (" + "; ".join(details) + ")")
     claim_status = {claim.get("id"): claim.get("status") for claim in normalized["claims"] if isinstance(claim, Mapping)}
     known_fact_refs = {fact_ref for values in accepted_by_field.values() for fact_ref in values}
     if set(fact_statuses) != known_fact_refs or any(status not in CLAIM_STATUSES - {"unknown"} for status in fact_statuses.values()):

@@ -12,7 +12,6 @@
     "submit_relationships",
     "submit_boundaries",
     "submit_contracts",
-    "reopen_analysis",
     "finalize_analysis"
   ]
 }

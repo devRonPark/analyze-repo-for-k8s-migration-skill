@@ -27,10 +27,13 @@ class SkillBundleTests(unittest.TestCase):
             self.assertTrue((skills / "analyze-repo-for-kubernetes" / "SKILL.md").is_file())
             self.assertFalse(any(path.name == "__pycache__" for path in output.rglob("__pycache__")))
             self.assertFalse((output / "runtime" / "python" / "tests").exists())
-            projection = json.loads((skills / "analyze-k8s-discovery" / "references" / "payload-contract.json").read_text(encoding="utf-8"))
             source = json.loads((ROOT / "contracts" / "stage-payload-contracts.json").read_text(encoding="utf-8"))
             manifest = json.loads((output / "bundle-manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(projection, source["stages"]["discovery"])
+            projections = {
+                stage: json.loads((skills / f"analyze-k8s-{stage}" / "references" / "payload-contract.json").read_text(encoding="utf-8"))
+                for stage in ("discovery", "execution", "relationships", "boundaries", "contracts")
+            }
+        self.assertEqual(projections, {stage: source["stages"][stage] for stage in projections})
         self.assertEqual(set(manifest["skill_policies"]), set(SKILLS))
         self.assertEqual(manifest["skill_policies"]["analyze-repo-for-kubernetes"]["tools"], ["start_analysis"])
         self.assertNotIn("reopen_analysis", manifest["skill_policies"]["analyze-k8s-discovery"]["tools"])

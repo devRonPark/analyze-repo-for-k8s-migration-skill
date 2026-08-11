@@ -12,19 +12,11 @@ from .stage_contracts import candidate_exclusion_contract, relationship_edge_con
 from .tools import git_metadata, glob_paths, locate_evidence, read
 
 PRECISION_BUDGET_TOOLS = ("read_evidence", "locate_evidence", "list_target_paths")
-# submit_<stage>, finalize_analysis, and reopen_analysis share one per-stage
-# retry budget: a stuck model repeating an identical "stage_order" rejection
-# or an identical stub response on any of these is the same unbounded-loop
-# shape the precision budget exists to prevent, just later in the stage. An
-# earlier draft excluded envelope-class codes from this count on the theory
-# that a well-behaved caller would stop and reconsider; two separate live
-# runs against a real repository (2026-08-09/10) showed a noncompliant model
-# instead calling finalize_analysis 30+ times against a repeating
-# "stage_order" response, and separately calling the still-unimplemented
-# reopen_analysis 20+ times against its constant "reopen_is_not_delivered"
-# stub response, so only the two truly degenerate calling-convention codes
-# stay excluded.
-RETRY_BUDGET_TOOLS = (*STAGE_TOOL_BY_STAGE.values(), "finalize_analysis", "reopen_analysis")
+# Stage submits and finalize_analysis share the bounded retry budget.  The
+# catalog deliberately omits the undelivered reopen operation: exposing a
+# permanent-failure action created a live retry loop without offering a valid
+# correction.
+RETRY_BUDGET_TOOLS = (*STAGE_TOOL_BY_STAGE.values(), "finalize_analysis")
 NON_PAYLOAD_ERROR_CODES = frozenset({"invalid_arguments", "invalid_submission"})
 
 
@@ -52,6 +44,32 @@ class Server:
 
     def _error(self, code: str, issue: str, *, retryable: bool = False) -> dict[str, Any]:
         return {"code": code, "retryable": retryable, "issues": [issue]}
+
+    def _validation_error(self, message: str) -> dict[str, Any]:
+        """Return a deterministic correction for the reproduced edge-format loop."""
+        if message == "invalid relationship mechanism":
+            return {
+                "code": "invalid_relationship_mechanism",
+                "retryable": True,
+                "issues": [
+                    "payload.graph_edges[].mechanism must be an identifier matching ^[A-Za-z][A-Za-z0-9_.-]{0,63}$; use a machine identifier such as jdbc or spring_boot, not descriptive prose",
+                ],
+            }
+        if message.startswith("report slots must exactly match server-selected ids"):
+            return {
+                "code": "report_slot_set_mismatch",
+                "retryable": True,
+                "issues": [
+                    "payload.report_slots[].id must contain each server-selected id exactly once; " + message,
+                ],
+            }
+        if message.startswith("relationship edge field errors:"):
+            return {
+                "code": "invalid_relationship_edge_fields",
+                "retryable": True,
+                "issues": [message],
+            }
+        return self._error(message, message)
 
     def _budget(self) -> dict[str, int]:
         return {
@@ -134,14 +152,18 @@ class Server:
                 return self.session.submit_boundaries(arguments.get("payload")), False
             if name == "submit_contracts":
                 return self.session.submit_contracts(arguments.get("payload")), False
-            if name == "reopen_analysis":
-                return self._error("reopen_not_ready", "reopen_is_not_delivered"), True
             if name == "finalize_analysis":
                 return self.session.finalize_and_render(), False
             raise KeyError(name)
         except KeyError:
             return self._error("invalid_submission", "invalid_submission"), True
         except (TypeError, ValueError, OSError) as exc:
+            if str(exc) == "stage_order" and name == "finalize_analysis":
+                stage = self.session.current_stage or "current"
+                return self._error(
+                    "stage_order",
+                    f"{stage} remains open; correct its rejection and call submit_{stage}. finalize_analysis is valid only after submit_contracts is accepted",
+                ), True
             if str(exc) == "observation stage mismatch":
                 stage = self.session.current_stage or "current"
                 return self._error(
@@ -151,7 +173,7 @@ class Server:
                 ), True
             if issue := self._nested_contract_issue(str(exc)):
                 return self._error("invalid_nested_stage_payload", issue, retryable=True), True
-            return self._error(str(exc), str(exc)), True
+            return self._validation_error(str(exc)), True
 
 
 def handle(server: Server, request: dict[str, Any]) -> dict[str, Any] | None:

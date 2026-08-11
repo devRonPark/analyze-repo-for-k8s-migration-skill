@@ -26,7 +26,6 @@ TOOL_ORDER = (
     "submit_relationships",
     "submit_boundaries",
     "submit_contracts",
-    "reopen_analysis",
     "finalize_analysis",
 )
 
@@ -268,7 +267,6 @@ TOOLS.extend(
 )
 TOOLS.extend(
     [
-        _tool("reopen_analysis", "Reopen an accepted earlier stage of the active analysis after new evidence invalidates it.", ["stage", "reason"], {"stage": {"type": "string", "enum": list(STAGES)}, "reason": {"type": "string", "minLength": 3, "maxLength": 500}}),
         _tool("finalize_analysis", "Finalize the active analysis's accepted report state and return canonical Markdown.", [], {}),
     ]
 )

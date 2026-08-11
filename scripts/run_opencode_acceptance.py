@@ -1604,7 +1604,6 @@ def _static_assistant_markdown(database: Path) -> str:
 
 
 STATIC_MCP_PRECISION_TOOLS = ("read_evidence", "locate_evidence", "list_target_paths")
-STATIC_MCP_REOPEN_TOOL = "reopen_analysis"
 
 
 def _static_tool_calls(database: Path) -> list[dict[str, Any]]:
@@ -1617,7 +1616,6 @@ def _static_tool_calls(database: Path) -> list[dict[str, Any]]:
     expected_tools = (
         {tool for tool, _ in STATIC_MCP_TOOL_SEQUENCE}
         | set(STATIC_MCP_PRECISION_TOOLS)
-        | {STATIC_MCP_REOPEN_TOOL}
     )
     calls: list[dict[str, Any]] = []
     for record in _static_db_records(database):
@@ -1738,7 +1736,7 @@ def attribute_stage_timeline(tool_calls: list[dict[str, Any]]) -> list[dict[str,
 
     Stage attribution: a `submit_<stage>` / `start_analysis` / `finalize_analysis`
     call is attributed to the stage its own name names. Every other tool
-    (`read_evidence`, `locate_evidence`, `list_target_paths`, `reopen_analysis`)
+    (`read_evidence`, `locate_evidence`, `list_target_paths`)
     inherits whichever stage was most recently *entered* by an accepted
     stage-entering call -- "entered" meaning the stage that call's accepted
     response hands control to next, not the stage it just completed -- and
