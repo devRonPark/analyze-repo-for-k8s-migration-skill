@@ -80,14 +80,14 @@ submissions for Discovery/Execution/Relationships/Boundaries/Contracts,
 respectively, with Boundaries accepting on submission 14 and Contracts never
 accepting. Finalize had no accepted submission in either trace.
 
-| Stage | RCA baseline (latest standard trace) | D08 Solar run 1 | D08 Solar run 2 |
+| Stage | RCA baseline (latest standard trace) | D08 Solar run 1 | D08 Solar run 2 | D08 Solar run 3 |
 | --- | --- | --- |
-| Discovery | 1 accepted | 1 accepted | 1 accepted |
-| Execution | 1 accepted | not submitted | 1 accepted |
-| Relationships | 2 submissions, 1 rejection, accepted | not reached | 1 accepted |
-| Boundaries | 4 changing malformed submissions, no acceptance | not reached | handoff reached; no submission |
-| Contracts | not reached | not reached | not reached |
-| Finalize | not reached | not reached | not reached |
+| Discovery | 1 accepted | 1 accepted | 1 accepted | no submission |
+| Execution | 1 accepted | not submitted | 1 accepted | not reached |
+| Relationships | 2 submissions, 1 rejection, accepted | not reached | 1 accepted | not reached |
+| Boundaries | 4 changing malformed submissions, no acceptance | not reached | handoff reached; no submission | not reached |
+| Contracts | not reached | not reached | not reached | not reached |
+| Finalize | not reached | not reached | not reached | not reached |
 
 Provider-backed run: `jpetstore-6-summary`, pinned revision
 `e1dd9a31d1cef68793cd0933ae06898e6fcfa807`, `upstage/solar-pro2`, interactive
@@ -106,6 +106,12 @@ after four eligible rejections because it cannot safely manufacture a
 multi-process grouping. The target Git status again remained unchanged. This
 is a second, distinct provider non-submission path; neither provider run
 reproduced the RCA's Boundaries R2 sequence.
+
+The third equivalent run reached only `start_analysis`, made no Discovery
+submission, and timed out after 309.192 seconds. The Upstage models endpoint
+returned HTTP 200 in the immediately preceding preflight, and the target Git
+status again remained unchanged. Across all three D08 runs, the provider did
+not reproduce the RCA's Boundaries R2 sequence; no further retries were made.
 
 ## Trust invariants
 
