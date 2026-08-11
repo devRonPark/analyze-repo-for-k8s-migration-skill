@@ -1644,6 +1644,10 @@ def _static_tool_calls(database: Path) -> list[dict[str, Any]]:
                     call["row_time_created"] = row_created
                 if isinstance(row_updated, (int, float)):
                     call["row_time_updated"] = row_updated
+                for key in ("message_id", "session_id"):
+                    value = columns.get(key)
+                    if isinstance(value, str) and value:
+                        call[key] = value
                 calls.append(call)
     unique: list[dict[str, Any]] = []
     for call in calls:
@@ -1680,8 +1684,75 @@ def _static_assistant_text_parts(database: Path) -> list[dict[str, Any]]:
             row_created = columns.get("time_created")
             if isinstance(row_created, (int, float)):
                 part["observed_at"] = int(row_created)
+            for key in ("message_id", "session_id"):
+                value = columns.get(key)
+                if isinstance(value, str) and value:
+                    part[key] = value
             parts.append(part)
     return parts
+
+
+def _static_assistant_messages(database: Path) -> list[dict[str, Any]]:
+    """Extract persisted assistant message lifecycle fields without prose or errors.
+
+    OpenCode 1.18.14 persists assistant lifecycle in ``message.data`` and
+    associates parts through the ``part.message_id`` column.  The extraction
+    intentionally retains only safe categorical error information and part
+    type presence; report text and raw provider errors remain out of traces.
+    """
+    records = _static_db_records(database)
+    part_types: dict[str, set[str]] = {}
+    for record in records:
+        columns = record.get("columns", {})
+        message_id = columns.get("message_id")
+        if not isinstance(message_id, str) or not message_id:
+            continue
+        for payload in _static_json_objects(record):
+            part_type = payload.get("type")
+            if isinstance(part_type, str):
+                part_types.setdefault(message_id, set()).add(part_type)
+
+    messages: list[dict[str, Any]] = []
+    for record in records:
+        columns = record.get("columns", {})
+        for payload in _static_json_objects(record):
+            if payload.get("role") != "assistant":
+                continue
+            message_id = _static_message_id(record, payload)
+            if message_id is None:
+                continue
+            time_data = payload.get("time") if isinstance(payload.get("time"), dict) else {}
+            created = time_data.get("created", columns.get("time_created"))
+            completed = time_data.get("completed")
+            error = payload.get("error")
+            error_category = error.get("name") if isinstance(error, dict) else None
+            finish = payload.get("finish")
+            if error_category == "MessageAbortedError":
+                terminal_state = "aborted"
+            elif isinstance(error, dict):
+                terminal_state = "errored"
+            elif isinstance(completed, (int, float)) or isinstance(finish, str):
+                terminal_state = "completed"
+            else:
+                terminal_state = "active"
+            message: dict[str, Any] = {
+                "message_id": message_id,
+                "terminal_state": terminal_state,
+                "part_types": sorted(part_types.get(message_id, set())),
+            }
+            session_id = columns.get("session_id")
+            if isinstance(session_id, str) and session_id:
+                message["session_id"] = session_id
+            if isinstance(created, (int, float)):
+                message["created_at"] = int(created)
+            if isinstance(completed, (int, float)):
+                message["completed_at"] = int(completed)
+            if isinstance(finish, str) and finish:
+                message["finish_reason"] = finish
+            if isinstance(error_category, str) and error_category:
+                message["error_category"] = error_category
+            messages.append(message)
+    return messages
 
 
 STAGE_TIMING_ORDER = ("discovery", "execution", "relationships", "boundaries", "contracts")
@@ -1862,11 +1933,81 @@ def _observation_relation_to_action(
     return "order_unknown"
 
 
+def _post_skill_turn(
+    matching_skill: dict[str, Any] | None,
+    first_action: dict[str, Any] | None,
+    next_handoff: dict[str, Any] | None,
+    assistant_messages: list[dict[str, Any]] | None,
+    *,
+    terminal_reason: str | None,
+) -> dict[str, Any]:
+    """Project one causally bounded post-Skill assistant message, if provable.
+
+    The PTY harness observes a message only when its session and creation time
+    put it strictly between the expected Skill tool part and the next accepted
+    handoff.  When several messages fit without the first action identifying
+    one of them, the relation is unavailable rather than guessed.
+    """
+    unavailable = {"status": "lifecycle_unavailable"}
+    if assistant_messages is None or matching_skill is None:
+        return unavailable
+    skill_time = _liveness_time(matching_skill)
+    session_id = matching_skill.get("session_id")
+    if skill_time is None or not isinstance(session_id, str) or not session_id:
+        return unavailable
+    next_handoff_time = _liveness_time(next_handoff) if next_handoff is not None else None
+    candidates = [
+        message
+        for message in assistant_messages
+        if message.get("session_id") == session_id
+        and isinstance(message.get("created_at"), int)
+        and message["created_at"] > skill_time
+        and (next_handoff_time is None or message["created_at"] < next_handoff_time)
+    ]
+    action_message_id = first_action.get("message_id") if isinstance(first_action, dict) else None
+    action_candidates = [
+        message for message in candidates if message.get("message_id") == action_message_id
+    ]
+    if len(action_candidates) == 1:
+        message = action_candidates[0]
+    elif len(candidates) == 1:
+        message = candidates[0]
+    else:
+        return unavailable
+
+    terminal_state = message.get("terminal_state")
+    timeout = bool(terminal_reason and "timeout" in terminal_reason.lower())
+    if terminal_state == "active" and timeout:
+        status = "active_at_timeout"
+    elif terminal_state in {"completed", "errored", "aborted"}:
+        status = terminal_state
+    else:
+        # A nonterminal message captured outside a timeout does not establish
+        # what the host was doing when the harness ended.
+        return unavailable
+    part_types = set(message.get("part_types", []))
+    return {
+        "status": status,
+        "message_id": message["message_id"],
+        "created_at": message.get("created_at"),
+        "completed_at": message.get("completed_at"),
+        "finish_reason": message.get("finish_reason"),
+        "error_observed": terminal_state in {"errored", "aborted"},
+        "error_category": message.get("error_category"),
+        "abort_observed": terminal_state == "aborted",
+        "part_observations": {
+            part_type: "observed" if part_type in part_types else "not_observed"
+            for part_type in ("reasoning", "text", "tool", "step-start", "step-finish")
+        },
+    }
+
+
 def trace_stage_transitions(
     tool_calls: list[dict[str, Any]],
     assistant_text_parts: list[dict[str, Any]],
     *,
     terminal_reason: str | None,
+    assistant_messages: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Characterize accepted handoffs from structured OpenCode artifacts.
 
@@ -1878,16 +2019,21 @@ def trace_stage_transitions(
     skill_events_available = any(event.get("name") == "skill" for event in events)
     transitions: list[dict[str, Any]] = []
     timeout = bool(terminal_reason and "timeout" in terminal_reason.lower())
+    handoff_indexes = [
+        index
+        for index, event in enumerate(events)
+        if event.get("kind") != "assistant_text"
+        and _tool_name(event.get("name", event.get("tool"))) in _STAGE_ENTRY_TOOL
+        and _stage_response_status(event) == "accepted"
+        and isinstance(_stage_response_payload(event), dict)
+        and isinstance(_stage_response_payload(event).get("next_skill"), str)
+    ]
 
-    for index, handoff_call in enumerate(events):
-        if handoff_call.get("kind") == "assistant_text":
-            continue
+    for handoff_position, index in enumerate(handoff_indexes):
+        handoff_call = events[index]
         handoff_tool = _tool_name(handoff_call.get("name", handoff_call.get("tool")))
-        if handoff_tool not in _STAGE_ENTRY_TOOL or _stage_response_status(handoff_call) != "accepted":
-            continue
         payload = _stage_response_payload(handoff_call)
-        if not isinstance(payload, dict):
-            continue
+        assert isinstance(payload, dict)
         next_skill = payload.get("next_skill")
         if not isinstance(next_skill, str):
             continue
@@ -1899,7 +2045,15 @@ def trace_stage_transitions(
         else:
             next_submission_tool = f"submit_{next_stage}"
 
-        following = events[index + 1 :]
+        next_handoff_index = (
+            handoff_indexes[handoff_position + 1]
+            if handoff_position + 1 < len(handoff_indexes)
+            else None
+        )
+        # The next accepted handoff is included as the possible next-stage
+        # submission, but no later event can bleed into this transition.
+        following = events[index + 1 : next_handoff_index + 1 if next_handoff_index is not None else None]
+        next_handoff = events[next_handoff_index] if next_handoff_index is not None else None
         matching_skill = next(
             (
                 event
@@ -1950,10 +2104,25 @@ def trace_stage_transitions(
         skill_relation = _observation_relation_to_action(
             [matching_skill] if matching_skill is not None else [], first_action
         )
+        post_skill_turn = _post_skill_turn(
+            matching_skill,
+            first_action,
+            next_handoff,
+            assistant_messages,
+            terminal_reason=terminal_reason,
+        )
         if accepted_submission is not None:
             classification = "stage_progressed"
         elif first_action is not None:
             classification = "stage_action_observed_no_submission"
+        elif matching_skill is not None and assistant_messages is not None:
+            classification = {
+                "active_at_timeout": "model_turn_active_at_timeout",
+                "completed": "model_turn_completed_no_stage_action",
+                "errored": "model_turn_errored_before_stage_action",
+                "aborted": "model_turn_aborted_before_stage_action",
+                "lifecycle_unavailable": "post_skill_turn_lifecycle_unavailable",
+            }[post_skill_turn["status"]]
         elif assistant_text_parts:
             classification = "assistant_text_no_stage_action"
         elif matching_skill is not None:
@@ -1980,6 +2149,7 @@ def trace_stage_transitions(
                 "first_post_handoff_event": _liveness_event_detail(first_observable) if first_observable is not None else None,
                 "first_next_stage_action": _liveness_event_detail(first_action) if first_action is not None else None,
                 "assistant_text_relation_to_next_stage_action": assistant_text_relation,
+                "post_skill_turn": post_skill_turn,
                 "next_stage_submission": {
                     "observed": bool(submission_calls),
                     "accepted": accepted_submission is not None,
@@ -2372,10 +2542,16 @@ def _run_static_mcp_case(
                 for database in databases
                 for part in _static_assistant_text_parts(database)
             ]
+            assistant_messages = [
+                message
+                for database in databases
+                for message in _static_assistant_messages(database)
+            ]
             trace["stage_transitions"] = trace_stage_transitions(
                 trace.get("tool_calls", []),
                 assistant_text_parts,
                 terminal_reason=trace.get("reason"),
+                assistant_messages=assistant_messages,
             )
             trace["stage_transition_observability"] = {
                 "skill_load": (
@@ -2384,6 +2560,9 @@ def _run_static_mcp_case(
                     else "unavailable"
                 ),
                 "assistant_text": "available" if assistant_text_parts else "unavailable",
+                "post_skill_turn_lifecycle": (
+                    "available" if assistant_messages else "unavailable"
+                ),
             }
             (case_dir / "trace.json").write_text(
                 json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
