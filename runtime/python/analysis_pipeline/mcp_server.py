@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
+from .host_continuation import HostContinuationError, TRANSITION_MODES, load_host_continuation
 from .protocol import SERVER_INFO, STAGE_TOOL_BY_STAGE, TOOLS, error, markdown_result, response, text_result
-from .session import PRECISION_CALL_LIMIT, SUBMIT_REJECTION_LIMIT, AnalysisSession
+from .session import PRECISION_CALL_LIMIT, SUBMIT_REJECTION_LIMIT, SKILL_BY_STAGE, AnalysisSession
 from .stage_contracts import candidate_exclusion_contract, relationship_edge_contract, report_state_contract, workload_unit_contract
 from .tools import git_metadata, glob_paths, locate_evidence, read
 
@@ -26,10 +28,30 @@ def catalog_changed_notification() -> None:
 
 
 class Server:
-    def __init__(self, command_directory: str | Path | None = None, target_root: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        command_directory: str | Path | None = None,
+        target_root: str | Path | None = None,
+        *,
+        transition_mode: str = "model_routed",
+        skill_root: str | Path | None = None,
+    ) -> None:
+        if transition_mode not in TRANSITION_MODES:
+            raise ValueError("invalid_transition_mode")
         directory = Path(command_directory or target_root or Path.cwd()).resolve()
         self.session = AnalysisSession(directory)
         self.command_directory = directory
+        self.transition_mode = transition_mode
+        self.skill_root = Path(skill_root).resolve() if skill_root is not None else self._default_skill_root()
+
+    @staticmethod
+    def _default_skill_root() -> Path:
+        """Resolve the installed Skill sibling root, with a source-tree fallback."""
+        module = Path(__file__).resolve()
+        installed = module.parents[4] / "skills"
+        if installed.is_dir():
+            return installed
+        return module.parents[3] / "runtime" / "stage-skills"
 
     @property
     def state(self) -> Any:
@@ -44,6 +66,24 @@ class Server:
 
     def _error(self, code: str, issue: str, *, retryable: bool = False) -> dict[str, Any]:
         return {"code": code, "retryable": retryable, "issues": [issue]}
+
+    def _host_continue(self, result: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+        """Attach a host-loaded successor Skill only for an accepted handoff."""
+        if self.transition_mode != "host_owned" or result.get("status") != "accepted":
+            return result, False
+        try:
+            expected_skill = SKILL_BY_STAGE.get(self.session.current_stage or "")
+            continuation = load_host_continuation(
+                result,
+                analysis_id=self.session.analysis_id,
+                revision=self.session.revision,
+                transition_token=self.session.transition_token,
+                expected_skill=expected_skill,
+                skill_root=self.skill_root,
+            )
+        except HostContinuationError as exc:
+            return self._error("host_continuation_failed", str(exc)), True
+        return {**result, "host_continuation": continuation}, False
 
     def _validation_error(self, message: str) -> dict[str, Any]:
         """Return a deterministic correction for the reproduced edge-format loop."""
@@ -108,7 +148,7 @@ class Server:
             recovery_class = self.session.observe_boundaries_rejection(arguments.get("payload"), result)
             if recovery_class is not None:
                 try:
-                    return self.session.recover_boundaries(recovery_class), False
+                    return self._host_continue(self.session.recover_boundaries(recovery_class))
                 except (TypeError, ValueError, OSError) as exc:
                     return self._error("boundaries_recovery_unavailable", str(exc)), True
         if is_error and name in RETRY_BUDGET_TOOLS and result["code"] not in NON_PAYLOAD_ERROR_CODES:
@@ -124,6 +164,8 @@ class Server:
                         "whatever it cannot ground"
                     ),
                 )
+        if not is_error:
+            return self._host_continue(result)
         return result, is_error
 
     def _dispatch(self, name: str, arguments: dict[str, Any]) -> tuple[dict[str, Any], bool]:
@@ -227,7 +269,11 @@ def main(command_directory: str | Path | None = None) -> None:
     for stream in (sys.stdin, sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
-    server = Server(command_directory=command_directory or Path.cwd())
+    server = Server(
+        command_directory=command_directory or Path.cwd(),
+        transition_mode=os.environ.get("ANALYSIS_TRANSITION_MODE", "model_routed"),
+        skill_root=os.environ.get("ANALYSIS_PIPELINE_SKILL_ROOT") or None,
+    )
     for line in sys.stdin:
         try:
             request = json.loads(line)

@@ -132,6 +132,8 @@ class StaticMCPOpenCodeAcceptanceTests(unittest.TestCase):
         self.assertEqual(environment["UPSTAGE_API_KEY"], "not-printed")
         self.assertEqual(environment["OPENCODE_CONFIG_DIR"], str(Path("temp/config").resolve()))
         self.assertEqual(environment["PYWINPTY_BLOCK"], "0")
+        self.assertEqual(environment["ANALYSIS_TRANSITION_MODE"], "model_routed")
+        self.assertEqual(environment["ANALYSIS_PIPELINE_SKILL_ROOT"], str(Path("temp/config/skills").resolve()))
         self.assertEqual(environment["TERM"], "xterm-256color")
         self.assertEqual(environment["COLORTERM"], "truecolor")
         self.assertNotIn("WSLENV", environment)

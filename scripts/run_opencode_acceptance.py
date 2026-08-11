@@ -2064,6 +2064,14 @@ def trace_stage_transitions(
         next_skill = payload.get("next_skill")
         if not isinstance(next_skill, str):
             continue
+        host_continuation = payload.get("host_continuation")
+        host_owned = (
+            isinstance(host_continuation, dict)
+            and host_continuation.get("transition_owner") == "host"
+            and host_continuation.get("requested_skill") == next_skill
+            and host_continuation.get("skill_load") == "completed"
+        )
+        transition_owner = "host" if host_owned else "model"
         next_stage = _STAGE_BY_SKILL.get(next_skill)
         if next_stage is None:
             # A handoff with an unknown next Skill is observable but cannot be
@@ -2128,23 +2136,33 @@ def trace_stage_transitions(
         assistant_text_relation = _observation_relation_to_action(
             assistant_text_parts, first_action
         )
-        skill_relation = _observation_relation_to_action(
-            [matching_skill] if matching_skill is not None else [], first_action
+        skill_relation = (
+            "before" if host_owned and first_action is not None else (
+                "action_not_observed" if host_owned else _observation_relation_to_action(
+                    [matching_skill] if matching_skill is not None else [], first_action
+                )
+            )
         )
-        skill_completed_at = _event_completion_time(matching_skill)
+        skill_completed_at = handoff_time if host_owned else _event_completion_time(matching_skill)
         first_action_at = _liveness_time(first_action) if first_action is not None else None
         handoff_stage_input = payload.get("stage_input")
-        post_skill_turn = _post_skill_turn(
-            matching_skill,
-            first_action,
-            next_handoff,
-            assistant_messages,
-            terminal_reason=terminal_reason,
+        post_skill_turn = (
+            {"status": "host_owned_continuation"}
+            if host_owned
+            else _post_skill_turn(
+                matching_skill,
+                first_action,
+                next_handoff,
+                assistant_messages,
+                terminal_reason=terminal_reason,
+            )
         )
         if accepted_submission is not None:
             classification = "stage_progressed"
         elif first_action is not None:
             classification = "stage_action_observed_no_submission"
+        elif host_owned:
+            classification = "host_continuation_loaded_no_stage_action"
         elif matching_skill is not None and assistant_messages is not None:
             classification = {
                 "active_at_timeout": "model_turn_active_at_timeout",
@@ -2170,13 +2188,16 @@ def trace_stage_transitions(
                 "completed_tool": handoff_tool,
                 "next_stage": next_stage,
                 "next_skill": next_skill,
+                "transition_owner": transition_owner,
                 "handoff_observed_at": handoff_time,
                 "skill_load": {
-                    "status": "observed" if matching_skill is not None else ("not_observed" if skill_events_available else "unavailable"),
-                    "observed_at": _liveness_time(matching_skill) if matching_skill is not None else None,
+                    "status": "completed" if host_owned else ("observed" if matching_skill is not None else ("not_observed" if skill_events_available else "unavailable")),
+                    "observed_at": handoff_time if host_owned else (_liveness_time(matching_skill) if matching_skill is not None else None),
                     "completed_at": skill_completed_at,
                     "content_bytes": (
-                        _serialized_byte_size(matching_skill.get("state", {}).get("output"))
+                        _serialized_byte_size(host_continuation.get("skill_content"))
+                        if host_owned
+                        else _serialized_byte_size(matching_skill.get("state", {}).get("output"))
                         if matching_skill is not None
                         and isinstance(matching_skill.get("state"), dict)
                         and "output" in matching_skill["state"]
@@ -2307,6 +2328,7 @@ def static_mcp_runtime_environment(
     config: Path,
     config_dir: Path,
     log_root: Path,
+    transition_mode: str = "model_routed",
 ) -> dict[str, str]:
     """Create an isolated Windows-native PTY environment.
 
@@ -2346,6 +2368,8 @@ def static_mcp_runtime_environment(
             "TMP": str(private_tmp.resolve()),
             "OPENCODE_DISABLE_AUTOUPDATE": "1",
             "OPENCODE_TRACE_LOG_ROOT": str(log_root.resolve()),
+            "ANALYSIS_TRANSITION_MODE": transition_mode,
+            "ANALYSIS_PIPELINE_SKILL_ROOT": str((config_dir / "skills").resolve()),
             "PYWINPTY_BLOCK": "0",
         }
     )
@@ -2425,6 +2449,7 @@ def _run_static_mcp_case(
     timeout: float,
     runtime_python: str,
     pty_process: Any,
+    transition_mode: str = "model_routed",
 ) -> dict[str, Any]:
     """Run one fresh user command in a Windows-native PTY and preserve evidence."""
     command_directory = Path(case["command_directory"]).resolve()
@@ -2445,6 +2470,7 @@ def _run_static_mcp_case(
         "golden_sha256": golden["sha256"],
         "expected_revision": expected_revision,
         "actual_revision": actual_revision,
+        "transition_mode": transition_mode,
         "status": "FAIL",
     }
     if before["returncode"]:
@@ -2481,6 +2507,7 @@ def _run_static_mcp_case(
             config=config_path,
             config_dir=config_dir,
             log_root=case_dir / "logs",
+            transition_mode=transition_mode,
         )
         launch = [opencode, str(command_directory), "--mini", "--agent", AGENT_ID]
         if model:
@@ -2646,6 +2673,7 @@ def _run_static_mcp_acceptance(args: argparse.Namespace, cases_path: Path) -> in
             timeout=args.timeout,
             runtime_python=runtime_python,
             pty_process=pty_process,
+            transition_mode=args.transition_mode,
         )
         for case in cases
     ]
@@ -2710,6 +2738,12 @@ def main() -> int:
         "--windows-pty-root",
         type=Path,
         help="Windows interactive E2E에만 사용하는 pywinpty 설치 경로입니다.",
+    )
+    parser.add_argument(
+        "--transition-mode",
+        choices=("model_routed", "host_owned"),
+        default="model_routed",
+        help="D12 전환 소유권 실험 모드입니다. 기본값은 기존 model_routed입니다.",
     )
     args = parser.parse_args()
     if args.repeat < 1:

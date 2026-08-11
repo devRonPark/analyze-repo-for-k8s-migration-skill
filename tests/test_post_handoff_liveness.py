@@ -187,6 +187,31 @@ class PostHandoffLivenessTests(unittest.TestCase):
         self.assertIsNone(transition["first_next_stage_action"])
         self.assertEqual(transition["classification"], "skill_loaded_no_stage_action")
 
+    def test_host_owned_handoff_records_the_same_liveness_boundary(self):
+        handoff = _call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution")
+        handoff["state"]["output"] = json.dumps({
+            "status": "accepted",
+            "completed_stage": "discovery",
+            "next_skill": "analyze-k8s-execution",
+            "host_continuation": {
+                "transition_owner": "host",
+                "requested_skill": "analyze-k8s-execution",
+                "skill_load": "completed",
+                "skill_content": "stage instructions",
+            },
+        })
+        transitions = adapter.trace_stage_transitions(
+            [handoff, _call("read_evidence", start=150, end=160, status="completed")],
+            [],
+            terminal_reason=None,
+        )
+
+        transition = transitions[0]
+        self.assertEqual(transition["transition_owner"], "host")
+        self.assertEqual(transition["skill_load"]["status"], "completed")
+        self.assertEqual(transition["first_next_stage_action"]["name"], "read_evidence")
+        self.assertEqual(transition["classification"], "stage_action_observed_no_submission")
+
     def test_assistant_text_without_an_action_has_no_ordering_claim(self):
         transitions = adapter.trace_stage_transitions(
             [_call("submit_discovery", start=100, end=120, completed_stage="discovery", next_skill="analyze-k8s-execution")],

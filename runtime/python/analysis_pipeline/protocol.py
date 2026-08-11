@@ -90,6 +90,18 @@ HANDOFF_SCHEMA = {
         "transition_token": {"type": "string", "pattern": "^tr_[A-Za-z0-9_-]{8,}$"},
         "next_skill": {"type": "string"},
         "accepted_output": {"type": "object"},
+        "host_continuation": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["transition_owner", "requested_skill", "skill_load", "activation", "skill_content"],
+            "properties": {
+                "transition_owner": {"const": "host"},
+                "requested_skill": {"type": "string"},
+                "skill_load": {"const": "completed"},
+                "activation": {"type": "string", "minLength": 1},
+                "skill_content": {"type": "string", "minLength": 1},
+            },
+        },
         # stage_input's other keys vary per stage, so this stays open
         # (no additionalProperties:False); survey/budget are constrained
         # because every non-finalize stage_input carries them in this shape.
