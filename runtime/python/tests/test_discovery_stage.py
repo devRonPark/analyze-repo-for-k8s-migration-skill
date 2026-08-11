@@ -76,7 +76,7 @@ class DiscoveryStageTests(unittest.TestCase):
         self.assertEqual(survey["stage"], "execution")
         self.assertTrue(survey["surveyed"])
         self.assertLessEqual(len(survey["observations"]), 12)
-        self.assertEqual(budget, {"precision_calls_remaining": 1, "submit_rejections_remaining": 3})
+        self.assertEqual(budget, {"submit_rejections_remaining": 3})
         self.assertEqual(result["revision"], 1)
         self.assertNotEqual(result["transition_token"], started["transition_token"])
         rendered = json.dumps(result, sort_keys=True)

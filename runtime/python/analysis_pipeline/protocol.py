@@ -70,9 +70,8 @@ _SURVEY_SCHEMA = {
 _BUDGET_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["precision_calls_remaining", "submit_rejections_remaining"],
+    "required": ["submit_rejections_remaining"],
     "properties": {
-        "precision_calls_remaining": {"type": "integer", "minimum": 0},
         "submit_rejections_remaining": {"type": "integer", "minimum": 0},
     },
 }

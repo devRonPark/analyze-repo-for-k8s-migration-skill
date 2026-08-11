@@ -37,9 +37,6 @@ from .report_projection import project_and_render
 from .tools.survey import compute_survey
 
 
-# Precision-tool budget: one combined read_evidence/locate_evidence/
-# list_target_paths call per stage, on top of the pushed survey.
-PRECISION_CALL_LIMIT = 1
 # Submit-retry budget: three corrected resubmissions before the fourth
 # attempt is handled specially (see docs/superpowers/specs/
 # 2026-08-09-bounded-stage-surveys-design.md, "Submit retries"). Only the
@@ -63,7 +60,6 @@ class AnalysisSession:
         self.current_stage: str | None = None
         self.revision = 0
         self.transition_token: str | None = None
-        self.precision_calls_used = 0
         self.submit_rejections = 0
         self.boundaries_rejections: list[dict[str, Any]] = []
         self.boundaries_survey: list[dict[str, Any]] = []
@@ -365,7 +361,6 @@ class AnalysisSession:
             assert self.pipeline is not None
             accepted_output = project_contracts_handoff(self.pipeline)
             stage_input.update(accepted_output)
-        self.precision_calls_used = 0
         self.submit_rejections = 0
         if self.current_stage in ANALYSIS_STAGES:
             assert self.registry is not None and self.target_root is not None
@@ -379,7 +374,6 @@ class AnalysisSession:
             if self.current_stage == "boundaries":
                 self.boundaries_survey = list(stage_input["survey"].get("observations", []))
             stage_input["budget"] = {
-                "precision_calls_remaining": PRECISION_CALL_LIMIT - self.precision_calls_used,
                 "submit_rejections_remaining": SUBMIT_REJECTION_LIMIT - self.submit_rejections,
             }
         return {

@@ -294,8 +294,8 @@ def compute_survey(
     For Contracts, also supplies one distinct observation per required report
     slot that has no eligible predecessor fact to reuse (see
     stage_contracts.py's "report slot evidence duplicate" rule, which forbids
-    two slots from sharing evidence) — otherwise a stage needing several
-    independently-grounded slots would exceed the one-call precision budget.
+    two slots from sharing evidence), so routine report-slot grounding does
+    not require additional target reads.
     """
     categories = _STAGE_ALLOWLIST.get(stage, ())
     observations: list[dict[str, Any]] = []

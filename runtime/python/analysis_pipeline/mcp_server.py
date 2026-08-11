@@ -7,11 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from .protocol import SERVER_INFO, STAGE_TOOL_BY_STAGE, TOOLS, error, markdown_result, response, text_result
-from .session import PRECISION_CALL_LIMIT, SUBMIT_REJECTION_LIMIT, AnalysisSession
+from .session import SUBMIT_REJECTION_LIMIT, AnalysisSession
 from .stage_contracts import candidate_exclusion_contract, relationship_edge_contract, report_state_contract, workload_unit_contract
 from .tools import git_metadata, glob_paths, locate_evidence, read
 
-PRECISION_BUDGET_TOOLS = ("read_evidence", "locate_evidence", "list_target_paths")
 # Stage submits and finalize_analysis share the bounded retry budget.  The
 # catalog deliberately omits the undelivered reopen operation: exposing a
 # permanent-failure action created a live retry loop without offering a valid
@@ -77,20 +76,8 @@ class Server:
 
     def _budget(self) -> dict[str, int]:
         return {
-            "precision_calls_remaining": max(0, PRECISION_CALL_LIMIT - self.session.precision_calls_used),
             "submit_rejections_remaining": max(0, SUBMIT_REJECTION_LIMIT - self.session.submit_rejections),
         }
-
-    def _precision_budget_error(self) -> dict[str, Any]:
-        stage = self.session.current_stage or "current"
-        return self._error(
-            "precision_budget_exhausted",
-            (
-                f"the current {stage} stage's one-call content-search budget "
-                "(read_evidence/locate_evidence/list_target_paths) is exhausted; "
-                "submit now with unknown/inferred status for anything still ungrounded"
-            ),
-        )
 
     @staticmethod
     def _nested_contract_issue(message: str) -> str | None:
@@ -137,19 +124,14 @@ class Server:
             if name == "start_analysis":
                 return self.session.start(arguments.get("target_path"), arguments.get("mode")), False
             self.session.assert_active()
-            if name in PRECISION_BUDGET_TOOLS and self.session.precision_calls_used >= PRECISION_CALL_LIMIT:
-                return self._precision_budget_error(), True
             if name == "read_evidence":
                 result = read(self.session.target_root, **arguments, observation_registry=self.session.registry, stage=self.session.current_stage)
-                self.session.precision_calls_used += 1
                 return {**result, "budget": self._budget()}, False
             if name == "list_target_paths":
                 paths = glob_paths(self.session.target_root, **arguments).splitlines()
-                self.session.precision_calls_used += 1
                 return {"paths": paths, "budget": self._budget()}, False
             if name == "locate_evidence":
                 result = locate_evidence(self.session.target_root, **arguments, observation_registry=self.session.registry, stage=self.session.current_stage)
-                self.session.precision_calls_used += 1
                 return {**result, "budget": self._budget()}, False
             if name == "get_target_git_metadata":
                 return {"metadata": git_metadata(self.session.target_root), "budget": self._budget()}, False

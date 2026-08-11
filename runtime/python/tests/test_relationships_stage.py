@@ -151,7 +151,7 @@ class RelationshipsStageTests(unittest.TestCase):
         self.assertEqual(survey["stage"], "boundaries")
         self.assertTrue(survey["surveyed"])
         self.assertLessEqual(len(survey["observations"]), 12)
-        self.assertEqual(budget, {"precision_calls_remaining": 1, "submit_rejections_remaining": 3})
+        self.assertEqual(budget, {"submit_rejections_remaining": 3})
         handoff_only = json.dumps({**result, "stage_input": stage_input}, sort_keys=True)
         self.assertNotIn("app.py", handoff_only)
         self.assertNotIn("observation_ref", handoff_only)

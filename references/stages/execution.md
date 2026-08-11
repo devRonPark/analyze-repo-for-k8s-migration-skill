@@ -12,9 +12,11 @@ server response.
 4. Submit one complete `submit_execution` attempt after the decision is ready.
    Retry only after an explicit server rejection.
 
-**Ground and precision:** use the current stage survey first. At most one
-`read_evidence`, `locate_evidence`, or `list_target_paths` call is allowed;
-on budget exhaustion, submit `unknown`/`inferred` for the blocked field.
+**Evidence access:** use the current stage survey first. Call
+`read_evidence`, `locate_evidence`, or `list_target_paths` as needed to ground
+a current-stage decision. Keep each read targeted. When evidence remains
+insufficient, submit the field as `unknown` or `inferred` under its payload
+contract.
 
 **Boundary:** incoming `discovery_fact_refs` are accepted facts, not
 observation references. Each evidence observation must be issued in this

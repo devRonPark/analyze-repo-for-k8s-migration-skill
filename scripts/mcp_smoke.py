@@ -164,8 +164,7 @@ def contracts_payload(handoff: dict[str, Any]) -> dict[str, Any]:
     which slots need fresh evidence) or ground a fresh Contracts claim from
     the survey's per-slot observation (stage_input.survey.observations,
     tagged category="report_slot:<slot_id>"). No independent read_evidence
-    call is needed: the one-call precision budget is reserved for a
-    genuinely blocked decision, not routine per-slot grounding.
+    call is needed for routine per-slot grounding.
     """
     slots = (
         "deployment_targets", "build_image_start", "reachable_port_or_path",
