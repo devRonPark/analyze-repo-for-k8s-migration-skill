@@ -75,6 +75,12 @@ def submit(state: PipelineState, stage: str, payload: dict[str, Any], expected_r
     return with_hash(next_state)
 
 
+def recover_boundaries(state: PipelineState, payload: dict[str, Any], metadata: dict[str, Any]) -> PipelineState:
+    """Apply a fully validated, server-constructed Boundaries transition."""
+    accepted = submit(state, "boundaries", payload, state.revision, state.state_hash)
+    return with_hash(replace(accepted, recovery={**accepted.recovery, "boundaries": deepcopy(metadata)}))
+
+
 def reopen(state: PipelineState, target_stage: str, reason: str, expected_revision: int, expected_hash: str) -> PipelineState:
     ensure_transition_open(state, expected_revision, expected_hash)
     if target_stage not in ANALYSIS_STAGES:
@@ -94,6 +100,11 @@ def reopen(state: PipelineState, target_stage: str, reason: str, expected_revisi
         for evidence_id, item in state.evidence.items()
         if ANALYSIS_STAGES.index(item["stage"]) < ANALYSIS_STAGES.index(target_stage)
     }
+    kept_recovery = {
+        stage_name: deepcopy(metadata)
+        for stage_name, metadata in state.recovery.items()
+        if stage_name in ANALYSIS_STAGES and ANALYSIS_STAGES.index(stage_name) < ANALYSIS_STAGES.index(target_stage)
+    }
     next_state = replace(
         state,
         revision=state.revision + 1,
@@ -102,6 +113,7 @@ def reopen(state: PipelineState, target_stage: str, reason: str, expected_revisi
         outputs=kept_outputs,
         evidence=kept_evidence,
         catalog=collect_catalog_from_outputs(kept_outputs),
+        recovery=kept_recovery,
         reopen_reasons=state.reopen_reasons + (reason,),
     )
     return with_hash(next_state)

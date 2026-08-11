@@ -21,6 +21,7 @@ runtime/python/launch_mcp.py
 runtime/python/pyproject.toml
 runtime/python/requirements.lock
 runtime/python/analysis_pipeline/__init__.py
+runtime/python/analysis_pipeline/boundaries_recovery.py
 runtime/python/analysis_pipeline/handoffs.py
 runtime/python/analysis_pipeline/mcp_server.py
 runtime/python/analysis_pipeline/observations.py

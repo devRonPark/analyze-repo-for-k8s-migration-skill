@@ -27,6 +27,12 @@ from .stage_contracts import (
     validate_contracts_payload,
 )
 from .state import ANALYSIS_STAGES, PipelineState, create_state
+from .transitions import recover_boundaries
+from .boundaries_recovery import (
+    detect_boundaries_nonconvergence,
+    observe_boundaries_rejection,
+    recover_boundaries_payload,
+)
 from .report_projection import project_and_render
 from .tools.survey import compute_survey
 
@@ -68,6 +74,8 @@ class AnalysisSession:
         self.transition_token: str | None = None
         self.precision_calls_used = 0
         self.submit_rejections = 0
+        self.boundaries_rejections: list[dict[str, Any]] = []
+        self.boundaries_survey: list[dict[str, Any]] = []
 
     @property
     def active(self) -> bool:
@@ -225,6 +233,70 @@ class AnalysisSession:
         self.current_stage, self.revision, self.transition_token = self.pipeline.current_stage, self.pipeline.revision, self._token()
         return self.handoff("boundaries")
 
+    def observe_boundaries_rejection(self, payload: Any, result: Mapping[str, Any]) -> str | None:
+        """Keep only compact server-derived loop evidence for the active stage."""
+        if self.current_stage != "boundaries":
+            return None
+        previous = self.boundaries_rejections[-1] if self.boundaries_rejections else None
+        entry = observe_boundaries_rejection(payload, result, previous)
+        if entry is None:
+            # Preserve sequence boundaries. An un-actionable rejection (for
+            # example a stale snapshot) is evidence against recovery, not a
+            # gap that later actionable errors may jump across.
+            entry = {
+                "stage": "boundaries",
+                "attempt": (int(previous["attempt"]) + 1) if previous is not None else 1,
+                "error_code": str(result.get("code", "unknown")),
+                "error_path": None,
+                "actionable": False,
+                "relevant_fingerprint": None,
+                "decision_fingerprint": None,
+                "relevant_changed": False,
+            }
+        self.boundaries_rejections.append(entry)
+        return detect_boundaries_nonconvergence(self.boundaries_rejections)
+
+    def recover_boundaries(self, recovery_class: str) -> dict[str, Any]:
+        self.assert_active()
+        if self.current_stage != "boundaries" or self.pipeline is None or self.registry is None or self.snapshot is None or self.binding is None:
+            raise ValueError("boundaries recovery is not available")
+        discovery = project_discovery_handoff(self.pipeline)
+        execution = project_execution_handoff(self.pipeline)
+        relationships = project_relationships_handoff(self.pipeline)
+        payload = recover_boundaries_payload(
+            registry=self.registry,
+            snapshot=self.snapshot,
+            binding=self.binding,
+            survey=self.boundaries_survey,
+            discovery_fact_refs=discovery["discovery_fact_refs"],
+            execution_fact_refs=execution["execution_fact_refs"],
+            relationship_fact_refs=relationships["relationship_fact_refs"],
+            process_ids=execution["process_ids"],
+            candidate_ids=discovery["candidate_ids"],
+            validate=validate_boundaries_payload,
+        )
+        metadata = {
+            "stage": "boundaries",
+            "class": recovery_class,
+            "degraded": True,
+            "reason": "bounded actionable correction nonconvergence",
+            "correction_opportunities": max(0, len(self.boundaries_rejections) - 1),
+            "attempts": [
+                {key: entry[key] for key in ("attempt", "error_code", "error_path", "actionable", "relevant_changed")}
+                for entry in self.boundaries_rejections
+            ],
+            "trusted_inputs": [
+                "accepted discovery candidate identifiers",
+                "accepted execution process identifiers",
+                "boundaries survey scoped-absence observations",
+                "single-process workload grouping rule",
+            ],
+            "unknowns": ["boundary", "lifecycle", "state", "deployability", "candidate eligibility"],
+        }
+        self.pipeline = recover_boundaries(self.pipeline, payload, metadata)
+        self.current_stage, self.revision, self.transition_token = self.pipeline.current_stage, self.pipeline.revision, self._token()
+        return {**self.handoff("boundaries"), "recovery": metadata}
+
     def submit_contracts(self, payload: Any) -> dict[str, Any]:
         self.assert_active()
         if self.current_stage != "contracts":
@@ -296,6 +368,8 @@ class AnalysisSession:
             stage_input["relationship_fact_refs"] = project_relationships_handoff(self.pipeline)["relationship_fact_refs"]
             stage_input["required_report_slot_ids"] = required_report_slot_ids(self.mode)
             stage_input["fact_statuses"] = project_predecessor_fact_statuses(self.pipeline)
+            if "boundaries" in self.pipeline.recovery:
+                stage_input["recovery"] = self.pipeline.recovery["boundaries"]
         elif self.current_stage == "finalize":
             assert self.pipeline is not None
             accepted_output = project_contracts_handoff(self.pipeline)
@@ -311,6 +385,8 @@ class AnalysisSession:
                     "fact_statuses": stage_input.get("fact_statuses", {}),
                 }
             stage_input["survey"] = compute_survey(self.target_root, self.current_stage, self.registry, **survey_kwargs)
+            if self.current_stage == "boundaries":
+                self.boundaries_survey = list(stage_input["survey"].get("observations", []))
             stage_input["budget"] = {
                 "precision_calls_remaining": PRECISION_CALL_LIMIT - self.precision_calls_used,
                 "submit_rejections_remaining": SUBMIT_REJECTION_LIMIT - self.submit_rejections,

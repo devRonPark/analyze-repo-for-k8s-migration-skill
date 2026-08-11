@@ -88,6 +88,7 @@ class PipelineState:
     outputs: dict[str, dict[str, Any]] = field(default_factory=dict)
     evidence: dict[str, dict[str, Any]] = field(default_factory=dict)
     catalog: dict[str, list[str]] = field(default_factory=empty_catalog)
+    recovery: dict[str, dict[str, Any]] = field(default_factory=dict)
     reopen_reasons: tuple[str, ...] = ()
     created_at: str = "1970-01-01T00:00:00.000Z"
     state_hash: str = ""
@@ -102,6 +103,7 @@ class PipelineState:
                 "outputs": self.outputs,
                 "evidence": self.evidence,
                 "catalog": self.catalog,
+                "recovery": self.recovery,
                 "reopen_reasons": self.reopen_reasons,
                 "created_at": self.created_at,
             }

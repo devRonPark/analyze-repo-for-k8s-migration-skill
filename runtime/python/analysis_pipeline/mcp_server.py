@@ -104,6 +104,13 @@ class Server:
 
     def tool_call(self, name: str, arguments: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         result, is_error = self._dispatch(name, arguments)
+        if is_error and name == "submit_boundaries":
+            recovery_class = self.session.observe_boundaries_rejection(arguments.get("payload"), result)
+            if recovery_class is not None:
+                try:
+                    return self.session.recover_boundaries(recovery_class), False
+                except (TypeError, ValueError, OSError) as exc:
+                    return self._error("boundaries_recovery_unavailable", str(exc)), True
         if is_error and name in RETRY_BUDGET_TOOLS and result["code"] not in NON_PAYLOAD_ERROR_CODES:
             self.session.submit_rejections += 1
             if self.session.submit_rejections > SUBMIT_REJECTION_LIMIT:
