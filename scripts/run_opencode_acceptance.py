@@ -1947,6 +1947,198 @@ def _serialized_byte_size(value: Any) -> int | None:
         return None
 
 
+def _context_shape(value: Any) -> Any:
+    """Return a value-free, deterministic shape for a retained context item.
+
+    Transition traces may contain stage inputs derived from a target.  D13
+    needs a stable equality signal without retaining or hashing those values,
+    so strings are represented only by their character count and mappings by
+    their sorted key/type shape.
+    """
+    if isinstance(value, dict):
+        return {
+            "type": "object",
+            "keys": {
+                str(key): _context_shape(item)
+                for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+            },
+        }
+    if isinstance(value, list):
+        return {"type": "array", "length": len(value), "items": [_context_shape(item) for item in value]}
+    if isinstance(value, str):
+        return {"type": "string", "chars": len(value)}
+    if value is None:
+        return {"type": "null"}
+    return {"type": type(value).__name__}
+
+
+def _context_shape_fingerprint(value: Any) -> str:
+    encoded = json.dumps(_context_shape(value), ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _skill_content_fingerprint(value: Any) -> str | None:
+    """Fingerprint installed Skill text only; never retain its prose in a trace."""
+    if not isinstance(value, str):
+        return None
+    normalized = "\n".join(line.rstrip() for line in value.replace("\r\n", "\n").split("\n")).strip()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _transition_context_record(
+    handoff: dict[str, Any],
+    following: list[dict[str, Any]],
+    *,
+    next_skill: str,
+    first_action: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Project structural successor context without preserving target or prompt text.
+
+    This is an observation-only projection.  It identifies the concrete tool
+    result containers OpenCode persisted before the first successor action;
+    it does not reconstruct an unpersisted provider request.
+    """
+    host = handoff.get("host_continuation")
+    host_loaded = (
+        isinstance(host, dict)
+        and host.get("transition_owner") == "host"
+        and host.get("requested_skill") == next_skill
+        and host.get("skill_load") == "completed"
+    )
+    native_skills = [
+        event
+        for event in following
+        if event.get("name") == "skill"
+        and isinstance(event.get("state"), dict)
+        and isinstance(event["state"].get("input"), dict)
+        and event["state"]["input"].get("name") == next_skill
+        and (first_action is None or _liveness_time(event) is None or _liveness_time(first_action) is None or _liveness_time(event) <= _liveness_time(first_action))
+    ]
+    skill_sources: list[dict[str, Any]] = []
+    if host_loaded:
+        content = host.get("skill_content")
+        skill_sources.append(
+            {
+                "source": "host_continuation",
+                "role": "tool",
+                "container": "accepted_handoff.host_continuation",
+                "observed_skill": host.get("requested_skill"),
+                "normalized_size": _serialized_size(content),
+                "fingerprint": _skill_content_fingerprint(content),
+            }
+        )
+    for event in native_skills:
+        state = event.get("state") if isinstance(event.get("state"), dict) else {}
+        content = state.get("output")
+        input_value = state.get("input") if isinstance(state.get("input"), dict) else {}
+        skill_sources.append(
+            {
+                "source": "native_skill",
+                "role": "tool",
+                "container": "skill_tool_result",
+                "observed_skill": input_value.get("name"),
+                "normalized_size": _serialized_size(content),
+                "fingerprint": _skill_content_fingerprint(content),
+            }
+        )
+
+    stage_input = handoff.get("stage_input")
+    stage_input_observed = isinstance(stage_input, dict)
+    expected_skill_matches = [source.get("observed_skill") == next_skill for source in skill_sources]
+    ordering = ["accepted_handoff"]
+    if host_loaded:
+        ordering.append("host_continuation")
+    ordering.extend("native_skill_tool_result" for _ in native_skills)
+    if first_action is not None:
+        ordering.append("first_successor_action")
+    handoff_size = _serialized_size(handoff)
+    skill_size = sum(source["normalized_size"] for source in skill_sources if isinstance(source.get("normalized_size"), int))
+    return {
+        "status": "available",
+        "expected_skill": next_skill,
+        "accepted_handoff": {
+            "response_present": True,
+            "role": "tool",
+            "next_skill_present": isinstance(handoff.get("next_skill"), str),
+            "accepted_output_present": "accepted_output" in handoff,
+            "stage_input_present": stage_input_observed,
+        },
+        "skill": {
+            "observed": bool(skill_sources),
+            "occurrences": len(skill_sources),
+            "identity_match": "same" if skill_sources and all(expected_skill_matches) else ("different" if skill_sources else "unavailable"),
+            "sources": skill_sources,
+        },
+        "stage_input": {
+            "observed": stage_input_observed,
+            "occurrences": 1 if stage_input_observed else 0,
+            "normalized_size": _serialized_size(stage_input) if stage_input_observed else None,
+            "fingerprint": _context_shape_fingerprint(stage_input) if stage_input_observed else None,
+        },
+        "ordering": ordering,
+        "turn_boundary": {
+            # A persisted native skill call is one assistant/model turn before
+            # the successor action.  Host context itself has no persisted
+            # assistant turn and must not be counted as one.
+            "native_model_turns_before_first_action": len(native_skills),
+        },
+        "tool_surface": "unavailable",
+        "prior_stage_retention": "unavailable",
+        "context_size_proxy": {
+            "observable_component_count": 1 + len(skill_sources),
+            "serialized_chars": (handoff_size + skill_size) if isinstance(handoff_size, int) else None,
+            "message_count": "unavailable",
+            "part_count": "unavailable",
+        },
+    }
+
+
+def compare_transition_contexts(model: dict[str, Any] | None, host: dict[str, Any] | None) -> dict[str, Any]:
+    """Compare two structural successor-context records conservatively.
+
+    ``unavailable`` is intentionally distinct from equality.  Context-size
+    differences remain quantitative observations and do not alone make the
+    semantic verdict different.
+    """
+    if not isinstance(model, dict) or not isinstance(host, dict) or model.get("status") != "available" or host.get("status") != "available":
+        return {"context_parity": "unavailable", "dimensions": {}}
+
+    def same(left: Any, right: Any) -> str:
+        return "same" if left == right else "different"
+
+    dimensions = {
+        "skill_identity": same(
+            (model.get("expected_skill"), model.get("skill", {}).get("identity_match")),
+            (host.get("expected_skill"), host.get("skill", {}).get("identity_match")),
+        ),
+        "skill_multiplicity": same(model.get("skill", {}).get("occurrences"), host.get("skill", {}).get("occurrences")),
+        "skill_size": same(
+            [source.get("normalized_size") for source in model.get("skill", {}).get("sources", [])],
+            [source.get("normalized_size") for source in host.get("skill", {}).get("sources", [])],
+        ),
+        "stage_input_identity": same(model.get("stage_input", {}).get("fingerprint"), host.get("stage_input", {}).get("fingerprint")),
+        "stage_input_multiplicity": same(model.get("stage_input", {}).get("occurrences"), host.get("stage_input", {}).get("occurrences")),
+        "accepted_handoff_visibility": same(model.get("accepted_handoff"), host.get("accepted_handoff")),
+        "message_role": same(
+            [source.get("role") for source in model.get("skill", {}).get("sources", [])],
+            [source.get("role") for source in host.get("skill", {}).get("sources", [])],
+        ),
+        "message_ordering": same(model.get("ordering"), host.get("ordering")),
+        "turn_boundary": same(model.get("turn_boundary"), host.get("turn_boundary")),
+        "tool_surface": "unavailable",
+        "prior_stage_retention": "unavailable",
+        "context_size": same(model.get("context_size_proxy", {}).get("serialized_chars"), host.get("context_size_proxy", {}).get("serialized_chars")),
+    }
+    semantic_dimensions = (
+        "skill_identity", "skill_multiplicity", "stage_input_identity", "stage_input_multiplicity",
+        "accepted_handoff_visibility", "message_role", "message_ordering", "turn_boundary",
+    )
+    return {
+        "context_parity": "equivalent" if all(dimensions[name] == "same" for name in semantic_dimensions) else "different",
+        "dimensions": dimensions,
+    }
+
+
 def _event_completion_time(event: dict[str, Any] | None) -> int | None:
     if not isinstance(event, dict):
         return None
@@ -2182,6 +2374,13 @@ def trace_stage_transitions(
         else:
             classification = "unobservable_with_current_host_artifacts"
 
+        transition_context = _transition_context_record(
+            payload,
+            following,
+            next_skill=next_skill,
+            first_action=first_action,
+        )
+
         transitions.append(
             {
                 "completed_stage": payload.get("completed_stage"),
@@ -2229,6 +2428,7 @@ def trace_stage_transitions(
                     if action_time is not None and handoff_time is not None
                     else None
                 ),
+                "transition_context": transition_context,
                 "classification": classification,
             }
         )
