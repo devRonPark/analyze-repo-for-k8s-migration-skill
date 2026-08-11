@@ -80,14 +80,14 @@ submissions for Discovery/Execution/Relationships/Boundaries/Contracts,
 respectively, with Boundaries accepting on submission 14 and Contracts never
 accepting. Finalize had no accepted submission in either trace.
 
-| Stage | RCA baseline (latest standard trace) | D08 Solar run |
+| Stage | RCA baseline (latest standard trace) | D08 Solar run 1 | D08 Solar run 2 |
 | --- | --- | --- |
-| Discovery | 1 accepted | 1 accepted |
-| Execution | 1 accepted | not submitted |
-| Relationships | 2 submissions, 1 rejection, accepted | not reached |
-| Boundaries | 4 changing malformed submissions, no acceptance | not reached |
-| Contracts | not reached | not reached |
-| Finalize | not reached | not reached |
+| Discovery | 1 accepted | 1 accepted | 1 accepted |
+| Execution | 1 accepted | not submitted | 1 accepted |
+| Relationships | 2 submissions, 1 rejection, accepted | not reached | 1 accepted |
+| Boundaries | 4 changing malformed submissions, no acceptance | not reached | handoff reached; no submission |
+| Contracts | not reached | not reached | not reached |
+| Finalize | not reached | not reached | not reached |
 
 Provider-backed run: `jpetstore-6-summary`, pinned revision
 `e1dd9a31d1cef68793cd0933ae06898e6fcfa807`, `upstage/solar-pro2`, interactive
@@ -97,6 +97,15 @@ classification or recovery occurred in this run. The target Git status was
 unchanged before and after (`## HEAD (no branch)`). This is a new explicit
 provider non-submission failure, not evidence that validation or recovery
 failed.
+
+The equivalent second run accepted Discovery, Execution, and Relationships,
+then made no Boundaries submission and timed out after 309.376 seconds. It
+also supplied five accepted execution process identifiers, rather than the
+single-process RCA path; D08 would correctly fail closed for that input even
+after four eligible rejections because it cannot safely manufacture a
+multi-process grouping. The target Git status again remained unchanged. This
+is a second, distinct provider non-submission path; neither provider run
+reproduced the RCA's Boundaries R2 sequence.
 
 ## Trust invariants
 
