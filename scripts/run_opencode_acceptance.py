@@ -1605,6 +1605,22 @@ def _static_assistant_markdown(database: Path) -> str:
 
 STATIC_MCP_PRECISION_TOOLS = ("read_evidence", "locate_evidence", "list_target_paths")
 
+# This is deliberately an observation vocabulary, not a stage controller.  The
+# PTY harness only records what OpenCode persisted in its SQLite ``part``
+# rows; it does not infer a Skill load from the server's next_skill handoff.
+STATIC_MCP_ANALYSIS_TOOLS = (
+    "start_analysis",
+    *STATIC_MCP_PRECISION_TOOLS,
+    *(tool for tool, _status in STATIC_MCP_TOOL_SEQUENCE),
+)
+_STAGE_BY_SKILL = {
+    "analyze-k8s-discovery": "discovery",
+    "analyze-k8s-execution": "execution",
+    "analyze-k8s-relationships": "relationships",
+    "analyze-k8s-boundaries": "boundaries",
+    "analyze-k8s-contracts": "contracts",
+}
+
 
 def _static_tool_calls(database: Path) -> list[dict[str, Any]]:
     """Extract named MCP tool parts while preserving their emitted state and row timing.
@@ -1613,15 +1629,13 @@ def _static_tool_calls(database: Path) -> list[dict[str, Any]]:
     `STATIC_MCP_TOOL_SEQUENCE` calls) so `attribute_stage_timeline` can build a
     complete per-turn timeline, not just the sequence-contract-relevant subset.
     """
-    expected_tools = (
-        {tool for tool, _ in STATIC_MCP_TOOL_SEQUENCE}
-        | set(STATIC_MCP_PRECISION_TOOLS)
-    )
+    expected_tools = set(STATIC_MCP_ANALYSIS_TOOLS)
     calls: list[dict[str, Any]] = []
     for record in _static_db_records(database):
         for payload in _static_json_objects(record):
             name = payload.get("name", payload.get("tool"))
-            if payload.get("type") == "tool" and _tool_name(name) in expected_tools:
+            observed_tool = _tool_name(name)
+            if payload.get("type") == "tool" and (observed_tool in expected_tools or name == "skill"):
                 call = {"name": name, "state": payload.get("state", payload)}
                 columns = record.get("columns", {})
                 row_created = columns.get("time_created")
@@ -1636,6 +1650,38 @@ def _static_tool_calls(database: Path) -> list[dict[str, Any]]:
         if call not in unique:
             unique.append(call)
     return unique
+
+
+def _static_assistant_text_parts(database: Path) -> list[dict[str, Any]]:
+    """Extract timestamped assistant text parts without retaining their prose.
+
+    Text is only a liveness signal here.  The final report remains validated
+    through ``_static_assistant_markdown``; D09 must not turn trace extraction
+    into a second source of report content.
+    """
+    records = _static_db_records(database)
+    assistant_ids: set[str] = set()
+    for record in records:
+        for payload in _static_json_objects(record):
+            if payload.get("role") == "assistant":
+                identifier = _static_message_id(record, payload)
+                if identifier is not None:
+                    assistant_ids.add(identifier)
+
+    parts: list[dict[str, Any]] = []
+    for record in records:
+        columns = record.get("columns", {})
+        for payload in _static_json_objects(record):
+            if payload.get("type") != "text" or _static_message_id(record, payload) not in assistant_ids:
+                continue
+            if not isinstance(payload.get("text"), str) or not payload["text"].strip():
+                continue
+            part: dict[str, Any] = {"kind": "assistant_text"}
+            row_created = columns.get("time_created")
+            if isinstance(row_created, (int, float)):
+                part["observed_at"] = int(row_created)
+            parts.append(part)
+    return parts
 
 
 STAGE_TIMING_ORDER = ("discovery", "execution", "relationships", "boundaries", "contracts")
@@ -1729,6 +1775,197 @@ def _stage_response_status(call: dict[str, Any]) -> str | None:
     if isinstance(nested, dict) and isinstance(nested.get("status"), str):
         return nested["status"]
     return None
+
+
+def _stage_response_payload(call: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the server response body for one persisted analysis tool call."""
+    state = call.get("state")
+    if not isinstance(state, dict):
+        return None
+    body = state.get("output", state.get("structuredContent"))
+    if isinstance(body, str):
+        try:
+            body = json.loads(body)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(body, dict):
+        return None
+    structured = body.get("structuredContent")
+    if isinstance(structured, dict):
+        return structured
+    return body
+
+
+def _liveness_time(event: dict[str, Any], *, handoff: bool = False) -> int | None:
+    """Choose a persisted event timestamp without manufacturing one."""
+    if event.get("kind") == "assistant_text":
+        observed = event.get("observed_at")
+        return int(observed) if isinstance(observed, (int, float)) else None
+    start, end = _tool_call_time_window(event)
+    value = end if handoff else start
+    return value if value is not None else None
+
+
+def _ordered_liveness_events(
+    tool_calls: list[dict[str, Any]], assistant_text_parts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Order only timestamped observations; preserve input order for ties/unknowns."""
+    combined = [*tool_calls, *assistant_text_parts]
+    indexed = list(enumerate(combined))
+    return [
+        event
+        for _index, event in sorted(
+            indexed,
+            key=lambda item: (
+                _liveness_time(item[1]) is None,
+                _liveness_time(item[1]) if _liveness_time(item[1]) is not None else item[0],
+                item[0],
+            ),
+        )
+    ]
+
+
+def _liveness_event_detail(event: dict[str, Any]) -> dict[str, Any]:
+    if event.get("kind") == "assistant_text":
+        return {"kind": "assistant_text", "name": None, "observed_at": _liveness_time(event)}
+    name = _tool_name(event.get("name", event.get("tool")))
+    if event.get("name") == "skill":
+        state = event.get("state") if isinstance(event.get("state"), dict) else {}
+        input_value = state.get("input", {})
+        skill_name = input_value.get("name") if isinstance(input_value, dict) else None
+        return {"kind": "skill", "name": skill_name, "observed_at": _liveness_time(event)}
+    return {"kind": "analysis_tool", "name": name, "observed_at": _liveness_time(event)}
+
+
+def trace_stage_transitions(
+    tool_calls: list[dict[str, Any]],
+    assistant_text_parts: list[dict[str, Any]],
+    *,
+    terminal_reason: str | None,
+) -> list[dict[str, Any]]:
+    """Characterize accepted handoffs from structured OpenCode artifacts.
+
+    This intentionally observes only persisted Skill tool parts, analysis MCP
+    calls, and assistant text parts.  It neither changes the handoff nor
+    treats ``next_skill`` itself as proof that OpenCode loaded that Skill.
+    """
+    events = _ordered_liveness_events(tool_calls, assistant_text_parts)
+    skill_events_available = any(event.get("name") == "skill" for event in events)
+    transitions: list[dict[str, Any]] = []
+    timeout = bool(terminal_reason and "timeout" in terminal_reason.lower())
+
+    for index, handoff_call in enumerate(events):
+        if handoff_call.get("kind") == "assistant_text":
+            continue
+        handoff_tool = _tool_name(handoff_call.get("name", handoff_call.get("tool")))
+        if handoff_tool not in _STAGE_ENTRY_TOOL or _stage_response_status(handoff_call) != "accepted":
+            continue
+        payload = _stage_response_payload(handoff_call)
+        if not isinstance(payload, dict):
+            continue
+        next_skill = payload.get("next_skill")
+        if not isinstance(next_skill, str):
+            continue
+        next_stage = _STAGE_BY_SKILL.get(next_skill)
+        if next_stage is None:
+            # A handoff with an unknown next Skill is observable but cannot be
+            # attributed to a stage submission without inventing a mapping.
+            next_submission_tool = None
+        else:
+            next_submission_tool = f"submit_{next_stage}"
+
+        following = events[index + 1 :]
+        matching_skill = next(
+            (
+                event
+                for event in following
+                if event.get("name") == "skill"
+                and isinstance(event.get("state"), dict)
+                and isinstance(event["state"].get("input"), dict)
+                and event["state"]["input"].get("name") == next_skill
+            ),
+            None,
+        )
+        analysis_actions = [
+            event
+            for event in following
+            if event.get("kind") != "assistant_text"
+            and event.get("name") != "skill"
+            and _tool_name(event.get("name", event.get("tool"))) in STATIC_MCP_ANALYSIS_TOOLS
+        ]
+        first_action = analysis_actions[0] if analysis_actions else None
+        first_observable = next(
+            (
+                event
+                for event in following
+                if event.get("kind") == "assistant_text"
+                or event.get("name") == "skill"
+                or _tool_name(event.get("name", event.get("tool"))) in STATIC_MCP_ANALYSIS_TOOLS
+            ),
+            None,
+        )
+        submission_calls = [
+            event
+            for event in following
+            if next_submission_tool is not None
+            and _tool_name(event.get("name", event.get("tool"))) == next_submission_tool
+        ]
+        accepted_submission = next(
+            (event for event in submission_calls if _stage_response_status(event) == "accepted"),
+            None,
+        )
+        action_time = _liveness_time(first_observable) if first_observable is not None else None
+        handoff_time = _liveness_time(handoff_call, handoff=True)
+        prose_before_action = any(
+            event.get("kind") == "assistant_text"
+            and (first_action is None or _liveness_time(event) is None or _liveness_time(first_action) is None or _liveness_time(event) <= _liveness_time(first_action))
+            for event in following
+        )
+        if accepted_submission is not None:
+            classification = "stage_progressed"
+        elif first_action is not None:
+            classification = "stage_action_observed_no_submission"
+        elif prose_before_action:
+            classification = "assistant_text_no_stage_action"
+        elif matching_skill is not None:
+            classification = "skill_loaded_no_stage_action"
+        elif skill_events_available:
+            classification = "next_skill_load_not_observed"
+        elif timeout:
+            classification = "provider_turn_timeout_before_observable_action"
+        else:
+            classification = "unobservable_with_current_host_artifacts"
+
+        transitions.append(
+            {
+                "completed_stage": payload.get("completed_stage"),
+                "completed_tool": handoff_tool,
+                "next_stage": next_stage,
+                "next_skill": next_skill,
+                "handoff_observed_at": handoff_time,
+                "skill_load": {
+                    "status": "observed" if matching_skill is not None else ("not_observed" if skill_events_available else "unavailable"),
+                    "observed_at": _liveness_time(matching_skill) if matching_skill is not None else None,
+                },
+                "first_post_handoff_event": _liveness_event_detail(first_observable) if first_observable is not None else None,
+                "first_next_stage_action": _liveness_event_detail(first_action) if first_action is not None else None,
+                "assistant_text_before_next_stage_action": prose_before_action,
+                "next_stage_submission": {
+                    "observed": bool(submission_calls),
+                    "accepted": accepted_submission is not None,
+                    "tool": next_submission_tool,
+                    "observed_at": _liveness_time(submission_calls[0]) if submission_calls else None,
+                    "accepted_at": _liveness_time(accepted_submission, handoff=True) if accepted_submission is not None else None,
+                },
+                "gap_to_first_observable_action_ms": (
+                    max(0, action_time - handoff_time)
+                    if action_time is not None and handoff_time is not None
+                    else None
+                ),
+                "classification": classification,
+            }
+        )
+    return transitions
 
 
 def attribute_stage_timeline(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -2081,6 +2318,12 @@ def _run_static_mcp_case(
                 (case_dir / "terminal.log").write_text(redact(terminal), encoding="utf-8")
             trace.setdefault("terminal_file", str((case_dir / "terminal.log").resolve()))
             trace.setdefault("total_elapsed_ms", int((time.monotonic() - attempt_started) * 1000))
+            # Timeout and early-stop paths return before the success-path
+            # integrity audit.  Preserve the same before/after target evidence
+            # for incomplete liveness traces without treating it as success.
+            after = _static_git_status(target)
+            trace.setdefault("target_status_after", after)
+            trace.setdefault("target_unchanged", before == after)
             if "turns" not in trace:
                 # A timeout/stopped/ready-deadline exit returned before the
                 # success path computed tool_calls; salvage whatever the
@@ -2093,6 +2336,25 @@ def _run_static_mcp_case(
                 ]
                 trace["tool_calls"] = salvaged_calls
                 trace["turns"] = attribute_stage_timeline(salvaged_calls)
+            databases = _static_opencode_databases(home)
+            assistant_text_parts = [
+                part
+                for database in databases
+                for part in _static_assistant_text_parts(database)
+            ]
+            trace["stage_transitions"] = trace_stage_transitions(
+                trace.get("tool_calls", []),
+                assistant_text_parts,
+                terminal_reason=trace.get("reason"),
+            )
+            trace["stage_transition_observability"] = {
+                "skill_load": (
+                    "available"
+                    if any(call.get("name") == "skill" for call in trace.get("tool_calls", []))
+                    else "unavailable"
+                ),
+                "assistant_text": "available" if assistant_text_parts else "unavailable",
+            }
             (case_dir / "trace.json").write_text(
                 json.dumps(redact(trace), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
