@@ -198,3 +198,39 @@ Focused verification after these additions:
 PYTHONPATH='runtime/python;.' python -m unittest runtime.python.tests.test_contracts_correction_protocol runtime.python.tests.test_relationships_stage runtime.python.tests.test_boundaries_stage runtime.python.tests.test_retry_protocol_corrections runtime.python.tests.test_server_owned_control_plane runtime.python.tests.test_submit_retry_budget
 # 59 tests passed
 ```
+
+## Standard harness and full verification
+
+The stale `static-mcp-golden-manifest.json` digests were resealed against the
+unchanged six golden files. This restores the standard CLI path; it does not
+alter golden evidence. `scripts/mcp_smoke.py` was updated from 12 to 11 tools
+to match removal of the undelivered reopen affordance.
+
+```text
+PYTHONUTF8=1 PYTHONPATH='runtime/python;.' python -m unittest discover -s runtime/python/tests
+# 168 passed, 1 skipped
+
+PYTHONUTF8=1 PYTHONPATH='runtime/python;.' python -m unittest discover -s tests
+# 240 passed, 6 skipped
+
+PYTHONPATH='runtime/python;.' python scripts/validate_static_mcp_goldens.py
+# Static MCP golden manifest: PASS
+```
+
+The standard interactive command, rather than the direct harness fallback,
+then ran successfully through its golden preflight:
+
+```text
+C:\tmp\d08-rca-standard-20260811095848\jpetstore-6-summary\trace.json
+  Discovery: accepted on submission 1
+  Execution: accepted on submission 1
+  Relationships: invalid_relationship_edge_fields, then accepted on submission 2
+  Boundaries: four changing malformed submissions; no repeated identical
+              `(stage, error_code, path)` with an unchanged relevant payload
+  Final result: provider timeout before a report; target Git status unchanged
+```
+
+The remaining Boundaries behavior is not a blind correction loop: each attempt
+changed the payload and received a different deterministic error. It is the
+explicit nonconvergence target for D08 recovery, not evidence to relax or
+expand the trusted pipeline protocol.

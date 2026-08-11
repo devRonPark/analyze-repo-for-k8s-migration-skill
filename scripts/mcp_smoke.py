@@ -320,7 +320,7 @@ def exercise_installed_server(template: Path, launcher: Path, target: Path) -> N
         initialized = client.request("initialize", {})
         assert "listChanged" not in initialized["capabilities"]["tools"]
         initial_catalog = client.request("tools/list", {})["tools"]
-        assert len(initial_catalog) == 12
+        assert len(initial_catalog) == 11
         assert all("inputSchema" in tool and "outputSchema" in tool for tool in initial_catalog)
 
         started = accepted(client.tool("start_analysis", {"target_path": ".", "mode": "summary"}))
