@@ -125,6 +125,8 @@ class PostHandoffLivenessTests(unittest.TestCase):
             {
                 "status": "observed",
                 "observed_at": 150,
+                "completed_at": 170,
+                "content_bytes": None,
                 "relation_to_first_stage_action": "before",
             },
         )
@@ -260,6 +262,37 @@ class PostHandoffLivenessTests(unittest.TestCase):
         self.assertEqual(transitions[0]["classification"], "stage_progressed")
         self.assertEqual(transitions[0]["post_skill_turn"]["status"], "completed")
         self.assertEqual(transitions[0]["post_skill_turn"]["part_observations"]["tool"], "observed")
+
+    def test_stage_comparison_projects_only_content_sizes_and_proven_timing(self):
+        handoff = _call(
+            "submit_discovery",
+            start=100,
+            end=120,
+            completed_stage="discovery",
+            next_skill="analyze-k8s-execution",
+        )
+        handoff["state"]["output"] = json.dumps(
+            {
+                "status": "accepted",
+                "completed_stage": "discovery",
+                "next_skill": "analyze-k8s-execution",
+                "stage_input": {"mode": "summary", "candidate_ids": ["web"]},
+            }
+        )
+        skill = _skill("analyze-k8s-execution", start=150, end=170)
+        skill["state"]["output"] = "skill content"
+
+        transitions = adapter.trace_stage_transitions(
+            [handoff, skill, _call("submit_execution", start=200, end=220)],
+            [],
+            terminal_reason=None,
+        )
+
+        transition = transitions[0]
+        self.assertEqual(transition["skill_load"]["completed_at"], 170)
+        self.assertEqual(transition["skill_load"]["content_bytes"], len("skill content".encode("utf-8")))
+        self.assertEqual(transition["stage_input_serialized_bytes"], len(b'{"candidate_ids":["web"],"mode":"summary"}'))
+        self.assertEqual(transition["skill_completion_to_first_stage_action_ms"], 30)
 
     def test_active_post_skill_turn_at_timeout_requires_persisted_nonterminal_message(self):
         transitions = adapter.trace_stage_transitions(

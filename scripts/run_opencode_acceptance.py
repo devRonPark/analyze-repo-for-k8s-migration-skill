@@ -1933,6 +1933,33 @@ def _observation_relation_to_action(
     return "order_unknown"
 
 
+def _serialized_byte_size(value: Any) -> int | None:
+    """Return a UTF-8 byte size without retaining the observed content."""
+    if isinstance(value, str):
+        return len(value.encode("utf-8"))
+    try:
+        return len(
+            json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode(
+                "utf-8"
+            )
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _event_completion_time(event: dict[str, Any] | None) -> int | None:
+    if not isinstance(event, dict):
+        return None
+    state = event.get("state")
+    if not isinstance(state, dict):
+        return None
+    time_data = state.get("time")
+    if not isinstance(time_data, dict):
+        return None
+    completed = time_data.get("end")
+    return int(completed) if isinstance(completed, (int, float)) else None
+
+
 def _post_skill_turn(
     matching_skill: dict[str, Any] | None,
     first_action: dict[str, Any] | None,
@@ -2104,6 +2131,9 @@ def trace_stage_transitions(
         skill_relation = _observation_relation_to_action(
             [matching_skill] if matching_skill is not None else [], first_action
         )
+        skill_completed_at = _event_completion_time(matching_skill)
+        first_action_at = _liveness_time(first_action) if first_action is not None else None
+        handoff_stage_input = payload.get("stage_input")
         post_skill_turn = _post_skill_turn(
             matching_skill,
             first_action,
@@ -2144,8 +2174,24 @@ def trace_stage_transitions(
                 "skill_load": {
                     "status": "observed" if matching_skill is not None else ("not_observed" if skill_events_available else "unavailable"),
                     "observed_at": _liveness_time(matching_skill) if matching_skill is not None else None,
+                    "completed_at": skill_completed_at,
+                    "content_bytes": (
+                        _serialized_byte_size(matching_skill.get("state", {}).get("output"))
+                        if matching_skill is not None
+                        and isinstance(matching_skill.get("state"), dict)
+                        and "output" in matching_skill["state"]
+                        else None
+                    ),
                     "relation_to_first_stage_action": skill_relation,
                 },
+                "stage_input_serialized_bytes": _serialized_byte_size(handoff_stage_input)
+                if isinstance(handoff_stage_input, dict)
+                else None,
+                "skill_completion_to_first_stage_action_ms": (
+                    first_action_at - skill_completed_at
+                    if skill_completed_at is not None and first_action_at is not None
+                    else None
+                ),
                 "first_post_handoff_event": _liveness_event_detail(first_observable) if first_observable is not None else None,
                 "first_next_stage_action": _liveness_event_detail(first_action) if first_action is not None else None,
                 "assistant_text_relation_to_next_stage_action": assistant_text_relation,
