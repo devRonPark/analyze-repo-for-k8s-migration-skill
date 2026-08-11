@@ -24,3 +24,18 @@ current-stage procedure from that accepted response before continuing.
 
 Do not inspect target evidence, load a future stage procedure, or draft a
 report outside the current procedure. After finalize_analysis succeeds, relay only its Markdown content unchanged.
+
+## Evidence completion
+
+Do not use a fixed file-read budget. For every accepted deployment candidate,
+explore the required dimensions of the current stage until each has a terminal
+evidence state: confirmed, conflicting, scoped unknown, or not applicable.
+Use only the status representation permitted by the current stage payload
+contract.
+
+Prefer high-signal configuration and execution evidence first. Read source
+code only when a required runtime, framework, state, dependency, lifecycle, or
+container-compatibility question cannot be closed from higher-signal files.
+
+Stop when all required current-stage evidence slots are terminal. Do not
+continue broad repository exploration after that point.
