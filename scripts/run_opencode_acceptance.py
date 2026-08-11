@@ -2388,6 +2388,11 @@ def trace_stage_transitions(
                 "next_stage": next_stage,
                 "next_skill": next_skill,
                 "transition_owner": transition_owner,
+                "host_activation_observed": host_owned,
+                "native_same_skill_invocation_observed": matching_skill is not None,
+                "total_successor_context_occurrences": transition_context["skill"]["occurrences"],
+                "stage_input_occurrences": transition_context["stage_input"]["occurrences"],
+                "first_successor_action": _tool_name(first_action.get("name", first_action.get("tool"))) if first_action is not None else None,
                 "handoff_observed_at": handoff_time,
                 "skill_load": {
                     "status": "completed" if host_owned else ("observed" if matching_skill is not None else ("not_observed" if skill_events_available else "unavailable")),
@@ -2573,6 +2578,8 @@ def static_mcp_runtime_environment(
             "PYWINPTY_BLOCK": "0",
         }
     )
+    if transition_mode == "host_owned":
+        environment["ANALYSIS_HOST_ACTIVATION_STATE"] = str((home / "host-activation.json").resolve())
     return environment
 
 
@@ -2685,6 +2692,13 @@ def _run_static_mcp_case(
         bundle = copy_bundle(ROOT, temporary_root / "bundle")
         config_dir = temporary_root / "config"
         install_bundle(bundle, config_dir)
+        if transition_mode == "host_owned":
+            guard = ROOT / "scripts" / "host_owned_skill_guard.js"
+            if not guard.is_file():
+                raise ValueError("host-owned Skill guard is missing")
+            plugin_path = config_dir / "plugins" / guard.name
+            plugin_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(guard, plugin_path)
         config_path = temporary_root / "opencode.json"
         isolated_config_bundle(
             source_config,

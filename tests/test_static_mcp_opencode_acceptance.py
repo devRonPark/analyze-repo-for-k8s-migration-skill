@@ -133,10 +133,23 @@ class StaticMCPOpenCodeAcceptanceTests(unittest.TestCase):
         self.assertEqual(environment["OPENCODE_CONFIG_DIR"], str(Path("temp/config").resolve()))
         self.assertEqual(environment["PYWINPTY_BLOCK"], "0")
         self.assertEqual(environment["ANALYSIS_TRANSITION_MODE"], "model_routed")
+        self.assertNotIn("ANALYSIS_HOST_ACTIVATION_STATE", environment)
         self.assertEqual(environment["ANALYSIS_PIPELINE_SKILL_ROOT"], str(Path("temp/config/skills").resolve()))
         self.assertEqual(environment["TERM"], "xterm-256color")
         self.assertEqual(environment["COLORTERM"], "truecolor")
         self.assertNotIn("WSLENV", environment)
+
+    def test_host_owned_environment_has_a_private_activation_state_file(self):
+        environment = adapter.static_mcp_runtime_environment(
+            {"PATH": r"C:\\Windows\\System32"},
+            home=Path("temp/home"),
+            config=Path("temp/opencode.json"),
+            config_dir=Path("temp/config"),
+            log_root=Path("temp/logs"),
+            transition_mode="host_owned",
+        )
+
+        self.assertEqual(environment["ANALYSIS_HOST_ACTIVATION_STATE"], str(Path("temp/home/host-activation.json").resolve()))
 
     def test_windows_pty_dependency_is_rejected_off_windows(self):
         with mock.patch.object(adapter.os, "name", "posix"):

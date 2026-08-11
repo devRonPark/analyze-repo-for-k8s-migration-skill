@@ -4,6 +4,7 @@ from __future__ import annotations
 import subprocess
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 from analysis_pipeline.host_continuation import HostContinuationError, load_host_continuation
@@ -47,7 +48,12 @@ class HostOwnedTransitionTests(unittest.TestCase):
 
     def started(self, mode: str = "host_owned") -> tuple[tempfile.TemporaryDirectory[str], Server]:
         temporary, command_directory, _ = self.fixture()
-        server = Server(command_directory=command_directory, transition_mode=mode, skill_root=SKILL_ROOT)
+        server = Server(
+            command_directory=command_directory,
+            transition_mode=mode,
+            skill_root=SKILL_ROOT,
+            host_activation_state_path=Path(temporary.name) / "host-activation.json",
+        )
         return temporary, server
 
     def test_model_routed_default_handoff_is_unchanged(self) -> None:
@@ -69,6 +75,7 @@ class HostOwnedTransitionTests(unittest.TestCase):
             handoff, failed = server.tool_call(
                 "submit_discovery", {"payload": self.discovery_payload(observation["observation_ref"])}
             )
+            state = json.loads((Path(temporary.name) / "host-activation.json").read_text(encoding="utf-8"))
 
         self.assertFalse(failed, handoff)
         continuation = handoff["host_continuation"]
@@ -76,6 +83,21 @@ class HostOwnedTransitionTests(unittest.TestCase):
         self.assertEqual(continuation["requested_skill"], "analyze-k8s-execution")
         self.assertEqual(continuation["skill_load"], "completed")
         self.assertEqual(continuation["skill_content"], (SKILL_ROOT / "analyze-k8s-execution" / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertEqual(state["transition_owner"], "host")
+        self.assertEqual(state["next_skill"], handoff["next_skill"])
+        self.assertEqual(state["analysis_id"], handoff["analysis_id"])
+        self.assertEqual(state["revision"], handoff["revision"])
+        self.assertEqual(state["transition_token"], handoff["transition_token"])
+
+    def test_host_mode_without_a_guard_state_path_fails_closed(self) -> None:
+        temporary, command_directory, _ = self.fixture()
+        with temporary:
+            server = Server(command_directory=command_directory, transition_mode="host_owned", skill_root=SKILL_ROOT)
+            result, failed = server.tool_call("start_analysis", {"target_path": "external-target", "mode": "summary"})
+
+        self.assertTrue(failed)
+        self.assertEqual(result["code"], "host_continuation_failed")
+        self.assertEqual(result["issues"], ["missing_host_activation_state"])
 
     def test_rejected_stage_does_not_host_transition_or_advance(self) -> None:
         temporary, server = self.started()

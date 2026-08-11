@@ -78,6 +78,22 @@ class TransitionContextParityTests(unittest.TestCase):
         self.assertEqual(comparison["dimensions"]["skill_multiplicity"], "different")
         self.assertEqual(comparison["context_parity"], "different")
 
+    def test_corrected_host_path_has_one_successor_context_and_no_native_duplicate(self) -> None:
+        transition = adapter.trace_stage_transitions(
+            [_handoff(host=True, stage_input={"mode": "summary", "candidate_ids": ["candidate-a"]}), _action()],
+            [],
+            terminal_reason=None,
+        )[0]
+
+        context = transition["transition_context"]
+        self.assertEqual(transition["transition_owner"], "host")
+        self.assertTrue(transition["host_activation_observed"])
+        self.assertFalse(transition["native_same_skill_invocation_observed"])
+        self.assertEqual(transition["total_successor_context_occurrences"], 1)
+        self.assertEqual(transition["stage_input_occurrences"], 1)
+        self.assertEqual(transition["first_successor_action"], "read_evidence")
+        self.assertEqual(context["skill"]["occurrences"], 1)
+
     def test_duplicated_stage_input_is_a_mismatch(self) -> None:
         host = copy.deepcopy(self.model)
         host["stage_input"]["occurrences"] = 2

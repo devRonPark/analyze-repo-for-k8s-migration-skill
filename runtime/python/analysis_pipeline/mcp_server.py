@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .host_activation_state import HostActivationStateError, write_host_activation_state
 from .host_continuation import HostContinuationError, TRANSITION_MODES, load_host_continuation
 from .protocol import SERVER_INFO, STAGE_TOOL_BY_STAGE, TOOLS, error, markdown_result, response, text_result
 from .session import PRECISION_CALL_LIMIT, SUBMIT_REJECTION_LIMIT, SKILL_BY_STAGE, AnalysisSession
@@ -35,6 +36,7 @@ class Server:
         *,
         transition_mode: str = "model_routed",
         skill_root: str | Path | None = None,
+        host_activation_state_path: str | Path | None = None,
     ) -> None:
         if transition_mode not in TRANSITION_MODES:
             raise ValueError("invalid_transition_mode")
@@ -43,6 +45,9 @@ class Server:
         self.command_directory = directory
         self.transition_mode = transition_mode
         self.skill_root = Path(skill_root).resolve() if skill_root is not None else self._default_skill_root()
+        self.host_activation_state_path = (
+            Path(host_activation_state_path).resolve() if host_activation_state_path is not None else None
+        )
 
     @staticmethod
     def _default_skill_root() -> Path:
@@ -72,6 +77,8 @@ class Server:
         if self.transition_mode != "host_owned" or result.get("status") != "accepted":
             return result, False
         try:
+            if self.host_activation_state_path is None:
+                raise HostContinuationError("missing_host_activation_state")
             expected_skill = SKILL_BY_STAGE.get(self.session.current_stage or "")
             continuation = load_host_continuation(
                 result,
@@ -81,7 +88,14 @@ class Server:
                 expected_skill=expected_skill,
                 skill_root=self.skill_root,
             )
-        except HostContinuationError as exc:
+            write_host_activation_state(
+                self.host_activation_state_path,
+                analysis_id=self.session.analysis_id,
+                revision=self.session.revision,
+                transition_token=self.session.transition_token,
+                next_skill=continuation["requested_skill"],
+            )
+        except (HostActivationStateError, HostContinuationError) as exc:
             return self._error("host_continuation_failed", str(exc)), True
         return {**result, "host_continuation": continuation}, False
 
@@ -273,6 +287,7 @@ def main(command_directory: str | Path | None = None) -> None:
         command_directory=command_directory or Path.cwd(),
         transition_mode=os.environ.get("ANALYSIS_TRANSITION_MODE", "model_routed"),
         skill_root=os.environ.get("ANALYSIS_PIPELINE_SKILL_ROOT") or None,
+        host_activation_state_path=os.environ.get("ANALYSIS_HOST_ACTIVATION_STATE") or None,
     )
     for line in sys.stdin:
         try:
